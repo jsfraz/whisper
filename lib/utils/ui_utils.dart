@@ -1,13 +1,13 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+
+import 'utils.dart';
 
 class UiUtils {
   /// Show toast or snackbar based on platform
   static showText(String text, Color color, BuildContext context) {
-    // Android/iOS/Fuchsia (Toast)
-    if (Platform.isAndroid || Platform.isIOS || Platform.isFuchsia) {
+    // Toast
+    if (Utils.isPhone()) {
       Fluttertoast.showToast(msg: text, backgroundColor: color);
     } else {
       // Snackbar for other platforms

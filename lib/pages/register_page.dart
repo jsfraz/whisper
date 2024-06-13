@@ -5,6 +5,7 @@ import 'package:whisper_openapi_client/api.dart';
 
 import '../utils/http_utils.dart';
 import '../utils/singleton.dart';
+import 'verify_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -134,7 +135,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
         // OpenAPI client
         Singleton().api = ApiClient(basePath: url);
-        // Registartion
+        // Registration
         var response = await HttpUtils.callApi(
             () => Singleton().authApi.registerUserWithHttpInfo(
                 registerUserInput: RegisterUserInput(
@@ -145,11 +146,8 @@ class _RegisterPageState extends State<RegisterPage> {
         // Response check
         if (response?.ok ?? false) {
           _clearInput();
-          // TODO verification page
-          /*
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => VerifyPage(url)));
-            */
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => VerifyPage(url)));
         }
       }
 
@@ -303,34 +301,30 @@ class _RegisterPageState extends State<RegisterPage> {
                   width: 300,
                   child: Padding(
                     padding: const EdgeInsets.only(top: 15, bottom: 20),
-                    child: Row(
-                      children: [
-                        Column(
-                          children: [
-                            Switch(
-                                value: _forceHttps,
-                                onChanged: (bool value) {
-                                  setState(() {
-                                    if (!_isButtonDisabled) {
-                                      _forceHttps = !_forceHttps;
-                                    }
-                                  });
-                                }),
-                          ],
+                    child: Row(children: [
+                      Column(
+                        children: [
+                          Switch(
+                              value: _forceHttps,
+                              onChanged: (bool value) {
+                                setState(() {
+                                  if (!_isButtonDisabled) {
+                                    _forceHttps = !_forceHttps;
+                                  }
+                                });
+                              }),
+                        ],
+                      ),
+                      Column(children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 10),
+                          child: Text(
+                            'forceHttps'.tr(),
+                            style: const TextStyle(fontSize: 15),
+                          ),
                         ),
-                        Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(left: 10),
-                              child: Text(
-                                'forceHttps'.tr(),
-                                style: const TextStyle(fontSize: 15),
-                              ),
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
+                      ])
+                    ]),
                   ),
                 ),
                 Visibility(
@@ -365,13 +359,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   child: TextButton(
                     onPressed: () {
                       if (_isButtonDisabled == false) {
-                        // TODO verify page
-                        /*
                         Navigator.push(
                             context,
                             MaterialPageRoute(
                                 builder: (context) => const VerifyPage('')));
-                        */
                       }
                     },
                     child: Text('verifyMail'.tr()),

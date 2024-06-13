@@ -12,11 +12,11 @@ class HttpUtils {
       // Try to call the API
       Response response = await methodHttpInfo();
       // Show error
-      if (response.ok) {
+      if (!response.ok) {
         // TODO custom status codes
         if (context.mounted) {
           UiUtils.showText("Status ${response.statusCode}",
-              Theme.of(context).colorScheme.secondary, context);
+              Theme.of(context).colorScheme.error, context);
         }
       }
       return response;
@@ -25,7 +25,7 @@ class HttpUtils {
       if (e is ApiException) {
         if (context.mounted) {
           UiUtils.showText(e.innerException.toString(),
-              Theme.of(context).colorScheme.secondary, context);
+              Theme.of(context).colorScheme.error, context);
         }
       }
       return null;
