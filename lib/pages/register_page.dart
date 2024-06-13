@@ -143,7 +143,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     username: _controllerUsername.text)),
             context);
         // Response check
-        if (response!.ok) {
+        if (response?.ok ?? false) {
           _clearInput();
           // TODO verification page
           /*

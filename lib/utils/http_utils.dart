@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart';
 import 'package:whisper/utils/is_response_ok.dart';
 import 'package:whisper/utils/ui_utils.dart';
+import 'package:whisper_openapi_client/api.dart';
 
 class HttpUtils {
   /// Call API, handle errors and return result.
@@ -21,9 +22,11 @@ class HttpUtils {
       return response;
     } catch (e) {
       // Error
-      if (context.mounted) {
-        UiUtils.showText(
-            e.toString(), Theme.of(context).colorScheme.secondary, context);
+      if (e is ApiException) {
+        if (context.mounted) {
+          UiUtils.showText(e.innerException.toString(),
+              Theme.of(context).colorScheme.secondary, context);
+        }
       }
       return null;
     }
