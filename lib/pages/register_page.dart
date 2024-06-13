@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:whisper/utils/is_response_ok.dart';
+import 'package:whisper_openapi_client/api.dart';
+
+import '../utils/http_utils.dart';
+import '../utils/singleton.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -127,31 +132,25 @@ class _RegisterPageState extends State<RegisterPage> {
           url = 'http://${_controllerServer.text}';
         }
 
-        /*
-        // opeanapi instance
-        Openapi api = Openapi();
-        api = Openapi(basePathOverride: url);
-        api.dio.options.receiveTimeout =
-            Duration(milliseconds: Singleton().getReceiveTimeout());
-        final AuthenticationApi auth = api.getAuthenticationApi();
-
-        // api call
-        Response<void>? response = await Utils.callApi<void>(
-            () => auth.registerUser(
-                username: _controllerUsername.text,
-                mail: _controllerMail.text,
-                password: _controllerPassword.text),
+        // OpenAPI client
+        Singleton().api = ApiClient(basePath: url);
+        // Registartion
+        var response = await HttpUtils.callApi(
+            () => Singleton().authApi.registerUserWithHttpInfo(
+                registerUserInput: RegisterUserInput(
+                    mail: _controllerMail.text,
+                    password: _controllerPassword.text,
+                    username: _controllerUsername.text)),
             context);
-
-        // response check
-        if (response != null) {
-          if (response.statusCode == 201) {
-            _clearInput();
+        // Response check
+        if (response!.ok) {
+          _clearInput();
+          // TODO verification page
+          /*
             Navigator.push(context,
                 MaterialPageRoute(builder: (context) => VerifyPage(url)));
-          }
+            */
         }
-        */
       }
 
       // Enable button

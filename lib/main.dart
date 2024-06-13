@@ -2,8 +2,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import 'pages/whisper_page.dart';
+import 'utils/singleton.dart';
 
 void main() async {
+  // Initialize Singleton
+  Singleton();
   // Initialize Flutter widgets
   WidgetsFlutterBinding.ensureInitialized();
   // Load locale
