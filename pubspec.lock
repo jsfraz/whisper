@@ -129,10 +129,10 @@ packages:
     dependency: "direct main"
     description:
       name: http
-      sha256: "5895291c13fa8a3bd82e76d5627f69e0d85ca6a30dcac95c4ea19a5d555879c2"
+      sha256: "761a297c042deedc1ffbb156d6e2af13886bb305c2a343a4d972504cd67dd938"
       url: "https://pub.dev"
     source: hosted
-    version: "0.13.6"
+    version: "1.2.1"
   http_parser:
     dependency: transitive
     description:
@@ -399,7 +399,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: db59814c5fdb46ead11d7fbd454961fed06a69cc
+      resolved-ref: "50458cf94636a66e720fc40d0bd0d0ad3799b8fc"
       url: "https://github.com/jsfraz/whisper_openapi_client.git"
     source: git
     version: "0.0.1"

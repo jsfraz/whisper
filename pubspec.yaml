@@ -32,7 +32,7 @@ dependencies:
   flutter:
     sdk: flutter
   fluttertoast: ^8.2.6
-  http: ^0.13.6
+  http: ^1.2.1
   whisper_openapi_client:
     git:
       url: https://github.com/jsfraz/whisper_openapi_client.git
