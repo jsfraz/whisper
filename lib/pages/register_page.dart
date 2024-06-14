@@ -5,6 +5,7 @@ import 'package:whisper_openapi_client/api.dart';
 
 import '../utils/http_utils.dart';
 import '../utils/singleton.dart';
+import 'login_page.dart';
 import 'verify_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -371,13 +372,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 TextButton(
                   onPressed: () {
                     if (_isButtonDisabled == false) {
-                      // TODO login page
-                      /*
                       Navigator.push(
                           context,
                           MaterialPageRoute(
                               builder: (context) => const LoginPage('')));
-                      */
                     }
                   },
                   child: Text('haveAccount'.tr()),

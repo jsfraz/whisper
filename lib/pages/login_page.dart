@@ -1,30 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import '../utils/is_response_ok.dart';
 import 'package:whisper_openapi_client/api.dart';
-
+import '../utils/is_response_ok.dart';
 import '../utils/http_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/ui_utils.dart';
 import '../utils/utils.dart';
-import 'login_page.dart';
 
-class VerifyPage extends StatefulWidget {
+class LoginPage extends StatefulWidget {
+  const LoginPage(this.basePath, {super.key});
   final String basePath;
 
-  const VerifyPage(this.basePath, {super.key});
-
   @override
-  State<VerifyPage> createState() => _VerifyPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
-class _VerifyPageState extends State<VerifyPage> {
+// https://codewithandrea.com/articles/flutter-text-field-form-validation/
+class _LoginPageState extends State<LoginPage> {
   final _controllerServer = TextEditingController();
   bool _serverEditing = false;
   bool _serverOk = false;
-  final _controllerCode = TextEditingController();
-  bool _codeEditing = false;
-  bool _codeOk = false;
+  final _controllerUsername = TextEditingController();
+  bool _usernameEditing = false;
+  bool _usernameOk = false;
+  final _controllerPassword = TextEditingController();
+  bool _passwordEditing = false;
+  bool _passwordOk = false;
   bool _forceHttps = true;
   bool _isButtonDisabled = false;
 
@@ -36,7 +37,7 @@ class _VerifyPageState extends State<VerifyPage> {
     super.initState();
   }
 
-  // Check server address
+  // check server address
   String? _errorServerText() {
     if (!_serverEditing) {
       return null;
@@ -50,67 +51,88 @@ class _VerifyPageState extends State<VerifyPage> {
     }
   }
 
-  // Check username
-  String? _errorCodeText() {
-    if (!_codeEditing) {
+  // check username
+  String? _errorUsernameText() {
+    if (!_usernameEditing) {
       return null;
     }
-    if (_controllerCode.text.length == 32) {
-      _codeOk = true;
+    RegExp regex = RegExp(r"^[a-zA-Z0-9]{3,32}$");
+    if (regex.hasMatch(_controllerUsername.text)) {
+      _usernameOk = true;
       return null;
     } else {
-      _codeOk = false;
-      return 'invalidCode'.tr();
+      _usernameOk = false;
+      return 'invalidUsername'.tr();
     }
   }
 
-  // Verify button
-  Future<void> _verify() async {
-    // Disable button
-    setState(() {
-      _isButtonDisabled = true;
-    });
-
-    // Check input
-    if (_serverOk && _codeOk) {
-      // HTTPS option
-      String path = '';
-      if (widget.basePath.isEmpty) {
-        if (_forceHttps) {
-          path = 'https://${_controllerServer.text}';
-        } else {
-          path = 'http://${_controllerServer.text}';
-        }
-      } else {
-        path = widget.basePath;
-      }
-
-      // OpenAPI client
-      Singleton().api = ApiClient(basePath: widget.basePath);
-      // Verify
-      var response = await HttpUtils.callApi(
-          () => Singleton().authApi.verifyUserWithHttpInfo(
-              verifyUserInput: VerifyUserInput(code: _controllerCode.text)),
-          context);
-      // Response check
-      if (response?.ok ?? false) {
-        UiUtils.showText('accountVerified'.tr(),
-            Theme.of(context).colorScheme.secondary, context);
-        Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (context) => LoginPage(path)));
-      }
+  // check password
+  String? _errorPasswordText() {
+    if (!_passwordEditing) {
+      return null;
     }
+    if (_controllerPassword.text.length >= 8 &&
+        _controllerPassword.text.length <= 64) {
+      _passwordOk = true;
+      return null;
+    } else {
+      _passwordOk = false;
+      return 'invalidPassword'.tr();
+    }
+  }
 
-    // Enable button
-    setState(() {
-      _isButtonDisabled = false;
-    });
+  // Login button
+  Future<void> _login() async {
+    if (!_isButtonDisabled) {
+      // Disable button
+      setState(() {
+        _isButtonDisabled = true;
+      });
+
+      // Check input
+      if (_serverOk && _usernameOk && _passwordOk) {
+        // HTTPS option
+        String path = '';
+        if (widget.basePath.isEmpty) {
+          if (_forceHttps) {
+            path = 'https://${_controllerServer.text}';
+          } else {
+            path = 'http://${_controllerServer.text}';
+          }
+        } else {
+          path = widget.basePath;
+        }
+
+        // OpenAPI client
+        Singleton().api = ApiClient(basePath: path);
+        // Verify
+        var response = await HttpUtils.callApi(
+            () => Singleton().authApi.loginUserWithHttpInfo(
+                loginUserInput: LoginUserInput(
+                    password: _controllerPassword.text,
+                    username: _controllerUsername.text)),
+            context);
+        // Response check
+        if (response?.ok ?? false) {
+          UiUtils.showText('successfulLogin'.tr(),
+              Theme.of(context).colorScheme.secondary, context);
+          // TODO cache
+          // TODO main page
+        }
+      }
+
+      // Enable button
+      setState(() {
+        _isButtonDisabled = false;
+      });
+    }
   }
 
   @override
   void dispose() {
     _controllerServer.dispose();
-    _controllerCode.dispose();
+    _controllerUsername.dispose();
+    _controllerPassword.dispose();
     super.dispose();
   }
 
@@ -155,17 +177,20 @@ class _VerifyPageState extends State<VerifyPage> {
                     ),
                   ),
                 ),
-                Visibility(
-                  visible: widget.basePath.isNotEmpty,
+                SizedBox(
+                  width: 300,
                   child: Padding(
-                    padding: const EdgeInsets.only(
-                      top: 10,
-                    ),
-                    child: SizedBox(
-                      width: 400,
-                      child: Text(
-                        'codeMail'.tr(),
-                        textAlign: TextAlign.center,
+                    padding: const EdgeInsets.only(top: 15),
+                    child: TextField(
+                      enabled: !_isButtonDisabled,
+                      controller: _controllerUsername,
+                      onChanged: (_) => setState(() {
+                        _usernameEditing = true;
+                      }),
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
+                        labelText: 'usernamePlaceholder'.tr(),
+                        errorText: _errorUsernameText(),
                       ),
                     ),
                   ),
@@ -176,14 +201,15 @@ class _VerifyPageState extends State<VerifyPage> {
                     padding: const EdgeInsets.only(top: 15),
                     child: TextField(
                       enabled: !_isButtonDisabled,
-                      controller: _controllerCode,
+                      obscureText: true,
+                      controller: _controllerPassword,
                       onChanged: (_) => setState(() {
-                        _codeEditing = true;
+                        _passwordEditing = true;
                       }),
                       decoration: InputDecoration(
                         border: const OutlineInputBorder(),
-                        labelText: 'codePlaceholder'.tr(),
-                        errorText: _errorCodeText(),
+                        labelText: 'passwordPlaceholder'.tr(),
+                        errorText: _errorPasswordText(),
                       ),
                     ),
                   ),
@@ -234,11 +260,11 @@ class _VerifyPageState extends State<VerifyPage> {
                               borderRadius: BorderRadius.circular(35)),
                         ),
                       ),
-                      onPressed: _verify,
+                      onPressed: _login,
                       child: Padding(
                         padding: const EdgeInsets.all(7),
                         child: Text(
-                          'verifyButton'.tr(),
+                          'loginButton'.tr(),
                           style: TextStyle(
                               color: Theme.of(context).colorScheme.surface,
                               fontSize: 20),
@@ -248,9 +274,8 @@ class _VerifyPageState extends State<VerifyPage> {
                   ),
                 ),
                 Visibility(
-                  visible: _isButtonDisabled,
-                  child: const CircularProgressIndicator(),
-                ),
+                    visible: _isButtonDisabled,
+                    child: const CircularProgressIndicator()),
               ],
             ),
           ),
