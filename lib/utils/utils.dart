@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http/http.dart';
 import 'package:path_provider/path_provider.dart';
+import 'is_response_ok.dart';
+import 'package:whisper_openapi_client/api.dart';
 
 class Utils {
   /// Check if device has Android/iOS/Fuchsia.
@@ -32,6 +36,33 @@ class Utils {
             style: const TextStyle(color: Color.fromARGB(255, 255, 255, 255)),
           ),
           backgroundColor: color));
+    }
+  }
+
+  /// Call API, handle errors and return result.
+  static Future<Response?> callApi(
+      Future<Response> Function() methodHttpInfo, BuildContext context) async {
+    try {
+      // Try to call the API
+      Response response = await methodHttpInfo();
+      // Show error
+      if (!response.ok) {
+        Map<String, dynamic> errorMap = jsonDecode(response.body);
+        if (context.mounted) {
+          Utils.showText(Utils.capitalizeFirstLetter(errorMap['error']),
+              Theme.of(context).colorScheme.error, context);
+        }
+      }
+      return response;
+    } catch (e) {
+      // Error
+      if (e is ApiException) {
+        if (context.mounted) {
+          Utils.showText(e.innerException.toString(),
+              Theme.of(context).colorScheme.error, context);
+        }
+      }
+      return null;
     }
   }
 

@@ -6,7 +6,6 @@ import '../models/user.dart';
 import 'package:whisper_openapi_client/api.dart';
 import '../models/profile.dart';
 import '../utils/is_response_ok.dart';
-import '../utils/http_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import 'password_page.dart';
@@ -110,7 +109,7 @@ class _LoginPageState extends State<LoginPage> {
         // OpenAPI client
         Singleton().api = ApiClient(basePath: path);
         // Verify
-        var response = await HttpUtils.callApi(
+        var response = await Utils.callApi(
             () => Singleton().authApi.loginUserWithHttpInfo(
                 loginUserInput: LoginUserInput(
                     password: _controllerPassword.text,

@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:whisper/pages/password_page.dart';
+import 'password_page.dart';
 
 import '../utils/cache.dart';
 import '../utils/no_glow_behavior.dart';

@@ -3,7 +3,6 @@ import 'package:easy_localization/easy_localization.dart';
 import '../utils/is_response_ok.dart';
 import 'package:whisper_openapi_client/api.dart';
 
-import '../utils/http_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import 'login_page.dart';
@@ -87,7 +86,7 @@ class _VerifyPageState extends State<VerifyPage> {
       // OpenAPI client
       Singleton().api = ApiClient(basePath: widget.basePath);
       // Verify
-      var response = await HttpUtils.callApi(
+      var response = await Utils.callApi(
           () => Singleton().authApi.verifyUserWithHttpInfo(
               verifyUserInput: VerifyUserInput(code: _controllerCode.text)),
           context);

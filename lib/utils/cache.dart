@@ -1,6 +1,6 @@
 import 'package:bcrypt/bcrypt.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/utils/singleton.dart';
+import 'singleton.dart';
 
 import '../models/profile.dart';
 import 'utils.dart';
@@ -34,7 +34,7 @@ class Cache {
 
   /// Opens encrypted box
   static Future<CollectionBox> _openBox(String boxName) async {
-    BoxCollection collection = await BoxCollection.open('', {boxName},
+    BoxCollection collection = await BoxCollection.open('_encrypted', {boxName},
         path: await Utils.getCacheDir(),
         key: HiveAesCipher(Singleton().boxCollectionKey));
     return await collection.openBox(boxName);

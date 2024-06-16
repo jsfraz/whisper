@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:whisper/utils/cache.dart';
-import 'package:whisper/utils/crypto_utils.dart';
-import 'package:whisper/utils/singleton.dart';
+import '../utils/cache.dart';
+import '../utils/crypto_utils.dart';
+import '../utils/singleton.dart';
+import '../utils/utils.dart';
 
 import 'home_page.dart';
 
@@ -49,23 +50,36 @@ class _PasswordPageState extends State<PasswordPage> {
 
     // Check input
     if (_passwordOk) {
-      // Add key to singleton
-      Singleton().boxCollectionKey =
-          await CryptoUtils.pbkdf2(_controllerPassword.text);
       // First login
       if (widget.firstLogin) {
+        // Add key to singleton
+        Singleton().boxCollectionKey =
+            await CryptoUtils.pbkdf2(_controllerPassword.text);
         // Save password hash to cache
         Cache.setPasswordHash(_controllerPassword.text);
         // Save profile to cache
         await Cache.setProfile(Singleton().profile);
+        // Redirect to password page
+        Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (context) => const HomePage()));
       } else {
-        // TODO check tokens
-        // Add profile to singleton
-        Singleton().profile = await Cache.getProfile();
+        // Check password
+        bool password = await Cache.isCorrectPassword(_controllerPassword.text);
+        if (password) {
+          // TODO check tokens
+          // Add key to singleton
+          Singleton().boxCollectionKey =
+              await CryptoUtils.pbkdf2(_controllerPassword.text);
+          // Add profile to singleton
+          Singleton().profile = await Cache.getProfile();
+          // Redirect to password page
+          Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (context) => const HomePage()));
+        } else {
+          Utils.showText('invalidPassword'.tr(),
+              Theme.of(context).colorScheme.error, context);
+        }
       }
-      // Redirect to password page
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (context) => const HomePage()));
     }
 
     // Enable button

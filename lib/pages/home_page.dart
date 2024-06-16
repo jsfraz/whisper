@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:whisper/utils/singleton.dart';
+import '../utils/singleton.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
