@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:whisper/pages/password_page.dart';
 
+import '../utils/cache.dart';
 import '../utils/no_glow_behavior.dart';
 import 'register_page.dart';
 
@@ -15,12 +17,10 @@ class WhisperPage extends StatelessWidget {
   Future<Widget> _getDefaultPage() async {
     // Set default page
     Widget defaultPage = const RegisterPage();
-    // TODO cache
-    // String? userId = await Cache.getCurrentUserId();
-    String? userId;
-    if (userId != null) {
-      // TODO password page
-      // defaultPage = PasswordPage(userId);
+    // Check for password hash in cache
+    String? hash = await Cache.getPasswordHash();
+    if (hash != null) {
+      defaultPage = const PasswordPage(false);
     }
 
     return defaultPage;

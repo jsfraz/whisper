@@ -1,11 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import '../models/user.dart';
 import 'package:whisper_openapi_client/api.dart';
+import '../models/profile.dart';
 import '../utils/is_response_ok.dart';
 import '../utils/http_utils.dart';
 import '../utils/singleton.dart';
-import '../utils/ui_utils.dart';
 import '../utils/utils.dart';
+import 'password_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage(this.basePath, {super.key});
@@ -37,7 +41,7 @@ class _LoginPageState extends State<LoginPage> {
     super.initState();
   }
 
-  // check server address
+  /// Check server address
   String? _errorServerText() {
     if (!_serverEditing) {
       return null;
@@ -51,12 +55,12 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // check username
+  /// Check username
   String? _errorUsernameText() {
     if (!_usernameEditing) {
       return null;
     }
-    RegExp regex = RegExp(r"^[a-zA-Z0-9]{3,32}$");
+    RegExp regex = RegExp(r"^[a-zA-Z0-9]{2,32}$");
     if (regex.hasMatch(_controllerUsername.text)) {
       _usernameOk = true;
       return null;
@@ -66,7 +70,7 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // check password
+  /// Check password
   String? _errorPasswordText() {
     if (!_passwordEditing) {
       return null;
@@ -81,7 +85,7 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // Login button
+  /// Login button
   Future<void> _login() async {
     if (!_isButtonDisabled) {
       // Disable button
@@ -114,10 +118,26 @@ class _LoginPageState extends State<LoginPage> {
             context);
         // Response check
         if (response?.ok ?? false) {
-          UiUtils.showText('successfulLogin'.tr(),
+          Utils.showText('successfulLogin'.tr(),
               Theme.of(context).colorScheme.secondary, context);
-          // TODO cache
-          // TODO main page
+
+          // Response from JSON
+          ModelsAuthResponse? authResponse =
+              ModelsAuthResponse.fromJson(jsonDecode(response!.body));
+          // Create profile instance
+          Profile profile = Profile(
+              path,
+              authResponse!.accessToken,
+              authResponse.refreshToken,
+              User.fromModelsUser(authResponse.user),
+              _controllerPassword.text);
+          // Add profile to singleton
+          Singleton().profile = profile;
+          // Redirect to password page
+          Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const PasswordPage(true)));
         }
       }
 
@@ -274,8 +294,12 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 Visibility(
-                    visible: _isButtonDisabled,
-                    child: const CircularProgressIndicator()),
+                  visible: _isButtonDisabled,
+                  child: const Padding(
+                    padding: EdgeInsets.only(top: 20, left: 7, right: 7),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
               ],
             ),
           ),

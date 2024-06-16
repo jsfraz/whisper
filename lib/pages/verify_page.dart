@@ -5,7 +5,6 @@ import 'package:whisper_openapi_client/api.dart';
 
 import '../utils/http_utils.dart';
 import '../utils/singleton.dart';
-import '../utils/ui_utils.dart';
 import '../utils/utils.dart';
 import 'login_page.dart';
 
@@ -36,7 +35,7 @@ class _VerifyPageState extends State<VerifyPage> {
     super.initState();
   }
 
-  // Check server address
+  /// Check server address
   String? _errorServerText() {
     if (!_serverEditing) {
       return null;
@@ -50,7 +49,7 @@ class _VerifyPageState extends State<VerifyPage> {
     }
   }
 
-  // Check username
+  /// Check username
   String? _errorCodeText() {
     if (!_codeEditing) {
       return null;
@@ -64,7 +63,7 @@ class _VerifyPageState extends State<VerifyPage> {
     }
   }
 
-  // Verify button
+  /// Verify button
   Future<void> _verify() async {
     // Disable button
     setState(() {
@@ -94,7 +93,7 @@ class _VerifyPageState extends State<VerifyPage> {
           context);
       // Response check
       if (response?.ok ?? false) {
-        UiUtils.showText('accountVerified'.tr(),
+        Utils.showText('accountVerified'.tr(),
             Theme.of(context).colorScheme.secondary, context);
         Navigator.pushReplacement(
             context, MaterialPageRoute(builder: (context) => LoginPage(path)));
@@ -249,7 +248,10 @@ class _VerifyPageState extends State<VerifyPage> {
                 ),
                 Visibility(
                   visible: _isButtonDisabled,
-                  child: const CircularProgressIndicator(),
+                  child: const Padding(
+                    padding: EdgeInsets.only(top: 20, left: 7, right: 7),
+                    child: CircularProgressIndicator(),
+                  ),
                 ),
               ],
             ),
