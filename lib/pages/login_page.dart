@@ -5,10 +5,12 @@ import 'package:easy_localization/easy_localization.dart';
 import '../models/user.dart';
 import 'package:whisper_openapi_client/api.dart';
 import '../models/profile.dart';
+import '../utils/cache.dart';
 import '../utils/is_response_ok.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import 'password_page.dart';
+import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage(this.basePath, {super.key});
@@ -31,13 +33,21 @@ class _LoginPageState extends State<LoginPage> {
   bool _passwordOk = false;
   bool _forceHttps = true;
   bool _isButtonDisabled = false;
+  bool _emptyPasswordHash = false;
 
   @override
   void initState() {
+    super.initState();
     if (widget.basePath.isNotEmpty) {
       _serverOk = true;
     }
-    super.initState();
+    // Check if password hash is null and show message
+    Cache.getPasswordHash().then((passwordHash) {
+      // New data message
+      if (passwordHash == null) {
+        _emptyPasswordHash = true;
+      }
+    });
   }
 
   /// Check server address
@@ -117,8 +127,15 @@ class _LoginPageState extends State<LoginPage> {
             context);
         // Response check
         if (response?.ok ?? false) {
+          /*
           Utils.showText('successfulLogin'.tr(),
               Theme.of(context).colorScheme.secondary, context);
+          */
+
+          // Delete cache
+          if (!_emptyPasswordHash) {
+            await Cache.deleteCache();
+          }
 
           // Response from JSON
           ModelsAuthResponse? authResponse =
@@ -133,10 +150,8 @@ class _LoginPageState extends State<LoginPage> {
           // Add profile to singleton
           Singleton().profile = profile;
           // Redirect to password page
-          Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const PasswordPage(true)));
+          Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (context) => const PasswordPage()));
         }
       }
 
@@ -299,6 +314,23 @@ class _LoginPageState extends State<LoginPage> {
                     child: CircularProgressIndicator(),
                   ),
                 ),
+                Visibility(
+                  visible: !_emptyPasswordHash,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 25),
+                    child: TextButton(
+                      onPressed: () {
+                        if (_isButtonDisabled == false) {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const RegisterPage()));
+                        }
+                      },
+                      child: Text('createNewAcc'.tr()),
+                    ),
+                  ),
+                )
               ],
             ),
           ),

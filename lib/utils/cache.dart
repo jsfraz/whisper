@@ -17,7 +17,7 @@ class Cache {
   /// Sets password hash
   static Future<void> setPasswordHash(String password) async {
     Box box = await _openPasswordHashBox();
-    box.put(_hashBoxKey, BCrypt.hashpw(password, BCrypt.gensalt()));
+    await box.put(_hashBoxKey, BCrypt.hashpw(password, BCrypt.gensalt()));
   }
 
   /// Returns password hash
@@ -33,10 +33,22 @@ class Cache {
   }
 
   /// Opens encrypted box
-  static Future<CollectionBox> _openBox(String boxName) async {
-    BoxCollection collection = await BoxCollection.open('_encrypted', {boxName},
+  static Future<BoxCollection> _openBoxCollection(Set<String> boxNames) async {
+    return BoxCollection.open('_encrypted', boxNames,
         path: await Utils.getCacheDir(),
         key: HiveAesCipher(Singleton().boxCollectionKey));
+  }
+
+  /// Opens encrypted box without key
+  static Future<BoxCollection> _openBoxCollectionWithoutKey(
+      Set<String> boxNames) async {
+    return BoxCollection.open('_encrypted', boxNames,
+        path: await Utils.getCacheDir());
+  }
+
+  /// Opens encrypted box
+  static Future<CollectionBox> _openBox(String boxName) async {
+    BoxCollection collection = await _openBoxCollection({boxName});
     return await collection.openBox(boxName);
   }
 
@@ -50,5 +62,14 @@ class Cache {
   static Future<Profile> getProfile() async {
     CollectionBox box = await _openBox(_profileKey);
     return await box.get(_profileKey);
+  }
+
+  /// Delete encrypted cache and password hash from disk
+  static Future<void> deleteCache() async {
+    BoxCollection collection =
+        await _openBoxCollectionWithoutKey({_profileKey});
+    await collection.deleteFromDisk();
+    Box box = await _openPasswordHashBox();
+    await box.deleteFromDisk();
   }
 }

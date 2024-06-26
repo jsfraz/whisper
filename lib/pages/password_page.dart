@@ -6,10 +6,10 @@ import '../utils/singleton.dart';
 import '../utils/utils.dart';
 
 import 'home_page.dart';
+import 'login_page.dart';
 
 class PasswordPage extends StatefulWidget {
-  const PasswordPage(this.firstLogin, {super.key});
-  final bool firstLogin;
+  const PasswordPage({super.key});
 
   @override
   State<PasswordPage> createState() => _PasswordPageState();
@@ -20,10 +20,24 @@ class _PasswordPageState extends State<PasswordPage> {
   bool _passwordEditing = false;
   bool _passwordOk = false;
   bool _isButtonDisabled = false;
+  bool _emptyPasswordHash = false;
 
   @override
   void initState() {
     super.initState();
+    // Check if password hash is null and show message
+    Cache.getPasswordHash().then((passwordHash) {
+      // New data message
+      if (passwordHash == null) {
+        _emptyPasswordHash = true;
+        Utils.showText(
+            'newData'.tr(), Theme.of(context).colorScheme.secondary, context);
+      } else {
+        // Existing data message
+        Utils.showText('existingData'.tr(),
+            Theme.of(context).colorScheme.secondary, context);
+      }
+    });
   }
 
   /// Check password
@@ -42,7 +56,7 @@ class _PasswordPageState extends State<PasswordPage> {
   }
 
   /// Save password
-  Future<void> _setupPassword() async {
+  Future<void> _password() async {
     // Disable button
     setState(() {
       _isButtonDisabled = true;
@@ -50,8 +64,8 @@ class _PasswordPageState extends State<PasswordPage> {
 
     // Check input
     if (_passwordOk) {
-      // First login
-      if (widget.firstLogin) {
+      // New data
+      if (_emptyPasswordHash) {
         // Add key to singleton
         Singleton().boxCollectionKey =
             await CryptoUtils.pbkdf2(_controllerPassword.text);
@@ -59,14 +73,14 @@ class _PasswordPageState extends State<PasswordPage> {
         Cache.setPasswordHash(_controllerPassword.text);
         // Save profile to cache
         await Cache.setProfile(Singleton().profile);
-        // Redirect to password page
+        // Redirect to home page
         Navigator.pushReplacement(
             context, MaterialPageRoute(builder: (context) => const HomePage()));
       } else {
-        // Check password
+        // Existing data
         bool password = await Cache.isCorrectPassword(_controllerPassword.text);
+        // Check password
         if (password) {
-          // TODO check tokens
           // Add key to singleton
           Singleton().boxCollectionKey =
               await CryptoUtils.pbkdf2(_controllerPassword.text);
@@ -141,11 +155,11 @@ class _PasswordPageState extends State<PasswordPage> {
                               borderRadius: BorderRadius.circular(35)),
                         ),
                       ),
-                      onPressed: _setupPassword,
+                      onPressed: _password,
                       child: Padding(
                         padding: const EdgeInsets.all(7),
                         child: Text(
-                          'setupPasswordButton'.tr(),
+                          'passwordButton'.tr(),
                           style: TextStyle(
                               color: Theme.of(context).colorScheme.surface,
                               fontSize: 20),
@@ -161,6 +175,23 @@ class _PasswordPageState extends State<PasswordPage> {
                     child: CircularProgressIndicator(),
                   ),
                 ),
+                Visibility(
+                  visible: !_emptyPasswordHash,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 25),
+                    child: TextButton(
+                      onPressed: () {
+                        if (_isButtonDisabled == false) {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const LoginPage('')));
+                        }
+                      },
+                      child: Text('useDifferentAcc'.tr()),
+                    ),
+                  ),
+                )
               ],
             ),
           ),

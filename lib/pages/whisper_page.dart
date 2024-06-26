@@ -20,7 +20,7 @@ class WhisperPage extends StatelessWidget {
     // Check for password hash in cache
     String? hash = await Cache.getPasswordHash();
     if (hash != null) {
-      defaultPage = const PasswordPage(false);
+      defaultPage = const PasswordPage();
     }
 
     return defaultPage;
