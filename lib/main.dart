@@ -14,8 +14,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Load locale
   await EasyLocalization.ensureInitialized();
-
-  ;
+  
   Hive
     // Adapters
     ..init(await Utils.getCacheDir())
