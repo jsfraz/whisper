@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:whisper/pages/scan_invite_button_page.dart';
 import 'password_page.dart';
 
 import '../utils/cache.dart';
@@ -9,6 +10,7 @@ import 'register_page.dart';
 class WhisperPage extends StatelessWidget {
   const WhisperPage({super.key});
 
+  // TODO settings
   final ThemeMode _themeMode = ThemeMode.system;
   final MaterialColor _color = Colors.blue;
   final bool _useMaterial3 = true;
@@ -16,12 +18,14 @@ class WhisperPage extends StatelessWidget {
   /// Returns default page based on user in cache.
   Future<Widget> _getDefaultPage() async {
     // Set default page
-    Widget defaultPage = const RegisterPage();
+    Widget defaultPage = const ScanInviteButtonPage();
+    /*
     // Check for password hash in cache
     String? hash = await Cache.getPasswordHash();
     if (hash != null) {
       defaultPage = const PasswordPage();
     }
+    */
 
     return defaultPage;
   }

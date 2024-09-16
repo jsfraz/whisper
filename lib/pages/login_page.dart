@@ -14,6 +14,7 @@ import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage(this.basePath, {super.key});
+  
   final String basePath;
 
   @override
@@ -102,6 +103,7 @@ class _LoginPageState extends State<LoginPage> {
         _isButtonDisabled = true;
       });
 
+      /*
       // Check input
       if (_serverOk && _usernameOk && _passwordOk) {
         // HTTPS option
@@ -154,6 +156,7 @@ class _LoginPageState extends State<LoginPage> {
               MaterialPageRoute(builder: (context) => const PasswordPage()));
         }
       }
+      */
 
       // Enable button
       setState(() {
@@ -172,6 +175,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    /*
     return PopScope(
       onPopInvoked: (didPop) {
         if (didPop) {
@@ -337,5 +341,7 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
     );
+    */
+    return const SizedBox.shrink();
   }
 }

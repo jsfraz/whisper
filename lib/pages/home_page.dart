@@ -12,6 +12,7 @@ class HomePage extends StatefulWidget {
 class _RegisterPageState extends State<HomePage> {
   @override
   void initState() {
+    /*
     // Check refresh token
     if (Singleton().profile.isRefreshTokenExpired()) {
       Navigator.pushReplacement(context,
@@ -22,17 +23,19 @@ class _RegisterPageState extends State<HomePage> {
         // TODO Refresh access token
       }
     }
+    */
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
+    return const PopScope(
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         body: SafeArea(
           child: Center(
-              child: Text('Hello ${Singleton().profile.user.username}!')),
+            child: Text('Hello!'),
+          ),
         ),
       ),
     );

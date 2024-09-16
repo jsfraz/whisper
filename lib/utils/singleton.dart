@@ -9,7 +9,7 @@ class Singleton {
   // OpenAPI client instance
   late ApiClient _api;
   // User profile
-  late Profile profile;
+  // late Profile profile;
   // Box key
   late List<int> boxCollectionKey;
 
@@ -23,5 +23,6 @@ class Singleton {
   set api(ApiClient api) => _api = api;
 
   // Getters
-  AuthenticationApi get authApi => AuthenticationApi(_api);
+  // AuthenticationApi get authApi => AuthenticationApi(_api);
+  UserApi get userApi => UserApi(_api);
 }

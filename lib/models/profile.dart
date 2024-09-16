@@ -1,3 +1,4 @@
+/*
 import 'package:hive/hive.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'user.dart';
@@ -30,3 +31,4 @@ class Profile extends HiveObject {
     return JwtDecoder.isExpired(refreshToken);
   }
 }
+*/

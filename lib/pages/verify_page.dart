@@ -69,6 +69,7 @@ class _VerifyPageState extends State<VerifyPage> {
       _isButtonDisabled = true;
     });
 
+    /*
     // Check input
     if (_serverOk && _codeOk) {
       // HTTPS option
@@ -98,6 +99,7 @@ class _VerifyPageState extends State<VerifyPage> {
             context, MaterialPageRoute(builder: (context) => LoginPage(path)));
       }
     }
+    */
 
     // Enable button
     setState(() {

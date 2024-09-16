@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../utils/cache.dart';
-import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
 
@@ -30,12 +29,16 @@ class _PasswordPageState extends State<PasswordPage> {
       // New data message
       if (passwordHash == null) {
         _emptyPasswordHash = true;
+        /*
         Utils.showText(
             'newData'.tr(), Theme.of(context).colorScheme.secondary, context);
+        */
       } else {
+        /*
         // Existing data message
         Utils.showText('existingData'.tr(),
             Theme.of(context).colorScheme.secondary, context);
+        */
       }
     });
   }
@@ -62,6 +65,7 @@ class _PasswordPageState extends State<PasswordPage> {
       _isButtonDisabled = true;
     });
 
+    /*
     // Check input
     if (_passwordOk) {
       // New data
@@ -95,6 +99,7 @@ class _PasswordPageState extends State<PasswordPage> {
         }
       }
     }
+    */
 
     // Enable button
     setState(() {

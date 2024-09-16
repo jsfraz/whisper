@@ -1,3 +1,4 @@
+/*
 import 'package:hive/hive.dart';
 import 'package:whisper_openapi_client/api.dart';
 
@@ -21,3 +22,4 @@ class User extends HiveObject {
     return User(user.id, user.username, user.hasImage, user.publicKey);
   }
 }
+*/
