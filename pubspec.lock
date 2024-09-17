@@ -14,6 +14,14 @@ packages:
     description: dart
     source: sdk
     version: "0.3.2"
+  adaptive_number:
+    dependency: transitive
+    description:
+      name: adaptive_number
+      sha256: "3a567544e9b5c9c803006f51140ad544aedc79604fd4f3f2c1380003f97c1d77"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   analyzer:
     dependency: transitive
     description:
@@ -190,6 +198,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.7.0"
+  dart_jsonwebtoken:
+    dependency: "direct main"
+    description:
+      name: dart_jsonwebtoken
+      sha256: "346e9a21e4bf6e6a431e19ece00ebb2e3668e1e339cabdf6f46d18d88692a848"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.14.0"
   dart_style:
     dependency: transitive
     description:
@@ -214,6 +230,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.2"
+  ed25519_edwards:
+    dependency: transitive
+    description:
+      name: ed25519_edwards
+      sha256: "6ce0112d131327ec6d42beede1e5dfd526069b18ad45dcf654f15074ad9276cd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.1"
   fake_async:
     dependency: transitive
     description:
@@ -386,14 +410,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.8.0"
-  jwt_decoder:
-    dependency: "direct main"
-    description:
-      name: jwt_decoder
-      sha256: "54774aebf83f2923b99e6416b4ea915d47af3bde56884eb622de85feabbc559f"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.1"
   leak_tracker:
     dependency: transitive
     description:
@@ -820,7 +836,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: "9863778d265990073158511b0fb2495f99ac3b34"
+      resolved-ref: aa16533da20668bef32b7f32fef7386f89e39eb7
       url: "https://github.com/jsfraz/whisper_openapi_client.git"
     source: git
     version: "0.0.1"

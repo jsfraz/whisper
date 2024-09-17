@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'login_page.dart';
 import '../utils/singleton.dart';
 
 class HomePage extends StatefulWidget {

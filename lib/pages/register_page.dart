@@ -1,22 +1,17 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:whisper/models/invite.dart';
-import '../utils/is_response_ok.dart';
+import 'package:whisper/models/profile.dart';
+import '../models/user.dart';
 import 'package:whisper_openapi_client/api.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
-import '../utils/rsa_utils.dart';
+import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
-import 'login_page.dart';
-import 'verify_page.dart';
-import 'package:qr_code_scanner/qr_code_scanner.dart';
-import 'package:basic_utils/basic_utils.dart';
+import 'package:basic_utils/basic_utils.dart' as bu;
+
+import 'password_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage(this.invite, {super.key});
@@ -72,62 +67,30 @@ class _RegisterPageState extends State<RegisterPage> {
         _isButtonDisabled = true;
       });
 
-      /*
-      // Check input
-      if (_serverOk &&
-          _usernameOk &&
-          _mailOk &&
-          _passwordOk &&
-          _passwordRepeatOk) {
-        // HTTPS option
-        String url = '';
-        if (_forceHttps) {
-          url = 'https://${_controllerServer.text}';
-        } else {
-          url = 'http://${_controllerServer.text}';
-        }
-
-        // OpenAPI client
-        Singleton().api = ApiClient(basePath: url);
-        // Registration
-        var response = await Utils.callApi(
-            () => Singleton().authApi.registerUserWithHttpInfo(
-                registerUserInput: RegisterUserInput(
-                    mail: _controllerMail.text,
-                    password: _controllerPassword.text,
-                    username: _controllerUsername.text)),
-            context);
-        // Response check
-        if (response?.ok ?? false) {
-          _clearInput();
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => VerifyPage(url)));
-        }
-      }
-      */
-
+      // TODO password field here instead of password page
       if (_usernameOk) {
         // Toast and async sleep before heavy computation
-        Fluttertoast.showToast(msg: 'waitPls', backgroundColor: Colors.grey);
+        Fluttertoast.showToast(
+            msg: 'waitPls'.tr(), backgroundColor: Colors.grey);
         // Generate RSA keypair
-        var keyPair = await RsaUtils.getRSAKeyPair();
-        debugPrint(CryptoUtils.encodeRSAPublicKeyToPem(
-            keyPair.publicKey as RSAPublicKey));
+        var keyPair = await CryptoUtils.getRSAKeyPair();
         // OpenAPI client
         Singleton().api = ApiClient(basePath: widget.invite.url);
         // Registration
-        var response = await Utils.callApi(() => Singleton()
-            .userApi
-            .createUserWithHttpInfo(
-                createUserInput: CreateUserInput(
-                    inviteCode: widget.invite.code,
-                    publicKey: CryptoUtils.encodeRSAPublicKeyToPem(
-                        keyPair.publicKey as RSAPublicKey),
-                    username: _controllerUsername.text)));
-        // Response check
-        if (response?.ok ?? false) {
-          // TODO Save profile
-          // TODO Push home page
+        var newUser = await Utils.callApi(() => Singleton().userApi.createUser(
+            createUserInput: CreateUserInput(
+                inviteCode: widget.invite.code,
+                publicKey: bu.CryptoUtils.encodeRSAPublicKeyToPem(
+                    keyPair.publicKey as bu.RSAPublicKey),
+                username: _controllerUsername.text)));
+        if (newUser != null) {
+          // Create profile
+          Profile profile = Profile(widget.invite.url, User.fromModel(newUser));
+          // Add profile to singleton
+          Singleton().profile = profile;
+          // Redirect to password page
+          Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (context) => const PasswordPage()));
         }
       }
 

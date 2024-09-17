@@ -1,21 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:http/http.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pointycastle/export.dart';
-import 'is_response_ok.dart';
 import 'package:whisper_openapi_client/api.dart';
 
 class Utils {
-  /// Check if device has Android/iOS/Fuchsia.
-  static bool isPhone() {
-    return Platform.isAndroid || Platform.isIOS || Platform.isFuchsia;
-  }
-
   /// Capitalize first letter of string.
   static String capitalizeFirstLetter(String input) {
     if (input.isEmpty) {
@@ -25,29 +15,27 @@ class Utils {
   }
 
   /// Call API, handle errors and return result.
-  static Future<Response?> callApi(
-      Future<Response> Function() methodHttpInfo) async {
+  static Future<T?> callApi<T>(Future<T> Function() call) async {
     try {
-      // Try to call the API
-      Response response = await methodHttpInfo();
-      // Show error
-      if (!response.ok) {
-        Map<String, dynamic> errorMap = jsonDecode(response.body);
-          Fluttertoast.showToast(
-              msg: Utils.capitalizeFirstLetter(errorMap['error']),
-              backgroundColor: Colors.red);
-      }
-      return response;
+      // Try to call API
+      T result = await call();
+      return result;
     } catch (e) {
-      // Error
+      // Handle error
       if (e is ApiException) {
-        debugPrint(e.toString());
+        if (e.innerException == null) {
+          Map<String, dynamic> messageMap =
+              jsonDecode(e.message!) as Map<String, dynamic>;
           Fluttertoast.showToast(
-              msg: Utils.capitalizeFirstLetter(e.innerException.toString()),
+              msg: Utils.capitalizeFirstLetter(messageMap['error']),
               backgroundColor: Colors.red);
+        } else {
+          Fluttertoast.showToast(
+              msg: e.innerException.toString(), backgroundColor: Colors.red);
+        }
       }
-      return null;
     }
+    return null;
   }
 
   /// Gets cache directory path

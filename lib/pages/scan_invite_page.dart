@@ -28,14 +28,21 @@ class _ScanInvitePageState extends State<ScanInvitePage> {
         Map<String, dynamic> inviteMap =
             jsonDecode(scanData.code!) as Map<String, dynamic>;
         Invite invite = Invite.fromJson(inviteMap);
-        // Push registration page
+        // Check if invite expired
+        if (invite.validUntil.difference(DateTime.now()).isNegative) {
+          Fluttertoast.showToast(
+            msg: 'inviteExpired'.tr(),
+            backgroundColor: Colors.red);
+        } else {
+          // Push registration page
         Navigator.pushReplacement(context,
             MaterialPageRoute(builder: (context) => RegisterPage(invite)));
         return;
+        }
       } catch (e) {
         debugPrint(e.toString());
         Fluttertoast.showToast(
-            msg: 'invalidQr',
+            msg: 'invalidQr'.tr(),
             backgroundColor: Colors.red);
       }
     });

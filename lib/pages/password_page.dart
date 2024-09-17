@@ -5,7 +5,6 @@ import '../utils/singleton.dart';
 import '../utils/utils.dart';
 
 import 'home_page.dart';
-import 'login_page.dart';
 
 class PasswordPage extends StatefulWidget {
   const PasswordPage({super.key});
@@ -24,23 +23,21 @@ class _PasswordPageState extends State<PasswordPage> {
   @override
   void initState() {
     super.initState();
+    /*
     // Check if password hash is null and show message
     Cache.getPasswordHash().then((passwordHash) {
       // New data message
       if (passwordHash == null) {
         _emptyPasswordHash = true;
-        /*
         Utils.showText(
             'newData'.tr(), Theme.of(context).colorScheme.secondary, context);
-        */
       } else {
-        /*
         // Existing data message
         Utils.showText('existingData'.tr(),
             Theme.of(context).colorScheme.secondary, context);
-        */
       }
     });
+    */
   }
 
   /// Check password
@@ -101,6 +98,8 @@ class _PasswordPageState extends State<PasswordPage> {
     }
     */
 
+    await Future.delayed(const Duration(seconds: 1));
+
     // Enable button
     setState(() {
       _isButtonDisabled = false;
@@ -116,7 +115,7 @@ class _PasswordPageState extends State<PasswordPage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           !_isButtonDisabled;
         }
@@ -130,27 +129,24 @@ class _PasswordPageState extends State<PasswordPage> {
               children: <Widget>[
                 SizedBox(
                   width: 300,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 15),
-                    child: TextField(
-                      enabled: !_isButtonDisabled,
-                      obscureText: true,
-                      controller: _controllerPassword,
-                      onChanged: (_) => setState(() {
-                        _passwordEditing = true;
-                      }),
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        labelText: 'passwordPlaceholder'.tr(),
-                        errorText: _errorPasswordText(),
-                      ),
+                  child: TextField(
+                    enabled: !_isButtonDisabled,
+                    obscureText: true,
+                    controller: _controllerPassword,
+                    onChanged: (_) => setState(() {
+                      _passwordEditing = true;
+                    }),
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      labelText: 'passwordPlaceholder'.tr(),
+                      errorText: _errorPasswordText(),
                     ),
                   ),
                 ),
                 Visibility(
                   visible: !_isButtonDisabled,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 20, left: 7, right: 7),
+                    padding: const EdgeInsets.only(top: 20),
                     child: TextButton(
                       style: ButtonStyle(
                         backgroundColor: WidgetStateProperty.all(
@@ -167,7 +163,7 @@ class _PasswordPageState extends State<PasswordPage> {
                           'passwordButton'.tr(),
                           style: TextStyle(
                               color: Theme.of(context).colorScheme.surface,
-                              fontSize: 20),
+                              fontSize: 16),
                         ),
                       ),
                     ),
@@ -180,23 +176,6 @@ class _PasswordPageState extends State<PasswordPage> {
                     child: CircularProgressIndicator(),
                   ),
                 ),
-                Visibility(
-                  visible: !_emptyPasswordHash,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 25),
-                    child: TextButton(
-                      onPressed: () {
-                        if (_isButtonDisabled == false) {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const LoginPage('')));
-                        }
-                      },
-                      child: Text('useDifferentAcc'.tr()),
-                    ),
-                  ),
-                )
               ],
             ),
           ),
