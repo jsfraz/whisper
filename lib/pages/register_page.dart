@@ -6,12 +6,13 @@ import 'package:whisper/models/invite.dart';
 import 'package:whisper/models/profile.dart';
 import '../models/user.dart';
 import 'package:whisper_openapi_client/api.dart';
+import '../utils/cache.dart';
 import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
 
-import 'password_page.dart';
+import 'home_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage(this.invite, {super.key});
@@ -27,6 +28,9 @@ class _RegisterPageState extends State<RegisterPage> {
   final _controllerUsername = TextEditingController();
   bool _usernameEditing = false;
   bool _usernameOk = false;
+  final _controllerLocalPassword = TextEditingController();
+  bool _localPasswordEditing = false;
+  bool _localPasswordOk = false;
   late Timer _timer;
   late Duration _remainingTime;
   bool _isButtonDisabled = false;
@@ -59,6 +63,21 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  /// Check password
+  String? _errorLocalPasswordText() {
+    if (!_localPasswordEditing) {
+      return null;
+    }
+    if (_controllerLocalPassword.text.length >= 8 &&
+        _controllerLocalPassword.text.length <= 64) {
+      _localPasswordOk = true;
+      return null;
+    } else {
+      _localPasswordOk = false;
+      return 'invalidPassword'.tr();
+    }
+  }
+
   /// Register button action.
   Future<void> _register() async {
     if (!_isButtonDisabled) {
@@ -67,8 +86,7 @@ class _RegisterPageState extends State<RegisterPage> {
         _isButtonDisabled = true;
       });
 
-      // TODO password field here instead of password page
-      if (_usernameOk) {
+      if (_usernameOk && _localPasswordOk) {
         // Toast and async sleep before heavy computation
         Fluttertoast.showToast(
             msg: 'waitPls'.tr(), backgroundColor: Colors.grey);
@@ -88,9 +106,16 @@ class _RegisterPageState extends State<RegisterPage> {
           Profile profile = Profile(widget.invite.url, User.fromModel(newUser));
           // Add profile to singleton
           Singleton().profile = profile;
-          // Redirect to password page
+          // Save password hash to cache
+          Cache.setPasswordHash(_controllerLocalPassword.text);
+          // Add key to singleton
+          Singleton().boxCollectionKey =
+              await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
+          // Save profile to cache
+          await Cache.setProfile(Singleton().profile);
+          // Redirect to home page
           Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (context) => const PasswordPage()));
+              MaterialPageRoute(builder: (context) => const HomePage()));
         }
       }
 
@@ -104,6 +129,7 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   void dispose() {
     _controllerUsername.dispose();
+    _controllerLocalPassword.dispose();
     _timer.cancel();
     super.dispose();
   }
@@ -145,6 +171,25 @@ class _RegisterPageState extends State<RegisterPage> {
                       border: const OutlineInputBorder(),
                       labelText: 'usernamePlaceholder'.tr(),
                       errorText: _errorUsernameText(),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 15),
+                  child: SizedBox(
+                    width: 300,
+                    child: TextField(
+                      enabled: !_isButtonDisabled,
+                      obscureText: true,
+                      controller: _controllerLocalPassword,
+                      onChanged: (_) => setState(() {
+                        _localPasswordEditing = true;
+                      }),
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
+                        labelText: 'localPasswordPlaceholder'.tr(),
+                        errorText: _errorLocalPasswordText(),
+                      ),
                     ),
                   ),
                 ),

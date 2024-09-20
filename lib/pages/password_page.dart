@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../utils/cache.dart';
+import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
 
@@ -14,92 +16,53 @@ class PasswordPage extends StatefulWidget {
 }
 
 class _PasswordPageState extends State<PasswordPage> {
-  final _controllerPassword = TextEditingController();
-  bool _passwordEditing = false;
-  bool _passwordOk = false;
+  final _controllerLocalPassword = TextEditingController();
+  bool _localPasswordEditing = false;
+  bool _localPasswordOk = false;
   bool _isButtonDisabled = false;
-  bool _emptyPasswordHash = false;
-
-  @override
-  void initState() {
-    super.initState();
-    /*
-    // Check if password hash is null and show message
-    Cache.getPasswordHash().then((passwordHash) {
-      // New data message
-      if (passwordHash == null) {
-        _emptyPasswordHash = true;
-        Utils.showText(
-            'newData'.tr(), Theme.of(context).colorScheme.secondary, context);
-      } else {
-        // Existing data message
-        Utils.showText('existingData'.tr(),
-            Theme.of(context).colorScheme.secondary, context);
-      }
-    });
-    */
-  }
 
   /// Check password
-  String? _errorPasswordText() {
-    if (!_passwordEditing) {
+  String? _errorLocalPasswordText() {
+    if (!_localPasswordEditing) {
       return null;
     }
-    if (_controllerPassword.text.length >= 8 &&
-        _controllerPassword.text.length <= 64) {
-      _passwordOk = true;
+    if (_controllerLocalPassword.text.length >= 8 &&
+        _controllerLocalPassword.text.length <= 64) {
+      _localPasswordOk = true;
       return null;
     } else {
-      _passwordOk = false;
+      _localPasswordOk = false;
       return 'invalidPassword'.tr();
     }
   }
 
   /// Save password
-  Future<void> _password() async {
+  Future<void> _localPassword() async {
     // Disable button
     setState(() {
       _isButtonDisabled = true;
     });
 
-    /*
     // Check input
-    if (_passwordOk) {
-      // New data
-      if (_emptyPasswordHash) {
+    if (_localPasswordOk) {
+      // Existing data
+      bool password = await Cache.isCorrectPassword(_controllerLocalPassword.text);
+      // Check password
+      if (password) {
         // Add key to singleton
         Singleton().boxCollectionKey =
-            await CryptoUtils.pbkdf2(_controllerPassword.text);
-        // Save password hash to cache
-        Cache.setPasswordHash(_controllerPassword.text);
-        // Save profile to cache
-        await Cache.setProfile(Singleton().profile);
-        // Redirect to home page
+            await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
+        // Add profile to singleton
+        Singleton().profile = await Cache.getProfile();
+        // Redirect to password page
         Navigator.pushReplacement(
             context, MaterialPageRoute(builder: (context) => const HomePage()));
       } else {
-        // Existing data
-        bool password = await Cache.isCorrectPassword(_controllerPassword.text);
-        // Check password
-        if (password) {
-          // Add key to singleton
-          Singleton().boxCollectionKey =
-              await CryptoUtils.pbkdf2(_controllerPassword.text);
-          // Add profile to singleton
-          Singleton().profile = await Cache.getProfile();
-          // Redirect to password page
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (context) => const HomePage()));
-        } else {
-          Utils.showText('invalidPassword'.tr(),
-              Theme.of(context).colorScheme.error, context);
-        }
+        Fluttertoast.showToast(
+            msg: Utils.capitalizeFirstLetter('invalidLocalPassword'.tr()),
+            backgroundColor: Colors.red);
       }
     }
-    */
-
-    await Future.delayed(const Duration(seconds: 1));
-
     // Enable button
     setState(() {
       _isButtonDisabled = false;
@@ -108,7 +71,7 @@ class _PasswordPageState extends State<PasswordPage> {
 
   @override
   void dispose() {
-    _controllerPassword.dispose();
+    _controllerLocalPassword.dispose();
     super.dispose();
   }
 
@@ -132,14 +95,14 @@ class _PasswordPageState extends State<PasswordPage> {
                   child: TextField(
                     enabled: !_isButtonDisabled,
                     obscureText: true,
-                    controller: _controllerPassword,
+                    controller: _controllerLocalPassword,
                     onChanged: (_) => setState(() {
-                      _passwordEditing = true;
+                      _localPasswordEditing = true;
                     }),
                     decoration: InputDecoration(
                       border: const OutlineInputBorder(),
-                      labelText: 'passwordPlaceholder'.tr(),
-                      errorText: _errorPasswordText(),
+                      labelText: 'localPasswordPlaceholder'.tr(),
+                      errorText: _errorLocalPasswordText(),
                     ),
                   ),
                 ),
@@ -156,11 +119,11 @@ class _PasswordPageState extends State<PasswordPage> {
                               borderRadius: BorderRadius.circular(35)),
                         ),
                       ),
-                      onPressed: _password,
+                      onPressed: _localPassword,
                       child: Padding(
                         padding: const EdgeInsets.all(7),
                         child: Text(
-                          'passwordButton'.tr(),
+                          'localPasswordButton'.tr(),
                           style: TextStyle(
                               color: Theme.of(context).colorScheme.surface,
                               fontSize: 16),

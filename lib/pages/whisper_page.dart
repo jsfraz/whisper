@@ -1,11 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:whisper/pages/scan_invite_button_page.dart';
+import '../pages/scan_invite_button_page.dart';
 import 'password_page.dart';
 
 import '../utils/cache.dart';
 import '../utils/no_glow_behavior.dart';
-import 'register_page.dart';
 
 class WhisperPage extends StatelessWidget {
   const WhisperPage({super.key});
@@ -19,13 +18,12 @@ class WhisperPage extends StatelessWidget {
   Future<Widget> _getDefaultPage() async {
     // Set default page
     Widget defaultPage = const ScanInviteButtonPage();
-    /*
+
     // Check for password hash in cache
     String? hash = await Cache.getPasswordHash();
     if (hash != null) {
       defaultPage = const PasswordPage();
     }
-    */
 
     return defaultPage;
   }

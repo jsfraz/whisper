@@ -1,7 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+import 'models/profile.dart';
+import 'models/user.dart';
 import 'pages/whisper_page.dart';
 import 'utils/singleton.dart';
+import 'utils/utils.dart';
 
 void main() async {
   // Initialize Singleton
@@ -10,14 +14,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Load locale
   await EasyLocalization.ensureInitialized();
-  
-  /*
+
+  // Hive adapters
   Hive
-    // Adapters
     ..init(await Utils.getCacheDir())
     ..registerAdapter(ProfileAdapter())
     ..registerAdapter(UserAdapter());
-  */
 
   runApp(
     EasyLocalization(

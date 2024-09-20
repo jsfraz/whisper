@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart' as djwt;
+import 'package:cryptography/cryptography.dart' as cryptography;
+import 'package:crypto/crypto.dart';
 
 class CryptoUtils {
   /// Generate RSA keypair synchronously
@@ -49,5 +53,18 @@ class CryptoUtils {
       'iss': userMail,
       'expiresIn': expiresIn
     });
+  }
+
+  /// PBKDF2 password derivation (https://pub.dev/documentation/cryptography/latest/cryptography/Pbkdf2-class.html)
+  static Future<List<int>> pbkdf2(String password) async {
+    final pbkdf2 = cryptography.Pbkdf2(
+      macAlgorithm: cryptography.Hmac.sha256(),
+      iterations: 310000,
+      bits: 256,
+    );
+    List<int> salt = md5.convert(utf8.encode(password)).bytes;
+    final key =
+        await pbkdf2.deriveKeyFromPassword(password: password, nonce: salt);
+    return await key.extractBytes();
   }
 }

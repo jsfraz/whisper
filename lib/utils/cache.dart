@@ -1,5 +1,6 @@
 import 'package:bcrypt/bcrypt.dart';
 import 'package:hive/hive.dart';
+import '../models/profile.dart';
 import 'singleton.dart';
 
 // import '../models/profile.dart';
@@ -52,7 +53,6 @@ class Cache {
     return await collection.openBox(boxName);
   }
 
-  /*
   /// Set profile
   static Future<void> setProfile(Profile profile) async {
     CollectionBox box = await _openBox(_profileKey);
@@ -64,7 +64,6 @@ class Cache {
     CollectionBox box = await _openBox(_profileKey);
     return await box.get(_profileKey);
   }
-  */
 
   /// Delete encrypted cache and password hash from disk
   static Future<void> deleteCache() async {
