@@ -14,14 +14,6 @@ packages:
     description: dart
     source: sdk
     version: "0.3.3"
-  adaptive_number:
-    dependency: transitive
-    description:
-      name: adaptive_number
-      sha256: "3a567544e9b5c9c803006f51140ad544aedc79604fd4f3f2c1380003f97c1d77"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0"
   analyzer:
     dependency: transitive
     description:
@@ -198,14 +190,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.7.0"
-  dart_jsonwebtoken:
-    dependency: "direct main"
-    description:
-      name: dart_jsonwebtoken
-      sha256: "866787dc17afaef46a9ea7dd33eefe60c6d82084b4a36d70e8e788d091cd04ef"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.14.2"
   dart_style:
     dependency: transitive
     description:
@@ -230,14 +214,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.2"
-  ed25519_edwards:
-    dependency: transitive
-    description:
-      name: ed25519_edwards
-      sha256: "6ce0112d131327ec6d42beede1e5dfd526069b18ad45dcf654f15074ad9276cd"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.1"
   fake_async:
     dependency: transitive
     description:
@@ -279,10 +255,10 @@ packages:
     dependency: "direct dev"
     description:
       name: flutter_lints
-      sha256: "3f41d009ba7172d5ff9be5f6e6e6abb4300e263aab8866d2a0842ed2a70f8f0c"
+      sha256: "5398f14efa795ffb7a33e9b6a08798b26a180edac4ad7db3f231e40f82ce11e1"
       url: "https://pub.dev"
     source: hosted
-    version: "4.0.0"
+    version: "5.0.0"
   flutter_localizations:
     dependency: transitive
     description: flutter
@@ -410,6 +386,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.9.0"
+  jwt_decoder:
+    dependency: "direct main"
+    description:
+      name: jwt_decoder
+      sha256: "54774aebf83f2923b99e6416b4ea915d47af3bde56884eb622de85feabbc559f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.1"
   leak_tracker:
     dependency: transitive
     description:
@@ -438,10 +422,10 @@ packages:
     dependency: transitive
     description:
       name: lints
-      sha256: "976c774dd944a42e83e2467f4cc670daef7eed6295b10b36ae8c85bcbf828235"
+      sha256: c35bb79562d980e9a453fc715854e1ed39e24e7d0297a880ef54e17f9874a9d7
       url: "https://pub.dev"
     source: hosted
-    version: "4.0.0"
+    version: "5.1.1"
   logging:
     dependency: transitive
     description:
@@ -494,10 +478,10 @@ packages:
     dependency: "direct main"
     description:
       name: mobile_scanner
-      sha256: d234581c090526676fd8fab4ada92f35c6746e3fb4f05a399665d75a399fb760
+      sha256: "728828a798d1a2ee506beb652ca23d974c542c96ed03dcbd5eaf97bef96cdaad"
       url: "https://pub.dev"
     source: hosted
-    version: "5.2.3"
+    version: "6.0.2"
   nested:
     dependency: transitive
     description:
@@ -852,7 +836,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: aa16533da20668bef32b7f32fef7386f89e39eb7
+      resolved-ref: b399c07f50f271d3fe6ccfc7c04ea9e74c5049ae
       url: "https://github.com/jsfraz/whisper_openapi_client.git"
     source: git
     version: "0.0.1"

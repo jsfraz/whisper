@@ -2,7 +2,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../utils/color_utils.dart';
 import '../utils/singleton.dart';
-
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -15,7 +14,9 @@ class _RegisterPageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    Color userColor = ColorUtils.getColorFromUsername(Singleton().profile.user.username);
+    // Get color of user profile picture
+    Color userColor =
+        ColorUtils.getColorFromUsername(Singleton().profile.user.username);
 
     return PopScope(
       child: Scaffold(
@@ -51,7 +52,8 @@ class _RegisterPageState extends State<HomePage> {
             IconButton(
               icon: const Icon(Icons.search),
               tooltip: 'searchButton'.tr(),
-              onPressed: () {
+              onPressed: () async {
+                // await Utils.callApi(() => Singleton().userApi.getAllUsers(), true);    // TODO delete
                 setState(() {
                   // TODO search
                 });
@@ -76,37 +78,52 @@ class _RegisterPageState extends State<HomePage> {
             // TODO add
             /*
             setState(() {
-              Provider.of<ThemeNotifier>(context, listen: false).changeTheme(AppTheme(ThemeMode.dark, Colors.deepPurple, true));
-            });
+              Provider.of<ThemeNotifier>(context, listen: false).changeTheme(
+                  AppTheme(
+                      ThemeMode.dark,
+                      ColorUtils.getMaterialColor(
+                          Color((Random().nextDouble() * 0xFFFFFF).toInt())
+                              .withValues(alpha: 1.0)),
+                      true));
+            }); // TODO delete
             */
           },
           shape: const CircleBorder(),
-          tooltip: currentPageIndex == 0 ? 'addChat'.tr() : 'addUser'.tr(),    // Change tooltip according to page index
           foregroundColor: Theme.of(context).colorScheme.surface,
           backgroundColor: Theme.of(context).colorScheme.primary,
-          child: Icon(currentPageIndex == 0 ? Icons.add_comment : Icons.person_add),   // Change icon according to page index
+          tooltip: currentPageIndex == 0
+              ? 'addChat'.tr()
+              : 'addUser'.tr(), // Change tooltip according to page index
+          child: Icon(currentPageIndex == 0
+              ? Icons.add_comment
+              : Icons.person_add), // Change icon according to page index
         ),
         // Bottom navigation bar for admin only
-        bottomNavigationBar: Singleton().profile.user.admin ? NavigationBar(
-          onDestinationSelected: (int index) {
-            setState(() {
-              currentPageIndex = index;
-            });
-          },
-          selectedIndex: currentPageIndex,
-          destinations: <Widget>[
-            // Messages
-            NavigationDestination(
-              icon: const Icon(Icons.chat),
-              label: 'msgPage'.tr(),
-            ),
-            // Admin panel
-            NavigationDestination(
-              icon: const Icon(Icons.admin_panel_settings),
-              label: 'adminPanel'.tr(),
-            ),
-          ],
-        ) : null,
+        bottomNavigationBar: Singleton().profile.user.admin
+            ? SizedBox(
+                height: 70,
+                child: NavigationBar(
+                  onDestinationSelected: (int index) {
+                    setState(() {
+                      currentPageIndex = index;
+                    });
+                  },
+                  selectedIndex: currentPageIndex,
+                  destinations: <Widget>[
+                    // Messages
+                    NavigationDestination(
+                      icon: const Icon(Icons.chat),
+                      label: 'msgPage'.tr(),
+                    ),
+                    // Admin panel
+                    NavigationDestination(
+                      icon: const Icon(Icons.admin_panel_settings),
+                      label: 'adminPanel'.tr(),
+                    ),
+                  ],
+                ),
+              )
+            : null,
         // Body
         body: <Widget>[
           // Messages
@@ -123,7 +140,7 @@ class _RegisterPageState extends State<HomePage> {
                   'Hello ${Singleton().profile.user.username}! This is admin panel.'),
             ),
           ),
-        ][currentPageIndex],  // Pick widget by current index
+        ][currentPageIndex], // Pick widget by current index
       ),
     );
   }

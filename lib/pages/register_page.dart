@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:whisper/models/invite.dart';
-import 'package:whisper/models/profile.dart';
+import '../models/invite.dart';
+import '../models/profile.dart';
 import '../models/user.dart';
 import 'package:whisper_openapi_client/api.dart';
 import '../utils/cache.dart';
@@ -95,15 +95,26 @@ class _RegisterPageState extends State<RegisterPage> {
         // OpenAPI client
         Singleton().api = ApiClient(basePath: widget.invite.url);
         // Registration
-        var newUser = await Utils.callApi(() => Singleton().userApi.createUser(
-            createUserInput: CreateUserInput(
-                inviteCode: widget.invite.code,
-                publicKey: bu.CryptoUtils.encodeRSAPublicKeyToPem(
-                    keyPair.publicKey as bu.RSAPublicKey),
-                username: _controllerUsername.text)));
+        var newUser = await Utils.callApi(
+            () => Singleton().authApi.createUser(
+                createUserInput: CreateUserInput(
+                    inviteCode: widget.invite.code,
+                    publicKey: bu.CryptoUtils.encodeRSAPublicKeyToPem(
+                        keyPair.publicKey as bu.RSAPublicKey),
+                    username: _controllerUsername.text)),
+            false);
+
         if (newUser != null) {
           // Create profile
-          Profile profile = Profile(widget.invite.url, User.fromModel(newUser));
+          Profile profile = Profile(
+              widget.invite.url,
+              User.fromModel(newUser),
+              bu.CryptoUtils.encodeRSAPublicKeyToPem(
+                  keyPair.publicKey as bu.RSAPublicKey),
+              bu.CryptoUtils.encodeRSAPrivateKeyToPem(
+                  keyPair.privateKey as bu.RSAPrivateKey),
+              "",
+              "");
           // Add profile to singleton
           Singleton().profile = profile;
           // Save password hash to cache
@@ -113,6 +124,10 @@ class _RegisterPageState extends State<RegisterPage> {
               await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
           // Save profile to cache
           await Cache.setProfile(Singleton().profile);
+
+          // Check tokens
+          await Utils.authCheck();
+
           // Redirect to home page
           Navigator.pushReplacement(context,
               MaterialPageRoute(builder: (context) => const HomePage()));

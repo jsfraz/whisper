@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:whisper_openapi_client/api.dart';
 import '../utils/cache.dart';
 import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';
@@ -54,6 +55,12 @@ class _PasswordPageState extends State<PasswordPage> {
             await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
         // Add profile to singleton
         Singleton().profile = await Cache.getProfile();
+
+        // OpenAPI client
+        Singleton().api = ApiClient(basePath: Singleton().profile.url);
+        // Check tokens
+        await Utils.authCheck();
+
         // Redirect to password page
         Navigator.pushReplacement(
             context, MaterialPageRoute(builder: (context) => const HomePage()));

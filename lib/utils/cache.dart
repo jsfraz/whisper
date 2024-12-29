@@ -2,8 +2,6 @@ import 'package:bcrypt/bcrypt.dart';
 import 'package:hive/hive.dart';
 import '../models/profile.dart';
 import 'singleton.dart';
-
-// import '../models/profile.dart';
 import 'utils.dart';
 
 class Cache {

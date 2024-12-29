@@ -22,6 +22,14 @@ class Singleton {
   // Setters
   set api(ApiClient api) => _api = api;
 
+  set apiToken(String token) {
+    var auth = HttpBearerAuth();
+    auth.accessToken = Singleton().profile.accessToken;
+    _api = ApiClient(basePath: Singleton().profile.url, authentication: auth);
+  }
+
   // Getters
   UserApi get userApi => UserApi(_api);
+  
+  AuthenticationApi get authApi => AuthenticationApi(_api);
 }
