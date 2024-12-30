@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import '../models/invite.dart';
+import '../models/invite_data.dart';
 import '../models/profile.dart';
 import '../models/user.dart';
 import 'package:whisper_openapi_client/api.dart';
@@ -17,7 +17,7 @@ import 'home_page.dart';
 class RegisterPage extends StatefulWidget {
   const RegisterPage(this.invite, {super.key});
 
-  final Invite invite;
+  final InviteData invite;
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();

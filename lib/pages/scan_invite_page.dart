@@ -5,7 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 
-import '../models/invite.dart';
+import '../models/invite_data.dart';
 import 'register_page.dart';
 
 class ScanInvitePage extends StatefulWidget {
@@ -27,7 +27,7 @@ class _ScanInvitePageState extends State<ScanInvitePage> {
       try {
         Map<String, dynamic> inviteMap =
             jsonDecode(scanData.code!) as Map<String, dynamic>;
-        Invite invite = Invite.fromJson(inviteMap);
+        InviteData invite = InviteData.fromJson(inviteMap);
         // Check if invite expired
         if (invite.validUntil.difference(DateTime.now()).isNegative) {
           Fluttertoast.showToast(

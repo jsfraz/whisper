@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:whisper/widgets/invite_list_item.dart';
 import 'package:whisper_openapi_client/api.dart';
 import '../models/user.dart';
 import '../utils/color_utils.dart';
@@ -18,14 +19,16 @@ class _RegisterPageState extends State<HomePage> {
   List<User> serverUsers = [];
   List<int> selectedUsers = [];
   int currentPageIndex = 0;
+  List<ModelsInvite> serverInvites = [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Load all server users if admin
+      // Load all server users and invites if admin
       if (Singleton().profile.user.admin) {
         _getServerUsers();
+        _getServerInvites();
       }
     });
   }
@@ -104,6 +107,20 @@ class _RegisterPageState extends State<HomePage> {
     );
   }
 
+  /// Get server invites
+  Future<void> _getServerInvites() async {
+    setState(() {
+      serverInvites = [];
+    });
+    var invites =
+        await Utils.callApi(() => Singleton().inviteApi.getAllInvites(), true);
+    setState(() {
+      if (invites != null) {
+        serverInvites = invites;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     // Get color of user profile picture
@@ -164,7 +181,7 @@ class _RegisterPageState extends State<HomePage> {
         // Floating button
         floatingActionButton: FloatingActionButton(
           onPressed: () {
-            // TODO add
+            // TODO new invite
             /*
             setState(() {
               Provider.of<ThemeNotifier>(context, listen: false).changeTheme(
@@ -182,7 +199,7 @@ class _RegisterPageState extends State<HomePage> {
           backgroundColor: Theme.of(context).colorScheme.primary,
           tooltip: currentPageIndex == 0
               ? 'addChat'.tr()
-              : 'addUser'.tr(), // Change tooltip according to page index
+              : 'newInvite'.tr(), // Change tooltip according to page index
           child: Icon(currentPageIndex == 0
               ? Icons.add_comment
               : Icons.person_add), // Change icon according to page index
@@ -239,7 +256,7 @@ class _RegisterPageState extends State<HomePage> {
                     ),
                     Tab(
                       child: Text(
-                        'activeInvitesPage'.tr(),
+                        'serverInvitesPage'.tr(),
                         style: TextStyle(fontSize: 18),
                       ),
                     ),
@@ -266,37 +283,39 @@ class _RegisterPageState extends State<HomePage> {
                       Expanded(
                         child: RefreshIndicator(
                           onRefresh: _getServerUsers,
-                          child: serverUsers.isEmpty
-                              ? Padding(
-                                  padding: EdgeInsets.only(top: 10),
-                                  child: Text('noServerUsers'.tr()),
-                                )
-                              : ListView.builder(
-                                  itemCount: serverUsers.length,
-                                  itemBuilder: (context, index) {
-                                    return UserListItem(serverUsers[index],
-                                        (isSelected) {
-                                      // Add/remove selected users from list
-                                      setState(() {
-                                        if (isSelected) {
-                                          isSelected = isSelected;
-                                          selectedUsers
-                                              .add(serverUsers[index].id);
-                                        } else {
-                                          selectedUsers
-                                              .remove(serverUsers[index].id);
-                                        }
-                                      });
-                                    });
-                                  },
-                                ),
+                          child: ListView.builder(
+                            itemCount: serverUsers.length,
+                            itemBuilder: (context, index) {
+                              return UserListItem(serverUsers[index],
+                                  (isSelected) {
+                                // Add/remove selected users from list
+                                setState(() {
+                                  if (isSelected) {
+                                    isSelected = isSelected;
+                                    selectedUsers.add(serverUsers[index].id);
+                                  } else {
+                                    selectedUsers.remove(serverUsers[index].id);
+                                  }
+                                });
+                              });
+                            },
+                          ),
                         ),
                       )
                     ],
                   ),
-                  Center(
-                    child: Text("This is active invite page."),
-                  ),
+                  // Invites
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _getServerInvites,
+                      child: ListView.builder(
+                        itemCount: serverInvites.length,
+                        itemBuilder: (context, index) {
+                          return InviteListItem(serverInvites[index]);
+                        },
+                      ),
+                    ),
+                  )
                 ],
               ),
             ),

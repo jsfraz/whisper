@@ -30,6 +30,8 @@ class Singleton {
 
   // Getters
   UserApi get userApi => UserApi(_api);
-  
+
   AuthenticationApi get authApi => AuthenticationApi(_api);
+
+  InviteApi get inviteApi => InviteApi(_api);
 }
