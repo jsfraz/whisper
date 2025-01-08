@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:whisper/utils/dialog_utils.dart';
 import 'package:whisper/widgets/invite_list_item.dart';
 import 'package:whisper_openapi_client/api.dart';
 import '../models/user.dart';
@@ -16,10 +17,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<HomePage> {
-  List<User> serverUsers = [];
-  List<int> selectedUsers = [];
-  int currentPageIndex = 0;
-  List<ModelsInvite> serverInvites = [];
+  List<User> _serverUsers = [];
+  List<int> _selectedUsers = [];
+  int _currentPageIndex = 0;
+  List<ModelsInvite> _serverInvites = [];
 
   @override
   void initState() {
@@ -36,15 +37,15 @@ class _RegisterPageState extends State<HomePage> {
   /// Get server users
   Future<void> _getServerUsers() async {
     setState(() {
-      serverUsers = [];
-      selectedUsers = [];
+      _serverUsers = [];
+      _selectedUsers = [];
     });
     var users =
         await Utils.callApi(() => Singleton().userApi.getAllUsers(), true);
     setState(() {
       if (users != null) {
         for (var x in users) {
-          serverUsers.add(User.fromModel(x));
+          _serverUsers.add(User.fromModel(x));
         }
       }
     });
@@ -58,16 +59,16 @@ class _RegisterPageState extends State<HomePage> {
   /// Delete selected users
   Future<void> _deleteSelectedUsers() async {
     setState(() {
-      serverUsers =
+      _serverUsers =
           []; // I am unable to deactivate the user checkbox, so I will make all the users vanish so it will reset itself :)
     });
     // Delete selected users
     await Utils.callApi(
         () => Singleton().userApi.deleteUsers(
-            deleteUsersInput: DeleteUsersInput(ids: selectedUsers)),
+            deleteUsersInput: DeleteUsersInput(ids: _selectedUsers)),
         true);
     setState(() {
-      selectedUsers = [];
+      _selectedUsers = [];
     });
     // Refresh users
     await _getServerUsers();
@@ -110,14 +111,22 @@ class _RegisterPageState extends State<HomePage> {
   /// Get server invites
   Future<void> _getServerInvites() async {
     setState(() {
-      serverInvites = [];
+      _serverInvites = [];
     });
     var invites =
         await Utils.callApi(() => Singleton().inviteApi.getAllInvites(), true);
     setState(() {
       if (invites != null) {
-        serverInvites = invites;
+        _serverInvites = invites;
       }
+    });
+  }
+
+  /// Shows new invite dialog.
+  Future<void> _createNewInvite(BuildContext context) async {
+    await showDialog(context: context, builder: DialogUtils.newInviteDialog)
+        .then((_) async {
+      await _getServerInvites();
     });
   }
 
@@ -129,7 +138,7 @@ class _RegisterPageState extends State<HomePage> {
 
     return PopScope(
       child: Scaffold(
-        appBar: currentPageIndex == 0
+        appBar: _currentPageIndex == 0
             ? AppBar(
                 // User icon with first letter
                 leading: Transform.scale(
@@ -180,27 +189,18 @@ class _RegisterPageState extends State<HomePage> {
         resizeToAvoidBottomInset: false,
         // Floating button
         floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            // TODO new invite
-            /*
-            setState(() {
-              Provider.of<ThemeNotifier>(context, listen: false).changeTheme(
-                  AppTheme(
-                      ThemeMode.dark,
-                      ColorUtils.getMaterialColor(
-                          Color((Random().nextDouble() * 0xFFFFFF).toInt())
-                              .withValues(alpha: 1.0)),
-                      true));
-            }); // TODO delete
-            */
-          },
+          onPressed: _currentPageIndex == 0
+              ? null
+              : () async {
+                  await _createNewInvite(context);
+                },
           shape: const CircleBorder(),
           foregroundColor: Theme.of(context).colorScheme.surface,
           backgroundColor: Theme.of(context).colorScheme.primary,
-          tooltip: currentPageIndex == 0
+          tooltip: _currentPageIndex == 0
               ? 'addChat'.tr()
               : 'newInvite'.tr(), // Change tooltip according to page index
-          child: Icon(currentPageIndex == 0
+          child: Icon(_currentPageIndex == 0
               ? Icons.add_comment
               : Icons.person_add), // Change icon according to page index
         ),
@@ -211,10 +211,10 @@ class _RegisterPageState extends State<HomePage> {
                 child: NavigationBar(
                   onDestinationSelected: (int index) {
                     setState(() {
-                      currentPageIndex = index;
+                      _currentPageIndex = index;
                     });
                   },
-                  selectedIndex: currentPageIndex,
+                  selectedIndex: _currentPageIndex,
                   destinations: <Widget>[
                     // Messages
                     NavigationDestination(
@@ -268,15 +268,18 @@ class _RegisterPageState extends State<HomePage> {
                   // Server users
                   Column(
                     children: [
-                      Align(
-                        alignment: Alignment.topRight,
-                        child: Padding(
-                          padding: EdgeInsets.all(5),
-                          child: ElevatedButton(
-                            onPressed: selectedUsers.isEmpty
-                                ? null
-                                : _deleteSelectedUsersButton,
-                            child: Text('deleteUser'.tr()),
+                      Visibility(
+                        visible: _selectedUsers.isNotEmpty,
+                        child: Align(
+                          alignment: Alignment.topRight,
+                          child: Padding(
+                            padding: EdgeInsets.all(5),
+                            child: ElevatedButton(
+                              onPressed: _selectedUsers.isEmpty
+                                  ? null
+                                  : _deleteSelectedUsersButton,
+                              child: Text('deleteUser'.tr()),
+                            ),
                           ),
                         ),
                       ),
@@ -284,17 +287,17 @@ class _RegisterPageState extends State<HomePage> {
                         child: RefreshIndicator(
                           onRefresh: _getServerUsers,
                           child: ListView.builder(
-                            itemCount: serverUsers.length,
+                            itemCount: _serverUsers.length,
                             itemBuilder: (context, index) {
-                              return UserListItem(serverUsers[index],
+                              return UserListItem(_serverUsers[index],
                                   (isSelected) {
                                 // Add/remove selected users from list
                                 setState(() {
                                   if (isSelected) {
                                     isSelected = isSelected;
-                                    selectedUsers.add(serverUsers[index].id);
+                                    _selectedUsers.add(_serverUsers[index].id);
                                   } else {
-                                    selectedUsers.remove(serverUsers[index].id);
+                                    _selectedUsers.remove(_serverUsers[index].id);
                                   }
                                 });
                               });
@@ -305,23 +308,33 @@ class _RegisterPageState extends State<HomePage> {
                     ],
                   ),
                   // Invites
-                  Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: _getServerInvites,
-                      child: ListView.builder(
-                        itemCount: serverInvites.length,
-                        itemBuilder: (context, index) {
-                          return InviteListItem(serverInvites[index]);
-                        },
-                      ),
+                  RefreshIndicator(
+                    onRefresh: _getServerInvites,
+                    child: ListView.builder(
+                      itemCount: _serverInvites.length,
+                      itemBuilder: (context, index) {
+                        return InviteListItem(_serverInvites[index]);
+                      },
                     ),
                   )
                 ],
               ),
             ),
           )
-        ][currentPageIndex], // Pick widget by current index
+        ][_currentPageIndex], // Pick widget by current index
       ),
     );
   }
 }
+
+            /*
+            setState(() {
+              Provider.of<ThemeNotifier>(context, listen: false).changeTheme(
+                  AppTheme(
+                      ThemeMode.dark,
+                      ColorUtils.getMaterialColor(
+                          Color((Random().nextDouble() * 0xFFFFFF).toInt())
+                              .withValues(alpha: 1.0)),
+                      true));
+            }); // TODO delete
+            */

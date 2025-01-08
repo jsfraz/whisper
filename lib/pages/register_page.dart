@@ -6,7 +6,7 @@ import '../models/invite_data.dart';
 import '../models/profile.dart';
 import '../models/user.dart';
 import 'package:whisper_openapi_client/api.dart';
-import '../utils/cache.dart';
+import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
@@ -118,12 +118,12 @@ class _RegisterPageState extends State<RegisterPage> {
           // Add profile to singleton
           Singleton().profile = profile;
           // Save password hash to cache
-          Cache.setPasswordHash(_controllerLocalPassword.text);
+          CacheUtils.setPasswordHash(_controllerLocalPassword.text);
           // Add key to singleton
           Singleton().boxCollectionKey =
               await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
           // Save profile to cache
-          await Cache.setProfile(Singleton().profile);
+          await CacheUtils.setProfile(Singleton().profile);
 
           // Check tokens
           await Utils.authCheck();

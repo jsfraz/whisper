@@ -2,7 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class ColorUtils {
-  ///
+
+  /// Derives color from username
   static Color getColorFromUsername(String username) {
     // Hash username
     int hash = username.hashCode;
@@ -18,7 +19,7 @@ class ColorUtils {
     return Color.fromARGB(255, red, green, blue);
   }
 
-  ///
+  /// Gets contrast color from background color.
   static Color getReadableColor(Color backgroundColor) {
     // RGB to HSV
     final hsvColor = HSVColor.fromColor(backgroundColor);

@@ -13,7 +13,7 @@ class UserListItem extends StatefulWidget {
 }
 
 class _UserListItemState extends State<UserListItem> {
-  bool isSelected = false;
+  bool _isSelected = false;
 
   @override
   Widget build(BuildContext context) {
@@ -41,11 +41,11 @@ class _UserListItemState extends State<UserListItem> {
       ),
       title: Text(widget.user.username),
       trailing: Checkbox(
-        value: isSelected,
+        value: _isSelected,
         onChanged: (_) {
           setState(() {
-            isSelected = !isSelected;
-            widget.valueChanged(isSelected);
+            _isSelected = !_isSelected;
+            widget.valueChanged(_isSelected);
           });
         },
       ),

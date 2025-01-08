@@ -20,24 +20,21 @@ class UserAdapter extends TypeAdapter<User> {
       fields[0] as int,
       fields[1] as String,
       fields[2] as String,
-      fields[3] as String,
-      fields[4] as bool,
+      fields[3] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, User obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.username)
       ..writeByte(2)
-      ..write(obj.mail)
-      ..writeByte(3)
       ..write(obj.publicKey)
-      ..writeByte(4)
+      ..writeByte(3)
       ..write(obj.admin);
   }
 

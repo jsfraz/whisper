@@ -4,7 +4,7 @@ import '../models/profile.dart';
 import 'singleton.dart';
 import 'utils.dart';
 
-class Cache {
+class CacheUtils {
   static const _hashBoxKey = 'hash';
   static const _profileKey = 'profile';
 

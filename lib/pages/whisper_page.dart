@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../utils/theme_notifier.dart';
 import '../pages/scan_invite_button_page.dart';
 import 'password_page.dart';
-import '../utils/cache.dart';
+import '../utils/cache_utils.dart';
 import '../utils/no_glow_behavior.dart';
 
 class WhisperPage extends StatelessWidget {
@@ -16,7 +16,7 @@ class WhisperPage extends StatelessWidget {
     Widget defaultPage = const ScanInviteButtonPage();
 
     // Check for password hash in cache
-    String? hash = await Cache.getPasswordHash();
+    String? hash = await CacheUtils.getPasswordHash();
     if (hash != null) {
       defaultPage = const PasswordPage();
     }

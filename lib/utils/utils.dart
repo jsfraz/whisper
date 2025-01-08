@@ -7,7 +7,7 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:whisper_openapi_client/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
-import 'cache.dart';
+import 'cache_utils.dart';
 import 'crypto_utils.dart';
 import 'singleton.dart';
 
@@ -20,6 +20,8 @@ class Utils {
     return input[0].toUpperCase() + input.substring(1);
   }
 
+  // TODO show error parameter
+  // TODO offline mode
   /// Call API, handle errors and return result.
   static Future<T?> callApi<T>(
       Future<T> Function() call, bool useSecurity) async {
@@ -95,7 +97,7 @@ class Utils {
         Singleton().profile.accessToken = authResponse.accessToken;
         Singleton().profile.refreshToken = authResponse.refreshToken;
         // Save profile to cache
-        await Cache.setProfile(Singleton().profile);
+        await CacheUtils.setProfile(Singleton().profile);
       }
     } else if (JwtDecoder.isExpired(Singleton().profile.accessToken)) {
       // Refresh access token if expired
@@ -109,7 +111,7 @@ class Utils {
         // Set access token to singleton
         Singleton().profile.accessToken = refreshResponse.accessToken;
         // Save profile to cache
-        await Cache.setProfile(Singleton().profile);
+        await CacheUtils.setProfile(Singleton().profile);
       }
     }
 
