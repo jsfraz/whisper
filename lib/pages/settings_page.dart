@@ -45,10 +45,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
-            // TODO theme color
-            // TODO use material3
-
-            // Divider(thickness: 1),
+            Divider(thickness: 1),
 
             // TODO change password
 
