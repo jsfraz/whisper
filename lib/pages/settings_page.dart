@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:whisper/utils/dialog_utils.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -16,24 +17,51 @@ class _SettingsPageState extends State<SettingsPage> {
         title: Text('settingsPage'.tr()),
       ),
       body: SafeArea(
-        child: Column(children: [
-          // TODO theme brightness
-          // TODO theme color
-          // TODO use material3
+        child: Column(
+          children: [
+            // Theme
+            TextButton(
+              onPressed: () {
+                showDialog(context: context, builder: DialogUtils.themeDialog);
+              },
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.palette,
+                    size: 24,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(left: 5),
+                    child: Text(
+                      'themeSettings'.tr(),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.secondary),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 24,
+                  ),
+                ],
+              ),
+            ),
+            // TODO theme color
+            // TODO use material3
 
-          // TODO divider
+            // Divider(thickness: 1),
 
-          // TODO change password
+            // TODO change password
 
-          // TODO divider
+            // Divider(thickness: 1),
 
-          // TODO delete account (logout)
+            // TODO delete account (logout)
 
-          // TODO divider
+            // TODO space
 
-          // TODO how it works
-          // TODO repo
-        ],),
+            // TODO how it works
+            // TODO repo
+          ],
+        ),
       ),
     );
   }

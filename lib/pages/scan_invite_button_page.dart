@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:whisper/pages/scan_invite_page.dart';
+import 'scan_invite_page.dart';
 
 class ScanInviteButtonPage extends StatefulWidget {
   const ScanInviteButtonPage({super.key});

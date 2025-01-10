@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
+import '../utils/cache_utils.dart';
 import 'models/app_theme.dart';
 import 'models/profile.dart';
 import 'models/user.dart';
@@ -22,10 +23,14 @@ void main() async {
   Hive
     ..init(await Utils.getCacheDir())
     ..registerAdapter(ProfileAdapter())
-    ..registerAdapter(UserAdapter());
+    ..registerAdapter(UserAdapter())
+    ..registerAdapter(AppThemeAdapter());
+
 
   // Default theme
-  AppTheme defaultTheme = AppTheme(ThemeMode.system, Colors.blue, true);
+  Singleton().appTheme = await CacheUtils.getTheme() ?? AppTheme.fromValues(ThemeMode.system, Colors.blue, true);
+  // Save theme
+  await CacheUtils.setTheme(Singleton().appTheme);
 
   // App
   runApp(
@@ -34,7 +39,7 @@ void main() async {
       path: 'assets/translations',
       fallbackLocale: const Locale('en'),
       child: ChangeNotifierProvider<ThemeNotifier>(
-        create: (context) => ThemeNotifier(defaultTheme),
+        create: (context) => ThemeNotifier(Singleton().appTheme),
         child: const WhisperPage(),
       ),
     ),

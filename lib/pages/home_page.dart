@@ -1,9 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:page_transition/page_transition.dart';
-import 'package:whisper/pages/settings_page.dart';
-import 'package:whisper/utils/dialog_utils.dart';
-import 'package:whisper/widgets/invite_list_item.dart';
+import 'settings_page.dart';
+import '../utils/dialog_utils.dart';
+import '../widgets/invite_list_item.dart';
 import 'package:whisper_openapi_client/api.dart';
 import '../models/user.dart';
 import '../utils/color_utils.dart';
@@ -38,20 +38,22 @@ class _HomePageState extends State<HomePage> {
 
   /// Get server users
   Future<void> _getServerUsers() async {
-    setState(() {
-      _serverUsers = [];
-      _selectedUsers = [];
-    });
-    var users =
-        await Utils.callApi(() => Singleton().userApi.getAllUsers(), true);
     if (mounted) {
       setState(() {
-        if (users != null) {
-          for (var x in users) {
-            _serverUsers.add(User.fromModel(x));
-          }
-        }
+        _serverUsers = [];
+        _selectedUsers = [];
       });
+      var users =
+          await Utils.callApi(() => Singleton().userApi.getAllUsers(), true);
+      if (mounted) {
+        setState(() {
+          if (users != null) {
+            for (var x in users) {
+              _serverUsers.add(User.fromModel(x));
+            }
+          }
+        });
+      }
     }
   }
 
@@ -86,25 +88,40 @@ class _HomePageState extends State<HomePage> {
         return AlertDialog(
           title: Text('deleteUserConfirm'.tr()),
           content: Text('deleteUserConfirmText'.tr()),
+          actionsAlignment: MainAxisAlignment.center,
           actions: <Widget>[
             TextButton(
-              style: TextButton.styleFrom(
-                textStyle: Theme.of(context).textTheme.labelLarge,
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.all(
+                    Theme.of(context).colorScheme.primary),
+                shape: WidgetStateProperty.all(
+                  RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(35)),
+                ),
               ),
-              child: Text('noText'.tr()),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                textStyle: Theme.of(context).textTheme.labelLarge,
+              child: Text(
+                'yesText'.tr(),
+                style: TextStyle(color: Theme.of(context).colorScheme.surface),
               ),
-              child: Text('yesText'.tr()),
               onPressed: () async {
                 Navigator.of(context).pop();
                 await _deleteSelectedUsers();
               },
+            ),
+            TextButton(
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.all(
+                    Theme.of(context).colorScheme.primary),
+                shape: WidgetStateProperty.all(
+                  RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(35)),
+                ),
+              ),
+              onPressed: Navigator.of(context).pop,
+              child: Text(
+                'noText'.tr(),
+                style: TextStyle(color: Theme.of(context).colorScheme.surface),
+              ),
             ),
           ],
         );
@@ -114,17 +131,19 @@ class _HomePageState extends State<HomePage> {
 
   /// Get server invites
   Future<void> _getServerInvites() async {
-    setState(() {
-      _serverInvites = [];
-    });
-    var invites =
-        await Utils.callApi(() => Singleton().inviteApi.getAllInvites(), true);
     if (mounted) {
       setState(() {
-        if (invites != null) {
-          _serverInvites = invites;
-        }
+        _serverInvites = [];
       });
+      var invites = await Utils.callApi(
+          () => Singleton().inviteApi.getAllInvites(), true);
+      if (mounted) {
+        setState(() {
+          if (invites != null) {
+            _serverInvites = invites;
+          }
+        });
+      }
     }
   }
 
@@ -193,15 +212,6 @@ class _HomePageState extends State<HomePage> {
                       // Settings
                       PopupMenuItem<void Function()>(
                         value: () {
-                          /*
-                          Navigator.push(
-                              context,
-                              PageTransition(
-                                  duration: Duration(milliseconds: 400),
-                                  type: PageTransitionType.rightToLeftJoined,
-                                  child: SettingsPage(),
-                                  childCurrent: widget));
-                          */
                           Navigator.of(context).push(PageTransition(
                               duration: Duration(milliseconds: 400),
                               type: PageTransitionType.rightToLeftJoined,
@@ -356,15 +366,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-
-            /*
-            setState(() {
-              Provider.of<ThemeNotifier>(context, listen: false).changeTheme(
-                  AppTheme(
-                      ThemeMode.dark,
-                      ColorUtils.getMaterialColor(
-                          Color((Random().nextDouble() * 0xFFFFFF).toInt())
-                              .withValues(alpha: 1.0)),
-                      true));
-            }); // TODO delete
-            */

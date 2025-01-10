@@ -1,5 +1,6 @@
 import 'package:whisper_openapi_client/api.dart';
 
+import '../models/app_theme.dart';
 import '../models/profile.dart';
 
 /// Singleton https://stackoverflow.com/a/12649574/19371130
@@ -12,6 +13,8 @@ class Singleton {
   late Profile profile;
   // Box key
   late List<int> boxCollectionKey;
+  // App theme
+  late AppTheme appTheme;
 
   factory Singleton() {
     return _singleton;

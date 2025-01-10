@@ -6,7 +6,6 @@ import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
-
 import 'home_page.dart';
 
 class PasswordPage extends StatefulWidget {

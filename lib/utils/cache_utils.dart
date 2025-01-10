@@ -1,5 +1,6 @@
 import 'package:bcrypt/bcrypt.dart';
 import 'package:hive/hive.dart';
+import 'package:whisper/models/app_theme.dart';
 import '../models/profile.dart';
 import 'singleton.dart';
 import 'utils.dart';
@@ -7,6 +8,7 @@ import 'utils.dart';
 class CacheUtils {
   static const _hashBoxKey = 'hash';
   static const _profileKey = 'profile';
+  static const _themeKey = 'theme';
 
   /// Opens box with password hash
   static Future<Box> _openPasswordHashBox() async {
@@ -63,12 +65,31 @@ class CacheUtils {
     return await box.get(_profileKey);
   }
 
-  /// Delete encrypted cache and password hash from disk
+  /// Delete encrypted cache, password hash and theme from disk
   static Future<void> deleteCache() async {
     BoxCollection collection =
         await _openBoxCollectionWithoutKey({_profileKey});
     await collection.deleteFromDisk();
-    Box box = await _openPasswordHashBox();
-    await box.deleteFromDisk();
+    Box passwordBox = await _openPasswordHashBox();
+    await passwordBox.deleteFromDisk();
+    Box themeBox = await _openThemeBox();
+    await themeBox.deleteFromDisk();
+  }
+
+  /// Opens box with theme
+  static Future<Box> _openThemeBox() async {
+    return Hive.openBox(_themeKey);
+  }
+
+  /// Returns theme
+  static Future<AppTheme?> getTheme() async {
+    Box box = await _openThemeBox();
+    return box.get(_themeKey);
+  }
+
+  /// Sets theme
+  static Future<void> setTheme(AppTheme theme) async {
+    Box box = await _openThemeBox();
+    await box.put(_themeKey, theme);
   }
 }

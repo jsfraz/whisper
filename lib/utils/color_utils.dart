@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class ColorUtils {
-
   /// Derives color from username
   static Color getColorFromUsername(String username) {
     // Hash username
@@ -62,5 +61,18 @@ class ColorUtils {
     };
 
     return MaterialColor(color.value, shades);
+  }
+  
+  /// Color to hex string
+  static String colorToHex(Color color) {
+    return '#${color.value.toRadixString(16)}';
+  }
+
+  /// COlor from hex
+  static Color colorFromHex(String hexString) {
+    final buffer = StringBuffer();
+    if (hexString.length == 6 || hexString.length == 7) buffer.write('ff');
+    buffer.write(hexString.replaceFirst('#', ''));
+    return Color(int.parse(buffer.toString(), radix: 16));
   }
 }
