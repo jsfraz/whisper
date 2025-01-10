@@ -43,6 +43,6 @@ class AppTheme {
 
   /// Set color
   set color(Color value) {
-    colorHex = ColorUtils.colorToHex(color);
+    colorHex = ColorUtils.colorToHex(value);
   }
 }

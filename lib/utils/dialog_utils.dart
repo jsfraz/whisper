@@ -3,9 +3,8 @@ import 'package:email_validator/email_validator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
-import 'package:whisper/utils/cache_utils.dart';
+import '../utils/cache_utils.dart';
 import 'package:whisper_openapi_client/api.dart';
-import 'color_utils.dart';
 import 'singleton.dart';
 import 'theme_notifier.dart';
 import 'utils.dart';
@@ -90,12 +89,21 @@ class DialogUtils {
             .changeTheme(Singleton().appTheme);
       }
 
-      /*
-      /// Add initial color to color picker
-      Widget colorPickerWithInitialColor(BuildContext c) {
-        return colorPicker(context, Singleton().appTheme.color);
+      /// Open color picker dialog
+      Future openColorPickerDialog() async {
+        await showDialog(
+            context: context,
+            builder: (context) =>
+                colorPickerDialog(context, Singleton().appTheme.color)).then((value) async {
+          if (value != null) {
+            setState(() {
+              Singleton().appTheme.color = value;
+              changeTheme();
+            });
+            await CacheUtils.setTheme(Singleton().appTheme);
+          }
+        });
       }
-      */
 
       return AlertDialog(
         title: Text('themeSettings'.tr()),
@@ -139,9 +147,7 @@ class DialogUtils {
                   ),
                   Spacer(),
                   ElevatedButton(
-                    onPressed: () {
-                      // TODO open color picker, return color and apply
-                    },
+                    onPressed: openColorPickerDialog,
                     child: Text('chooseColor'),
                   ),
                 ],
@@ -188,5 +194,37 @@ class DialogUtils {
         ],
       );
     });
+  }
+
+  /// Returns color picker dialog
+  static Widget colorPickerDialog(BuildContext context, Color initialColor) {
+    Color pickerColor = initialColor;
+
+    return AlertDialog(
+      title: Text('pickColor'.tr()),
+      content: SingleChildScrollView(
+        child: ColorPicker(
+          enableAlpha: false,
+          labelTypes: [],
+          pickerColor: initialColor,
+          onColorChanged: (color) => pickerColor = color,
+        ),
+      ),
+      actionsAlignment: MainAxisAlignment.center,
+      actions: <Widget>[
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(pickerColor),
+          style: ButtonStyle(
+            backgroundColor:
+                WidgetStateProperty.all(Theme.of(context).colorScheme.primary),
+            shape: WidgetStateProperty.all(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(35)),
+            ),
+          ),
+          child: Text('okText'.tr(),
+              style: TextStyle(color: Theme.of(context).colorScheme.surface)),
+        ),
+      ],
+    );
   }
 }
