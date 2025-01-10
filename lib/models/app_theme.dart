@@ -27,6 +27,7 @@ class AppTheme {
     try {
       return ThemeMode.values.byName(themeModeStr);
     } catch (_) {
+      themeModeStr = ThemeMode.system.name;
       return ThemeMode.system;
     }
   }
@@ -38,7 +39,12 @@ class AppTheme {
 
   /// Get MaterialColor from colorSer
   MaterialColor get color {
-    return ColorUtils.getMaterialColor(ColorUtils.colorFromHex(colorHex));
+    try {
+      return ColorUtils.getMaterialColor(ColorUtils.colorFromHex(colorHex));
+    } catch (_) {
+      color = Colors.blue;
+      return Colors.blue;
+    }
   }
 
   /// Set color
