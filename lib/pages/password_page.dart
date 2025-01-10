@@ -50,6 +50,9 @@ class _PasswordPageState extends State<PasswordPage> {
       bool password = await CacheUtils.isCorrectPassword(_controllerLocalPassword.text);
       // Check password
       if (password) {
+        Fluttertoast.showToast(
+            msg: 'passwordPlsWait'.tr(),
+            backgroundColor: Colors.grey);
         // Add key to singleton
         Singleton().boxCollectionKey =
             await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
@@ -66,7 +69,7 @@ class _PasswordPageState extends State<PasswordPage> {
             context, MaterialPageRoute(builder: (context) => const HomePage()));
       } else {
         Fluttertoast.showToast(
-            msg: Utils.capitalizeFirstLetter('invalidLocalPassword'.tr()),
+            msg: 'invalidLocalPassword'.tr(),
             backgroundColor: Colors.red);
       }
     }

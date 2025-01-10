@@ -8,8 +8,8 @@ import 'utils.dart';
 
 class DialogUtils {
 
-  /// Returns new invite dialog
-  static Widget newInviteDialog(BuildContext context) {
+  /// Returns invite dialog
+  static Widget inviteDialog(BuildContext context) {
     final TextEditingController controllerMail = TextEditingController();
     bool mailOk = false;
     bool mailEditing = false;

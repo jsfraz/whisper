@@ -1,5 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:page_transition/page_transition.dart';
+import 'package:whisper/pages/settings_page.dart';
 import 'package:whisper/utils/dialog_utils.dart';
 import 'package:whisper/widgets/invite_list_item.dart';
 import 'package:whisper_openapi_client/api.dart';
@@ -13,10 +15,10 @@ class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _RegisterPageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _RegisterPageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> {
   List<User> _serverUsers = [];
   List<int> _selectedUsers = [];
   int _currentPageIndex = 0;
@@ -42,13 +44,15 @@ class _RegisterPageState extends State<HomePage> {
     });
     var users =
         await Utils.callApi(() => Singleton().userApi.getAllUsers(), true);
-    setState(() {
-      if (users != null) {
-        for (var x in users) {
-          _serverUsers.add(User.fromModel(x));
+    if (mounted) {
+      setState(() {
+        if (users != null) {
+          for (var x in users) {
+            _serverUsers.add(User.fromModel(x));
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   /// Delete selected users button
@@ -74,9 +78,9 @@ class _RegisterPageState extends State<HomePage> {
     await _getServerUsers();
   }
 
-  // Show delete users dialog
+  /// Show delete users dialog
   Future<void> _deleteSelectedUsersDialog(BuildContext context) {
-    return showDialog<void>(
+    return showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -115,16 +119,18 @@ class _RegisterPageState extends State<HomePage> {
     });
     var invites =
         await Utils.callApi(() => Singleton().inviteApi.getAllInvites(), true);
-    setState(() {
-      if (invites != null) {
-        _serverInvites = invites;
-      }
-    });
+    if (mounted) {
+      setState(() {
+        if (invites != null) {
+          _serverInvites = invites;
+        }
+      });
+    }
   }
 
   /// Shows new invite dialog.
   Future<void> _createNewInvite(BuildContext context) async {
-    await showDialog(context: context, builder: DialogUtils.newInviteDialog)
+    await showDialog(context: context, builder: DialogUtils.inviteDialog)
         .then((_) async {
       await _getServerInvites();
     });
@@ -176,12 +182,35 @@ class _RegisterPageState extends State<HomePage> {
                     },
                   ),
                   // More
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    tooltip: 'moreButton'.tr(),
-                    onPressed: () {
-                      // TODO more
+                  PopupMenuButton<void Function()>(
+                    tooltip: 'optionsMenu'.tr(),
+                    // Call function when option is selected
+                    onSelected: (void Function() f) {
+                      f();
                     },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<void Function()>>[
+                      // Settings
+                      PopupMenuItem<void Function()>(
+                        value: () {
+                          /*
+                          Navigator.push(
+                              context,
+                              PageTransition(
+                                  duration: Duration(milliseconds: 400),
+                                  type: PageTransitionType.rightToLeftJoined,
+                                  child: SettingsPage(),
+                                  childCurrent: widget));
+                          */
+                          Navigator.of(context).push(PageTransition(
+                              duration: Duration(milliseconds: 400),
+                              type: PageTransitionType.rightToLeftJoined,
+                              child: SettingsPage(),
+                              childCurrent: widget));
+                        },
+                        child: Text('settingsPage'.tr()),
+                      ),
+                    ],
                   ),
                 ],
               )
@@ -297,7 +326,8 @@ class _RegisterPageState extends State<HomePage> {
                                     isSelected = isSelected;
                                     _selectedUsers.add(_serverUsers[index].id);
                                   } else {
-                                    _selectedUsers.remove(_serverUsers[index].id);
+                                    _selectedUsers
+                                        .remove(_serverUsers[index].id);
                                   }
                                 });
                               });
