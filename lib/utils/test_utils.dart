@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -21,23 +22,31 @@ class TestUtils {
 
       // Listen for messages from WS channel
       channel.stream.listen((message) {
-        debugPrint('Received message: $message');
+        Uint8List msgData = message as Uint8List;
+        debugPrint('Received message: ${utf8.decode(msgData)}');
       });
 
-      // Send message to WS channel
+      // Send messages to WS channel
+
+      // Subscribe to topic
       var msg = {"action": "subscribe", "topic": "message"};
-      channel.sink.add(jsonEncode(msg));
+      // Send as binary data
+      channel.sink.add(utf8.encode(jsonEncode(msg)));
+
       sleep(const Duration(seconds: 1));
+
+      // Publish message to topic
       var msg2 = {
         "action": "publish",
         "topic": "message",
         "payload": {"message": "Hello from Whisper app!"}
       };
-      channel.sink.add(jsonEncode(msg2));
+      // Send as binary data
+      channel.sink.add(utf8.encode(jsonEncode(msg2)));
 
       /*
       // Close WS channel
-      sleep(const Duration(seconds: 1));
+      sleep(const Duration(seconds: 5));
       channel.sink.close();
       */
     } catch (e) {
