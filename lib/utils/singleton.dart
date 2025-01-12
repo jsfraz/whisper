@@ -37,4 +37,6 @@ class Singleton {
   AuthenticationApi get authApi => AuthenticationApi(_api);
 
   InviteApi get inviteApi => InviteApi(_api);
+
+  WebSocketAuthenticationApi get wsAuthApi => WebSocketAuthenticationApi(_api);
 }

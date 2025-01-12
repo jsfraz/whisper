@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:page_transition/page_transition.dart';
+import '../utils/test_utils.dart';
 import 'settings_page.dart';
 import '../utils/dialog_utils.dart';
 import '../widgets/invite_list_item.dart';
@@ -33,6 +34,7 @@ class _HomePageState extends State<HomePage> {
         _getServerUsers();
         _getServerInvites();
       }
+      _test();
     });
   }
 
@@ -78,6 +80,15 @@ class _HomePageState extends State<HomePage> {
     });
     // Refresh users
     await _getServerUsers();
+  }
+
+  /// Test WS connection
+  Future<void> _test() async {
+    var wsAuthResponse =
+        await Utils.callApi(() => Singleton().wsAuthApi.webSocketAuth(), true);
+    if (wsAuthResponse != null) {
+      TestUtils.test(Singleton().profile.url, wsAuthResponse.accessToken);
+    }
   }
 
   /// Show delete users dialog
@@ -200,27 +211,16 @@ class _HomePageState extends State<HomePage> {
                       // TODO search
                     },
                   ),
-                  // More
-                  PopupMenuButton<void Function()>(
-                    tooltip: 'optionsMenu'.tr(),
-                    // Call function when option is selected
-                    onSelected: (void Function() f) {
-                      f();
+                  // Settings
+                  IconButton(
+                    icon: const Icon(Icons.settings),
+                    tooltip: 'searchButton'.tr(),
+                    onPressed: () {
+                      Navigator.of(context).push(PageTransition(
+                          type: PageTransitionType.rightToLeftJoined,
+                          child: SettingsPage(),
+                          childCurrent: widget));
                     },
-                    itemBuilder: (BuildContext context) =>
-                        <PopupMenuEntry<void Function()>>[
-                      // Settings
-                      PopupMenuItem<void Function()>(
-                        value: () {
-                          Navigator.of(context).push(PageTransition(
-                              duration: Duration(milliseconds: 400),
-                              type: PageTransitionType.rightToLeftJoined,
-                              child: SettingsPage(),
-                              childCurrent: widget));
-                        },
-                        child: Text('settingsPage'.tr()),
-                      ),
-                    ],
                   ),
                 ],
               )
@@ -308,7 +308,7 @@ class _HomePageState extends State<HomePage> {
                   Column(
                     children: [
                       Visibility(
-                        visible: _selectedUsers.isNotEmpty,
+                        visible: _serverUsers.isNotEmpty,
                         child: Align(
                           alignment: Alignment.topRight,
                           child: Padding(

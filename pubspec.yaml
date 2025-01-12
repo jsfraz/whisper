@@ -49,6 +49,7 @@ dependencies:
   pointycastle: ^3.9.1
   provider: ^6.1.2
   qr_code_scanner_plus: ^2.0.6
+  web_socket_channel: ^3.0.1
   whisper_openapi_client:
     git:
       url: https://github.com/jsfraz/whisper_openapi_client.git
