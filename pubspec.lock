@@ -860,7 +860,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: "49f68a7fc7e95a745730d53052807b75090e5efc"
+      resolved-ref: "3ac71601ca77cf95a0aae00f1d68d6baa83d4391"
       url: "https://github.com/jsfraz/whisper_openapi_client.git"
     source: git
     version: "0.0.1"

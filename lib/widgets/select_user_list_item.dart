@@ -1,0 +1,54 @@
+import 'package:flutter/material.dart';
+import '../models/user.dart';
+import '../utils/color_utils.dart';
+
+class SelectUserListItem extends StatefulWidget {
+  const SelectUserListItem(this.user, this.valueChanged, {super.key});
+
+  final User user;
+  final Function(bool) valueChanged;
+
+  @override
+  State<SelectUserListItem> createState() => _SelectUserListItemState();
+}
+
+class _SelectUserListItemState extends State<SelectUserListItem> {
+  bool _isSelected = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // Get color of user profile picture
+    Color userColor =
+        ColorUtils.getColorFromUsername(widget.user.username);
+
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: userColor,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            widget.user.username.isNotEmpty ? widget.user.username[0].toUpperCase() : '?',
+            style: TextStyle(
+              color: ColorUtils.getReadableColor(userColor),
+              fontSize: 20,
+            ),
+          ),
+        ),
+      ),
+      title: Text(widget.user.username),
+      trailing: Checkbox(
+        value: _isSelected,
+        onChanged: (_) {
+          setState(() {
+            _isSelected = !_isSelected;
+            widget.valueChanged(_isSelected);
+          });
+        },
+      ),
+    );
+  }
+}

@@ -3,24 +3,24 @@ import '../models/user.dart';
 import '../utils/color_utils.dart';
 
 class UserListItem extends StatefulWidget {
-  const UserListItem(this.user, this.valueChanged, {super.key});
+  const UserListItem(this.user, this.onPressed, {super.key});
 
   final User user;
-  final Function(bool) valueChanged;
+  final Function() onPressed;
 
   @override
   State<UserListItem> createState() => _UserListItemState();
 }
 
 class _UserListItemState extends State<UserListItem> {
-  bool _isSelected = false;
 
   @override
   Widget build(BuildContext context) {
     // Get color of user profile picture
-    Color userColor =
-        ColorUtils.getColorFromUsername(widget.user.username);
+    Color userColor = ColorUtils.getColorFromUsername(widget.user.username);
 
+    // TODO effect onPressed
+    // TODO onPressed
     return ListTile(
       leading: Container(
         width: 40,
@@ -31,7 +31,9 @@ class _UserListItemState extends State<UserListItem> {
         ),
         child: Center(
           child: Text(
-            widget.user.username.isNotEmpty ? widget.user.username[0].toUpperCase() : '?',
+            widget.user.username.isNotEmpty
+                ? widget.user.username[0].toUpperCase()
+                : '?',
             style: TextStyle(
               color: ColorUtils.getReadableColor(userColor),
               fontSize: 20,
@@ -40,15 +42,6 @@ class _UserListItemState extends State<UserListItem> {
         ),
       ),
       title: Text(widget.user.username),
-      trailing: Checkbox(
-        value: _isSelected,
-        onChanged: (_) {
-          setState(() {
-            _isSelected = !_isSelected;
-            widget.valueChanged(_isSelected);
-          });
-        },
-      ),
     );
   }
 }

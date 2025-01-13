@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -33,7 +32,7 @@ class TestUtils {
       // Send as binary data
       channel.sink.add(utf8.encode(jsonEncode(msg)));
 
-      sleep(const Duration(seconds: 1));
+      // sleep(const Duration(seconds: 1));
 
       // Publish message to topic
       var msg2 = {

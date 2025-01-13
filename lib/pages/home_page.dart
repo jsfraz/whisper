@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:page_transition/page_transition.dart';
 import '../utils/test_utils.dart';
+import 'search_user_page.dart';
 import 'settings_page.dart';
 import '../utils/dialog_utils.dart';
 import '../widgets/invite_list_item.dart';
@@ -10,7 +11,7 @@ import '../models/user.dart';
 import '../utils/color_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
-import '../widgets/user_list_item.dart';
+import '../widgets/select_user_list_item.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -34,7 +35,6 @@ class _HomePageState extends State<HomePage> {
         _getServerUsers();
         _getServerInvites();
       }
-      _test();
     });
   }
 
@@ -229,7 +229,12 @@ class _HomePageState extends State<HomePage> {
         // Floating button
         floatingActionButton: FloatingActionButton(
           onPressed: _currentPageIndex == 0
-              ? null
+              ? () {
+                  Navigator.of(context).push(PageTransition(
+                      type: PageTransitionType.bottomToTopJoined,
+                      child: SearchUserPage(),
+                      childCurrent: widget));
+                }
               : () async {
                   await _createNewInvite(context);
                 },
@@ -328,7 +333,7 @@ class _HomePageState extends State<HomePage> {
                           child: ListView.builder(
                             itemCount: _serverUsers.length,
                             itemBuilder: (context, index) {
-                              return UserListItem(_serverUsers[index],
+                              return SelectUserListItem(_serverUsers[index],
                                   (isSelected) {
                                 // Add/remove selected users from list
                                 setState(() {
