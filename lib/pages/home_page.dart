@@ -178,23 +178,17 @@ class _HomePageState extends State<HomePage> {
             ? AppBar(
                 // User icon with first letter
                 leading: Transform.scale(
-                  scale: 0.7,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: userColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        Singleton().profile.user.username.isNotEmpty
-                            ? Singleton().profile.user.username[0].toUpperCase()
-                            : '?',
-                        style: TextStyle(
-                          color: ColorUtils.getReadableColor(userColor),
-                          fontSize: 27,
-                        ),
+                  scale: 0.75,
+                  child: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: userColor,
+                    child: Text(
+                      Singleton().profile.user.username.isNotEmpty
+                          ? Singleton().profile.user.username[0].toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                        fontSize: 24,
+                        color: ColorUtils.getReadableColor(userColor),
                       ),
                     ),
                   ),

@@ -18,8 +18,7 @@ class _SelectUserListItemState extends State<SelectUserListItem> {
   @override
   Widget build(BuildContext context) {
     // Get color of user profile picture
-    Color userColor =
-        ColorUtils.getColorFromUsername(widget.user.username);
+    Color userColor = ColorUtils.getColorFromUsername(widget.user.username);
 
     return ListTile(
       tileColor: Colors.transparent,
@@ -27,20 +26,16 @@ class _SelectUserListItemState extends State<SelectUserListItem> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
       ),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: userColor,
-          shape: BoxShape.circle,
-        ),
-        child: Center(
-          child: Text(
-            widget.user.username.isNotEmpty ? widget.user.username[0].toUpperCase() : '?',
-            style: TextStyle(
-              color: ColorUtils.getReadableColor(userColor),
-              fontSize: 20,
-            ),
+      leading: CircleAvatar(
+        radius: 22,
+        backgroundColor: userColor,
+        child: Text(
+          widget.user.username.isNotEmpty
+              ? widget.user.username[0].toUpperCase()
+              : '?',
+          style: TextStyle(
+            fontSize: 20,
+            color: ColorUtils.getReadableColor(userColor),
           ),
         ),
       ),

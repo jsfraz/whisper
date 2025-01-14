@@ -98,22 +98,16 @@ class _ChatPageState extends State<ChatPage> {
               icon: const Icon(Icons.arrow_back),
               onPressed: () => Navigator.pop(context),
             ),
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: userColor,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  widget.user.username.isNotEmpty
-                      ? widget.user.username[0].toUpperCase()
-                      : '?',
-                  style: TextStyle(
-                    color: ColorUtils.getReadableColor(userColor),
-                    fontSize: 20,
-                  ),
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: userColor,
+              child: Text(
+                widget.user.username.isNotEmpty
+                    ? widget.user.username[0].toUpperCase()
+                    : '?',
+                style: TextStyle(
+                  fontSize: 20,
+                  color: ColorUtils.getReadableColor(userColor),
                 ),
               ),
             ),
