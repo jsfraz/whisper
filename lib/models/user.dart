@@ -1,5 +1,5 @@
 import 'package:hive/hive.dart';
-import 'package:whisper_openapi_client/api.dart';
+import 'package:whisper_openapi_client_dart/api.dart';
 
 part 'user.g.dart';
 

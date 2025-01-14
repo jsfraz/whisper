@@ -5,7 +5,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../models/invite_data.dart';
 import '../models/profile.dart';
 import '../models/user.dart';
-import 'package:whisper_openapi_client/api.dart';
+import 'package:whisper_openapi_client_dart/api.dart';
 import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';

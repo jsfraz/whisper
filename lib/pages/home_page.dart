@@ -6,7 +6,7 @@ import 'search_user_page.dart';
 import 'settings_page.dart';
 import '../utils/dialog_utils.dart';
 import '../widgets/invite_list_item.dart';
-import 'package:whisper_openapi_client/api.dart';
+import 'package:whisper_openapi_client_dart/api.dart';
 import '../models/user.dart';
 import '../utils/color_utils.dart';
 import '../utils/singleton.dart';
@@ -178,7 +178,7 @@ class _HomePageState extends State<HomePage> {
             ? AppBar(
                 // User icon with first letter
                 leading: Transform.scale(
-                  scale: 0.65,
+                  scale: 0.7,
                   child: Container(
                     width: 40,
                     height: 40,
@@ -193,7 +193,7 @@ class _HomePageState extends State<HomePage> {
                             : '?',
                         style: TextStyle(
                           color: ColorUtils.getReadableColor(userColor),
-                          fontSize: 30,
+                          fontSize: 27,
                         ),
                       ),
                     ),

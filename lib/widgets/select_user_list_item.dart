@@ -22,6 +22,11 @@ class _SelectUserListItemState extends State<SelectUserListItem> {
         ColorUtils.getColorFromUsername(widget.user.username);
 
     return ListTile(
+      tileColor: Colors.transparent,
+      selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
       leading: Container(
         width: 40,
         height: 40,

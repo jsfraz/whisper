@@ -1,4 +1,4 @@
-import 'package:whisper_openapi_client/api.dart';
+import 'package:whisper_openapi_client_dart/api.dart';
 
 import '../models/app_theme.dart';
 import '../models/profile.dart';

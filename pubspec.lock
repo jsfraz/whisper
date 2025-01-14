@@ -855,13 +855,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.1"
-  whisper_openapi_client:
+  whisper_openapi_client_dart:
     dependency: "direct main"
     description:
       path: "."
       ref: HEAD
-      resolved-ref: "3ac71601ca77cf95a0aae00f1d68d6baa83d4391"
-      url: "https://github.com/jsfraz/whisper_openapi_client.git"
+      resolved-ref: "97ddf04e9b4d76d895e59bc275ae438bdbe21559"
+      url: "https://github.com/jsfraz/whisper_openapi_client_dart.git"
     source: git
     version: "0.0.1"
   xdg_directories:

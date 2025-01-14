@@ -4,6 +4,7 @@ import '../models/user.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import '../widgets/user_list_item.dart';
+import 'chat_page.dart';
 
 class SearchUserPage extends StatefulWidget {
   const SearchUserPage({super.key});
@@ -21,28 +22,27 @@ class _SearchUserPageState extends State<SearchUserPage> {
   Future<void> _searchUsers() async {
     setState(() {
       _loading = true;
+      _users = [];
     });
 
     // Empty search
     if (_controllerSearch.text.isEmpty) {
-      // TODO check context?
       setState(() {
-        _users = [];
+        _loading = false;
       });
-    } else {
-      // Get users from server
-      var users = await Utils.callApi(
-          () => Singleton().userApi.searchUsers(_controllerSearch.text), true);
-      // TODO check context?
-      setState(() {
-        if (users != null) {
-          for (var x in users) {
-            _users.add(User.fromModel(x));
-          }
-        }
-        debugPrint('Users: ${_users.length}');
-      });
+      return;
     }
+
+    // Get users from server
+    var users = await Utils.callApi(
+        () => Singleton().userApi.searchUsers(_controllerSearch.text), true);
+    setState(() {
+      if (users != null) {
+        for (var x in users) {
+          _users.add(User.fromModel(x));
+        }
+      }
+    });
 
     setState(() {
       _loading = false;
@@ -73,7 +73,12 @@ class _SearchUserPageState extends State<SearchUserPage> {
                 controller: _controllerSearch,
                 decoration: InputDecoration(
                   hintText: 'enterUsername'.tr(),
-                  border: const OutlineInputBorder(),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surfaceBright,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
+                  ),
                   suffixIcon: IconButton(
                     onPressed: _searchUsers,
                     icon: const Icon(Icons.search),
@@ -96,8 +101,13 @@ class _SearchUserPageState extends State<SearchUserPage> {
                 child: ListView.builder(
                   itemCount: _users.length,
                   itemBuilder: (context, index) {
-                    return UserListItem(_users[index], () {
-                      // TODO onPressed
+                    return UserListItem(_users[index], () async {
+                      // TODO return to home page when pop
+                      // Open chat page
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => ChatPage(_users[index])));
                     });
                   },
                 ),

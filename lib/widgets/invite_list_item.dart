@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:whisper_openapi_client/api.dart';
+import 'package:whisper_openapi_client_dart/api.dart';
 
 class InviteListItem extends StatefulWidget {
   const InviteListItem(this.invite, {super.key});
@@ -45,6 +45,11 @@ class _UserListItemState extends State<InviteListItem> {
         displayDuration.toString().split('.').first.padLeft(8, '0');
 
     return ListTile(
+      tileColor: Colors.transparent,
+      selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
       title: Text(widget.invite.mail),
       trailing: Transform.scale(
         scale: 1.3,
