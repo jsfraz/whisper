@@ -1,5 +1,5 @@
 import 'package:whisper_openapi_client_dart/api.dart';
-
+import 'package:whisper_websocket_client_dart/ws_client.dart';
 import '../models/app_theme.dart';
 import '../models/profile.dart';
 
@@ -15,6 +15,8 @@ class Singleton {
   late List<int> boxCollectionKey;
   // App theme
   late AppTheme appTheme;
+  // WebSocket client
+  late WsClient wsClient;
 
   factory Singleton() {
     return _singleton;

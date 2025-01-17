@@ -1,8 +1,13 @@
+import 'dart:convert';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:whisper_websocket_client_dart/models/new_private_message.dart';
+import 'package:whisper_websocket_client_dart/models/ws_message.dart';
 import '../models/chat_message.dart';
 import '../models/user.dart';
 import '../utils/color_utils.dart';
+import '../utils/singleton.dart';
 import '../widgets/chat_message.dart';
 
 class ChatPage extends StatefulWidget {
@@ -20,6 +25,8 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _controllerMessage = TextEditingController();
   // Add list for messages
   final List<ChatMessage> _messages = [];
+  // Buttons
+  bool _isSending = false;
 
   @override
   void initState() {
@@ -79,6 +86,24 @@ class _ChatPageState extends State<ChatPage> {
       ),
       */
     ]);
+  }
+
+  /// Send message
+  Future<void> _sendMessage() async {
+    setState(() {
+      _isSending = true;
+    });
+    // TODO Encrypt message content
+    var encryptedMessage = utf8.encode(_controllerMessage.text);
+    if (Singleton().wsClient.isConnected) {
+      // Send message
+      Singleton().wsClient.sendMessage(WsMessage.privateMessage(NewPrivateMessage.newPrivateMessage(widget.user.id, encryptedMessage)));
+    } else {
+      // TODO error or something
+    }
+    setState(() {
+      _isSending = false;
+    });
   }
 
   @override
@@ -187,7 +212,7 @@ class _ChatPageState extends State<ChatPage> {
                           borderSide: BorderSide.none,
                         ),
                         suffixIcon: IconButton(
-                          onPressed: null, // TODO send message
+                          onPressed: _isSending ? null : _sendMessage,
                           icon: const Icon(Icons.send),
                         ),
                       ),

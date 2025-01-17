@@ -7,6 +7,9 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
+import 'package:whisper_websocket_client_dart/models/private_message.dart';
+import 'package:whisper_websocket_client_dart/models/ws_response.dart';
+import 'package:whisper_websocket_client_dart/models/ws_response_type.dart';
 import 'cache_utils.dart';
 import 'crypto_utils.dart';
 import 'singleton.dart';
@@ -117,5 +120,28 @@ class Utils {
 
     // Set API token
     Singleton().apiToken = Singleton().profile.accessToken;
+  }
+
+  /// Get WebSocket URL from APi URL
+  static String getWsUrl(String serverUrl) {
+    String wsUrl = serverUrl.contains('https')
+        ? serverUrl.replaceFirst('https', 'wss')
+        : serverUrl.replaceFirst('http', 'ws');
+    return '$wsUrl/ws';
+  }
+
+  /// Handle WebSocket message
+  static void onWsMessageReceived(WsResponse wsResponse) {
+    // Print received message
+    switch (wsResponse.type) {
+      case WsResponseType.message:
+        var message = wsResponse.payload as PrivateMessage;
+        debugPrint('Received message: ${utf8.decode(message.message)}');
+        break;
+      case WsResponseType.error:
+        var error = wsResponse.payload as String;
+        debugPrint('Received error: $error');
+        break;
+    }
   }
 }

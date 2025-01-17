@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
+import 'package:whisper_websocket_client_dart/ws_client.dart';
 import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';
@@ -62,6 +63,8 @@ class _PasswordPageState extends State<PasswordPage> {
         Singleton().api = ApiClient(basePath: Singleton().profile.url);
         // Check tokens
         await Utils.authCheck();
+        // WebSocket client
+        Singleton().wsClient = WsClient(Utils.getWsUrl(Singleton().profile.url), Utils.onWsMessageReceived);
 
         // Redirect to password page
         Navigator.pushReplacement(

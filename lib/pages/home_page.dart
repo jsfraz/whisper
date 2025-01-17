@@ -1,7 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:page_transition/page_transition.dart';
-import '../utils/test_utils.dart';
 import 'search_user_page.dart';
 import 'settings_page.dart';
 import '../utils/dialog_utils.dart';
@@ -35,7 +34,23 @@ class _HomePageState extends State<HomePage> {
         _getServerUsers();
         _getServerInvites();
       }
+      // Connect WebSocket
+      _connectToWebSocket();
     });
+  }
+
+  /// Connect to WebSocket
+  Future<void> _connectToWebSocket() async {
+    if (!Singleton().wsClient.isConnected) {
+      // Get one-time access token for WebSocket
+      var wsAuthResponse = await Utils.callApi(
+          () => Singleton().wsAuthApi.webSocketAuth(), true);
+      if (wsAuthResponse != null) {
+        // Connect WebSocket
+        Singleton().wsClient.connect(wsAuthResponse.accessToken);
+      }
+      // TODO disconnect somewhere?
+    }
   }
 
   /// Get server users
@@ -80,15 +95,6 @@ class _HomePageState extends State<HomePage> {
     });
     // Refresh users
     await _getServerUsers();
-  }
-
-  /// Test WS connection
-  Future<void> _test() async {
-    var wsAuthResponse =
-        await Utils.callApi(() => Singleton().wsAuthApi.webSocketAuth(), true);
-    if (wsAuthResponse != null) {
-      TestUtils.test(Singleton().profile.url, wsAuthResponse.accessToken);
-    }
   }
 
   /// Show delete users dialog
@@ -327,19 +333,21 @@ class _HomePageState extends State<HomePage> {
                           child: ListView.builder(
                             itemCount: _serverUsers.length,
                             itemBuilder: (context, index) {
-                              return SelectUserListItem(_serverUsers[index],
-                                  (isSelected) {
-                                // Add/remove selected users from list
-                                setState(() {
-                                  if (isSelected) {
-                                    isSelected = isSelected;
-                                    _selectedUsers.add(_serverUsers[index].id);
-                                  } else {
-                                    _selectedUsers
-                                        .remove(_serverUsers[index].id);
-                                  }
-                                });
-                              });
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: SelectUserListItem(_serverUsers[index],
+                                    (isSelected) {
+                                  // Add/remove selected users from list
+                                  setState(() {
+                                    if (isSelected) {
+                                      isSelected = isSelected;
+                                      _selectedUsers.add(_serverUsers[index].id);
+                                    } else {
+                                      _selectedUsers.remove(_serverUsers[index].id);
+                                    }
+                                  });
+                                }),
+                              );
                             },
                           ),
                         ),

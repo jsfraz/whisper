@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:whisper_websocket_client_dart/ws_client.dart';
 import '../models/invite_data.dart';
 import '../models/profile.dart';
 import '../models/user.dart';
@@ -127,6 +128,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
           // Check tokens
           await Utils.authCheck();
+
+          // WebSocket client
+          Singleton().wsClient = WsClient(Utils.getWsUrl(Singleton().profile.url), Utils.onWsMessageReceived);
 
           // Redirect to home page
           Navigator.pushReplacement(context,

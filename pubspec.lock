@@ -848,7 +848,7 @@ packages:
     source: hosted
     version: "0.1.6"
   web_socket_channel:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: web_socket_channel
       sha256: "9f187088ed104edd8662ca07af4b124465893caf063ba29758f97af57e61da8f"
@@ -864,6 +864,15 @@ packages:
       url: "https://github.com/jsfraz/whisper_openapi_client_dart.git"
     source: git
     version: "0.0.1"
+  whisper_websocket_client_dart:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: HEAD
+      resolved-ref: "98c83d668596ab01447f8cdada8c3ce98442dc8b"
+      url: "https://github.com/jsfraz/whisper_websocket_client_dart.git"
+    source: git
+    version: "1.0.0"
   xdg_directories:
     dependency: transitive
     description:

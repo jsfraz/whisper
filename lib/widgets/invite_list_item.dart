@@ -45,6 +45,7 @@ class _UserListItemState extends State<InviteListItem> {
         displayDuration.toString().split('.').first.padLeft(8, '0');
 
     return ListTile(
+      onTap: () {},   // Empty method so that the visual effect works
       tileColor: Colors.transparent,
       selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
       shape: RoundedRectangleBorder(

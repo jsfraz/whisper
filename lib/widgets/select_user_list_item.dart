@@ -21,6 +21,7 @@ class _SelectUserListItemState extends State<SelectUserListItem> {
     Color userColor = ColorUtils.getColorFromUsername(widget.user.username);
 
     return ListTile(
+      onTap: () {},   // Empty method so that the visual effect works
       tileColor: Colors.transparent,
       selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
       shape: RoundedRectangleBorder(

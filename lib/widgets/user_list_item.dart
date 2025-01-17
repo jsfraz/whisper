@@ -18,8 +18,6 @@ class _UserListItemState extends State<UserListItem> {
     // Get color of user profile picture
     Color userColor = ColorUtils.getColorFromUsername(widget.user.username);
 
-    // TODO effect onPressed
-    // TODO onPressed
     return ListTile(
       onTap: widget.onPressed,
       tileColor: Colors.transparent,
