@@ -12,7 +12,9 @@ import 'package:whisper_websocket_client_dart/models/ws_response.dart';
 import 'package:whisper_websocket_client_dart/models/ws_response_type.dart';
 import 'cache_utils.dart';
 import 'crypto_utils.dart';
+import 'message_notifier.dart';
 import 'singleton.dart';
+import '../models/private_message.dart' as pm;
 
 class Utils {
   /// Capitalize first letter of string.
@@ -131,16 +133,24 @@ class Utils {
   }
 
   /// Handle WebSocket message
-  static void onWsMessageReceived(WsResponse wsResponse) {
+  static Future<void> onWsMessageReceived(WsResponse wsResponse) async {
+    var receivedAt = DateTime.now();
     // Print received message
     switch (wsResponse.type) {
+      // Message
       case WsResponseType.message:
         var message = wsResponse.payload as PrivateMessage;
-        debugPrint('Received message: ${utf8.decode(message.message)}');
+        var decryptedMessage = await CryptoUtils.rsaDecrypt(message.message, bu.CryptoUtils.rsaPrivateKeyFromPem(Singleton().profile.privateKey));
+        debugPrint('Received message: ${utf8.decode(decryptedMessage)}');
+        var privateMessage = pm.PrivateMessage(message.senderId, utf8.decode(decryptedMessage), message.sentAt, receivedAt);
+        await MessageNotifier().addMessages(message.senderId, [privateMessage]);
         break;
+
+      // Error
       case WsResponseType.error:
         var error = wsResponse.payload as String;
-        debugPrint('Received error: $error');
+        debugPrint(error);
+        Fluttertoast.showToast(msg: error, backgroundColor: Colors.red);
         break;
     }
   }

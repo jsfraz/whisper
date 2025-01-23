@@ -64,7 +64,7 @@ class _PasswordPageState extends State<PasswordPage> {
         // Check tokens
         await Utils.authCheck();
         // WebSocket client
-        Singleton().wsClient = WsClient(Utils.getWsUrl(Singleton().profile.url), Utils.onWsMessageReceived);
+        Singleton().wsClient = WsClient(Utils.getWsUrl(Singleton().profile.url), onReceived: Utils.onWsMessageReceived);
 
         // Redirect to password page
         Navigator.pushReplacement(

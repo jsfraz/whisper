@@ -65,4 +65,32 @@ class CryptoUtils {
     return await compute(
         _rsaSignNonce, {'privateKey': privateKey, 'nonce': nonce});
   }
+
+  /// Encrypt by RSA public key asynchronously.
+  static Future<Uint8List> rsaEncrypt(Uint8List message, RSAPublicKey publicKey) async {
+    return await compute(_rsaEncrypt, {'publicKey': publicKey, 'message': message});
+  }
+
+  /// Encrypt by RSA public key synchronously.
+  static Uint8List _rsaEncrypt(Map<String, dynamic> data) {
+    // Initalizing Cipher
+    var cipher = PKCS1Encoding(RSAEngine());
+    cipher.init(true, PublicKeyParameter<RSAPublicKey>(data['publicKey']));
+    // Encrypting message
+    return cipher.process(data['message']);
+  }
+
+  /// Decrypt by RSA private key asynchronously.
+  static Future<Uint8List> rsaDecrypt(Uint8List message, RSAPrivateKey privateKey) async {
+    return await compute(_rsaDecrypt, {'privateKey': privateKey, 'message': message});
+  }
+
+  /// Decrypt by RSA private key synchronously.
+  static Uint8List _rsaDecrypt(Map<String, dynamic> data) {
+    // Initalizing Cipher
+    var cipher = PKCS1Encoding(RSAEngine());
+    cipher.init(false, PrivateKeyParameter<RSAPrivateKey>(data['privateKey']));
+    // Decrypting message
+    return cipher.process(data['message']);
+  }
 }

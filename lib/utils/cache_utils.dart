@@ -1,6 +1,7 @@
 import 'package:bcrypt/bcrypt.dart';
 import 'package:hive/hive.dart';
 import 'package:whisper/models/app_theme.dart';
+import 'package:whisper/models/private_message.dart';
 import '../models/profile.dart';
 import 'singleton.dart';
 import 'utils.dart';
@@ -9,6 +10,7 @@ class CacheUtils {
   static const _hashBoxKey = 'hash';
   static const _profileKey = 'profile';
   static const _themeKey = 'theme';
+  static const _privateMessagesKey = 'privateMessages';
 
   /// Opens box with password hash
   static Future<Box> _openPasswordHashBox() async {
@@ -74,6 +76,8 @@ class CacheUtils {
     await passwordBox.deleteFromDisk();
     Box themeBox = await _openThemeBox();
     await themeBox.deleteFromDisk();
+    Box privateMessagesBox = await _openPrivateMessagesBox();
+    await privateMessagesBox.deleteFromDisk();
   }
 
   /// Opens box with theme
@@ -91,5 +95,25 @@ class CacheUtils {
   static Future<void> setTheme(AppTheme theme) async {
     Box box = await _openThemeBox();
     await box.put(_themeKey, theme);
+  }
+
+  /// Opens box with private messages
+  static Future<Box> _openPrivateMessagesBox() async {
+    return Hive.openBox(_privateMessagesKey);
+  }
+
+  /// Add user message to cache
+  static Future<void> addPrivateMessages(int userId, List<PrivateMessage> messages) async {
+    Box box = await _openPrivateMessagesBox();
+    List<PrivateMessage> chatMessages = await getPrivateMessages(userId);
+    chatMessages.addAll(messages);
+    await box.put(userId, chatMessages);
+  }
+
+  /// Get user messages
+  static Future<List<PrivateMessage>> getPrivateMessages(int userId) async {
+    Box box = await _openPrivateMessagesBox();
+    List<dynamic>? messages = box.get(userId);
+    return messages == null ? [] : messages.map((e) => e as PrivateMessage).toList();
   }
 }

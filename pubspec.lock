@@ -342,10 +342,10 @@ packages:
     dependency: "direct main"
     description:
       name: http
-      sha256: b9c29a161230ee03d3ccf545097fccd9b87a5264228c5d348202e0f0c28f9010
+      sha256: fe7ab022b76f3034adc518fb6ea04a82387620e19977665ea18d30a1cf43442f
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.2"
+    version: "1.3.0"
   http_multi_server:
     dependency: transitive
     description:
@@ -494,10 +494,10 @@ packages:
     dependency: "direct main"
     description:
       name: mobile_scanner
-      sha256: "728828a798d1a2ee506beb652ca23d974c542c96ed03dcbd5eaf97bef96cdaad"
+      sha256: "57d6269d10912d5d583606b46d963d7c5d0299d2c37add8b7192dd769d40a319"
       url: "https://pub.dev"
     source: hosted
-    version: "6.0.2"
+    version: "6.0.3"
   nested:
     dependency: transitive
     description:
@@ -638,10 +638,10 @@ packages:
     dependency: "direct main"
     description:
       name: qr_code_scanner_plus
-      sha256: "0571647f50798c136296e2aad46f0282d8299609201fa4a34693b3df083d1d95"
+      sha256: "5cce6588571dccb4eba755e39d288497b3c70e8a420bfdf72dbd4c5fe9c19236"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.6"
+    version: "2.0.8+1"
   shared_preferences:
     dependency: transitive
     description:
@@ -654,10 +654,10 @@ packages:
     dependency: transitive
     description:
       name: shared_preferences_android
-      sha256: bf808be89fe9dc467475e982c1db6c2faf3d2acf54d526cd5ec37d86c99dbd84
+      sha256: "138b7bbbc7f59c56236e426c37afb8f78cbc57b094ac64c440e0bb90e380a4f5"
       url: "https://pub.dev"
     source: hosted
-    version: "2.4.1"
+    version: "2.4.2"
   shared_preferences_foundation:
     dependency: transitive
     description:
@@ -851,10 +851,10 @@ packages:
     dependency: transitive
     description:
       name: web_socket_channel
-      sha256: "9f187088ed104edd8662ca07af4b124465893caf063ba29758f97af57e61da8f"
+      sha256: "0b8e2457400d8a859b7b2030786835a28a8e80836ef64402abef392ff4f1d0e5"
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.1"
+    version: "3.0.2"
   whisper_openapi_client_dart:
     dependency: "direct main"
     description:
@@ -869,7 +869,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: "98c83d668596ab01447f8cdada8c3ce98442dc8b"
+      resolved-ref: "7299705f369ab921a95542560aa6bf9bcb5f8543"
       url: "https://github.com/jsfraz/whisper_websocket_client_dart.git"
     source: git
     version: "1.0.0"

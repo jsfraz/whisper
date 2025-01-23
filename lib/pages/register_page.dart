@@ -130,7 +130,7 @@ class _RegisterPageState extends State<RegisterPage> {
           await Utils.authCheck();
 
           // WebSocket client
-          Singleton().wsClient = WsClient(Utils.getWsUrl(Singleton().profile.url), Utils.onWsMessageReceived);
+          Singleton().wsClient = WsClient(Utils.getWsUrl(Singleton().profile.url), onReceived: Utils.onWsMessageReceived);
 
           // Redirect to home page
           Navigator.pushReplacement(context,

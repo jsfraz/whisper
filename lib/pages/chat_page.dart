@@ -2,13 +2,18 @@ import 'dart:convert';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:whisper_websocket_client_dart/models/new_private_message.dart';
 import 'package:whisper_websocket_client_dart/models/ws_message.dart';
-import '../models/chat_message.dart';
+import '../models/private_message.dart';
 import '../models/user.dart';
+import '../utils/cache_utils.dart';
 import '../utils/color_utils.dart';
+import '../utils/crypto_utils.dart';
+import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
-import '../widgets/chat_message.dart';
+import '../widgets/chat_bubble.dart';
+import 'package:basic_utils/basic_utils.dart' as bu;
 
 class ChatPage extends StatefulWidget {
   const ChatPage(this.user, {super.key});
@@ -24,68 +29,27 @@ class _ChatPageState extends State<ChatPage> {
   // Add controller for text input
   final TextEditingController _controllerMessage = TextEditingController();
   // Add list for messages
-  final List<ChatMessage> _messages = [];
+  List<PrivateMessage> _messages = [];
   // Buttons
   bool _isSending = false;
+  // ScrollController for content
+  final ScrollController _scrollController = ScrollController();
+  // Indicates whether messages are being load for the first time
+  bool _firstLoad = true;
 
   @override
   void initState() {
     super.initState();
     userColor = ColorUtils.getColorFromUsername(widget.user.username);
 
-    // Add test messages
-    _messages.addAll([
-      ChatMessage(
-        text: "Hello, how are you??",
-        isMe: false,
-      ),
-      ChatMessage(
-        text: "Good, thanks! And you?",
-        isMe: true,
-      ),
-      /*
-      ChatMessage(
-        text: "Hello, how are you??",
-        isMe: false,
-      ),
-      ChatMessage(
-        text: "Good, thanks! And you?",
-        isMe: true,
-      ),
-      ChatMessage(
-        text: "Hello, how are you??",
-        isMe: false,
-      ),
-      ChatMessage(
-        text: "Good, thanks! And you?",
-        isMe: true,
-      ),
-      ChatMessage(
-        text: "Hello, how are you??",
-        isMe: false,
-      ),
-      ChatMessage(
-        text: "Good, thanks! And you?",
-        isMe: true,
-      ),
-      ChatMessage(
-        text: "Hello, how are you??",
-        isMe: false,
-      ),
-      ChatMessage(
-        text: "Good, thanks! And you?",
-        isMe: true,
-      ),
-      ChatMessage(
-        text: "Hello, how are you??",
-        isMe: false,
-      ),
-      ChatMessage(
-        text: "Good, thanks! And you?",
-        isMe: true,
-      ),
-      */
-    ]);
+    // Load messages from cache
+    _loadMessages();
+  }
+
+  Future<void> _loadMessages() async {
+    _messages = await CacheUtils.getPrivateMessages(widget.user.id);
+    setState(() {});
+    // TODO scroll to bottom
   }
 
   /// Send message
@@ -93,11 +57,26 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {
       _isSending = true;
     });
-    // TODO Encrypt message content
-    var encryptedMessage = utf8.encode(_controllerMessage.text);
+    // Encrypt message content
+    var encryptedMessage = await CryptoUtils.rsaEncrypt(
+        utf8.encode(_controllerMessage.text),
+        bu.CryptoUtils.rsaPublicKeyFromPem(widget.user.publicKey));
     if (Singleton().wsClient.isConnected) {
-      // Send message
-      Singleton().wsClient.sendMessage(WsMessage.privateMessage(NewPrivateMessage.newPrivateMessage(widget.user.id, encryptedMessage)));
+      DateTime sentAt;
+      try {
+        // Send message
+        sentAt = Singleton().wsClient.sendMessage(WsMessage.privateMessage(
+            NewPrivateMessage(widget.user.id, encryptedMessage)));
+        // Add message to cache
+        await MessageNotifier().addMessages(widget.user.id, [
+          PrivateMessage(Singleton().profile.user.id, _controllerMessage.text,
+              sentAt, sentAt)
+        ]);
+        // Reset text
+        _controllerMessage.text = '';
+      } catch (e) {
+        // TODO error or something
+      }
     } else {
       // TODO error or something
     }
@@ -106,14 +85,67 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  /// Get ListView with content
+  ListView _getContent(List<PrivateMessage> messages) {
+    _firstLoad = false;
+    return ListView.builder(
+      controller: _scrollController,
+      reverse: false,
+      itemCount: messages.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          // Header with avatar (will appear at the top)
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 20, bottom: 20),
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundColor: userColor,
+                    child: Text(
+                      widget.user.username.isNotEmpty
+                          ? widget.user.username[0].toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                        fontSize: 40,
+                        color: ColorUtils.getReadableColor(userColor),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.user.username,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  Text('legendaryChat'.tr()),
+                ],
+              ),
+            ),
+          );
+        }
+        // Messages (adjust index to account for header)
+        final message = messages[index - 1];
+        return ChatBubble(message);
+      },
+    );
+  }
+
   @override
   void dispose() {
     _controllerMessage.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final notifier = context.watch<MessageNotifier>();
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -147,60 +179,35 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             // Messages and avatar list
             Expanded(
-              child: ListView.builder(
-                reverse: false,
-                itemCount: _messages.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    // Header with avatar (will appear at the top)
-                    return Center(
-                      child: Padding(
-                          padding: const EdgeInsets.only(top: 20, bottom: 20),
-                          child: Column(
-                            children: [
-                              CircleAvatar(
-                                radius: 50,
-                                backgroundColor: userColor,
-                                child: Text(
-                                  widget.user.username.isNotEmpty
-                                      ? widget.user.username[0].toUpperCase()
-                                      : '?',
-                                  style: TextStyle(
-                                    fontSize: 40,
-                                    color:
-                                        ColorUtils.getReadableColor(userColor),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                widget.user.username,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 30),
-                              Text('legendaryChat'.tr()),
-                            ],
-                          )),
-                    );
-                  }
-                  // Messages (adjust index to account for header)
-                  final message = _messages[index - 1];
-                  return ChatBubble(
-                    message.text,
-                    message.isMe,
-                    message.isMe ? Colors.blue : Colors.grey[300]!,
-                  );
-                },
-              ),
+              child: FutureBuilder<List<PrivateMessage>>(
+                  future: notifier.getMessages(widget.user.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting && _firstLoad) {
+                      return Center(
+                        child: Transform.scale(
+                          scale: 1.5,
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+                    // Return when data present
+                    if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _scrollController
+                            .jumpTo(_scrollController.position.maxScrollExtent);
+                      });
+                      return _getContent(snapshot.data!);
+                    }
+                    // Return with messages loaded on init
+                    return _getContent(_messages);
+                  }),
             ),
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 children: [
                   Expanded(
+                    // TODO color by theme
                     child: TextField(
                       controller: _controllerMessage,
                       decoration: InputDecoration(

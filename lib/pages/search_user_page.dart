@@ -20,33 +20,41 @@ class _SearchUserPageState extends State<SearchUserPage> {
 
   /// Search users
   Future<void> _searchUsers() async {
-    setState(() {
+    if (context.mounted) {
+      setState(() {
       _loading = true;
       _users = [];
     });
+    }
 
     // Empty search
     if (_controllerSearch.text.isEmpty) {
-      setState(() {
+      if (context.mounted) {
+        setState(() {
         _loading = false;
       });
+      }
       return;
     }
 
     // Get users from server
     var users = await Utils.callApi(
         () => Singleton().userApi.searchUsers(_controllerSearch.text), true);
-    setState(() {
+    if (context.mounted) {
+      setState(() {
       if (users != null) {
         for (var x in users) {
           _users.add(User.fromModel(x));
         }
       }
     });
+    }
 
-    setState(() {
+    if (context.mounted) {
+      setState(() {
       _loading = false;
     });
+    }
   }
 
   @override
@@ -69,6 +77,7 @@ class _SearchUserPageState extends State<SearchUserPage> {
             // Seatch field
             Padding(
               padding: const EdgeInsets.only(bottom: 15),
+              // TODO color by theme
               child: TextField(
                 controller: _controllerSearch,
                 decoration: InputDecoration(

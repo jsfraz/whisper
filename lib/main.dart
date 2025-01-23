@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
+import 'package:whisper/utils/message_notifier.dart';
 import '../utils/cache_utils.dart';
 import 'models/app_theme.dart';
+import 'models/private_message.dart';
 import 'models/profile.dart';
 import 'models/user.dart';
 import 'pages/whisper_page.dart';
@@ -25,7 +27,8 @@ void main() async {
     ..init(await Utils.getCacheDir())
     ..registerAdapter(ProfileAdapter())
     ..registerAdapter(UserAdapter())
-    ..registerAdapter(AppThemeAdapter());
+    ..registerAdapter(AppThemeAdapter())
+    ..registerAdapter(PrivateMessageAdapter());
 
   // Default theme
   Singleton().appTheme = await CacheUtils.getTheme() ??
@@ -35,13 +38,29 @@ void main() async {
 
   // App
   runApp(
+    /*
     EasyLocalization(
       supportedLocales: const [Locale('en'), Locale('cs')],
       path: 'assets/translations',
       fallbackLocale: const Locale('en'),
       child: ChangeNotifierProvider<ThemeNotifier>(
-        create: (context) => ThemeNotifier(Singleton().appTheme),
+        create: (_) => ThemeNotifier(Singleton().appTheme),
         child: const WhisperPage(),
+      ),
+    ),
+    */
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ThemeNotifier>(
+            create: (_) => ThemeNotifier(Singleton().appTheme)),
+        ChangeNotifierProvider<MessageNotifier>(
+            create: (_) => MessageNotifier())
+      ],
+      child: EasyLocalization(
+        supportedLocales: const [Locale('en'), Locale('cs')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en'),
+        child: WhisperPage(),
       ),
     ),
   );

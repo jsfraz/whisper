@@ -28,15 +28,13 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Load all server users and invites if admin
-      if (Singleton().profile.user.admin) {
-        _getServerUsers();
-        _getServerInvites();
-      }
-      // Connect WebSocket
-      _connectToWebSocket();
-    });
+    // Load all server users and invites if admin
+    if (Singleton().profile.user.admin) {
+      _getServerUsers();
+      _getServerInvites();
+    }
+    // Connect WebSocket
+    _connectToWebSocket();
   }
 
   /// Connect to WebSocket
@@ -341,9 +339,11 @@ class _HomePageState extends State<HomePage> {
                                   setState(() {
                                     if (isSelected) {
                                       isSelected = isSelected;
-                                      _selectedUsers.add(_serverUsers[index].id);
+                                      _selectedUsers
+                                          .add(_serverUsers[index].id);
                                     } else {
-                                      _selectedUsers.remove(_serverUsers[index].id);
+                                      _selectedUsers
+                                          .remove(_serverUsers[index].id);
                                     }
                                   });
                                 }),
