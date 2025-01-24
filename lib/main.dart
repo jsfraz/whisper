@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
-import 'package:whisper/utils/message_notifier.dart';
+import '../utils/message_notifier.dart';
 import '../utils/cache_utils.dart';
 import 'models/app_theme.dart';
 import 'models/private_message.dart';

@@ -113,12 +113,11 @@ class _SearchUserPageState extends State<SearchUserPage> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: UserListItem(_users[index], () async {
-                        // TODO return to home page when pop
-                        // Open chat page
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => ChatPage(_users[index])));
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (context) => ChatPage(_users[index])),
+                          (route) => route.isFirst, // Returns true only for Home page
+                        );
                       }),
                     );
                   },

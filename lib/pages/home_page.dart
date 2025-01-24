@@ -47,7 +47,6 @@ class _HomePageState extends State<HomePage> {
         // Connect WebSocket
         Singleton().wsClient.connect(wsAuthResponse.accessToken);
       }
-      // TODO disconnect somewhere?
     }
   }
 
@@ -72,11 +71,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Delete selected users button
-  Future<void> _deleteSelectedUsersButton() async {
-    await _deleteSelectedUsersDialog(context);
-  }
-
   /// Delete selected users
   Future<void> _deleteSelectedUsers() async {
     setState(() {
@@ -93,55 +87,6 @@ class _HomePageState extends State<HomePage> {
     });
     // Refresh users
     await _getServerUsers();
-  }
-
-  /// Show delete users dialog
-  Future<void> _deleteSelectedUsersDialog(BuildContext context) {
-    return showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('deleteUserConfirm'.tr()),
-          content: Text('deleteUserConfirmText'.tr()),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: <Widget>[
-            TextButton(
-              style: ButtonStyle(
-                backgroundColor: WidgetStateProperty.all(
-                    Theme.of(context).colorScheme.primary),
-                shape: WidgetStateProperty.all(
-                  RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(35)),
-                ),
-              ),
-              child: Text(
-                'yesText'.tr(),
-                style: TextStyle(color: Theme.of(context).colorScheme.surface),
-              ),
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await _deleteSelectedUsers();
-              },
-            ),
-            TextButton(
-              style: ButtonStyle(
-                backgroundColor: WidgetStateProperty.all(
-                    Theme.of(context).colorScheme.primary),
-                shape: WidgetStateProperty.all(
-                  RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(35)),
-                ),
-              ),
-              onPressed: Navigator.of(context).pop,
-              child: Text(
-                'noText'.tr(),
-                style: TextStyle(color: Theme.of(context).colorScheme.surface),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   /// Get server invites
@@ -319,7 +264,13 @@ class _HomePageState extends State<HomePage> {
                             child: ElevatedButton(
                               onPressed: _selectedUsers.isEmpty
                                   ? null
-                                  : _deleteSelectedUsersButton,
+                                  : () async {
+                                      await DialogUtils.yesNoDialog(
+                                          context,
+                                          'deleteUserConfirm'.tr(),
+                                          'deleteUserConfirmText'.tr(),
+                                          _deleteSelectedUsers);
+                                    },
                               child: Text('deleteUser'.tr()),
                             ),
                           ),

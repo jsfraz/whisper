@@ -141,7 +141,6 @@ class Utils {
       case WsResponseType.message:
         var message = wsResponse.payload as PrivateMessage;
         var decryptedMessage = await CryptoUtils.rsaDecrypt(message.message, bu.CryptoUtils.rsaPrivateKeyFromPem(Singleton().profile.privateKey));
-        debugPrint('Received message: ${utf8.decode(decryptedMessage)}');
         var privateMessage = pm.PrivateMessage(message.senderId, utf8.decode(decryptedMessage), message.sentAt, receivedAt);
         await MessageNotifier().addMessages(message.senderId, [privateMessage]);
         break;

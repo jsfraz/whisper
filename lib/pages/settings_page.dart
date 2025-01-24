@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:whisper/utils/dialog_utils.dart';
+import '../utils/dialog_utils.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -45,7 +45,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
-            Divider(thickness: 1),
+            // Divider(thickness: 1),
 
             // TODO change password
 

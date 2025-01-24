@@ -1,7 +1,7 @@
 import 'package:bcrypt/bcrypt.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/models/app_theme.dart';
-import 'package:whisper/models/private_message.dart';
+import '../models/app_theme.dart';
+import '../models/private_message.dart';
 import '../models/profile.dart';
 import 'singleton.dart';
 import 'utils.dart';
@@ -115,5 +115,11 @@ class CacheUtils {
     Box box = await _openPrivateMessagesBox();
     List<dynamic>? messages = box.get(userId);
     return messages == null ? [] : messages.map((e) => e as PrivateMessage).toList();
+  }
+
+  /// Delete user messages
+  static Future<void> deletePrivateMessages(int userId) async {
+    Box box = await _openPrivateMessagesBox();
+    await box.delete(userId);
   }
 }

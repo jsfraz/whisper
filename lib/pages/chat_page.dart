@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
 import 'package:whisper_websocket_client_dart/models/new_private_message.dart';
 import 'package:whisper_websocket_client_dart/models/ws_message.dart';
@@ -14,6 +15,8 @@ import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
 import '../widgets/chat_bubble.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
+
+import 'chat_info_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage(this.user, {super.key});
@@ -49,7 +52,6 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _loadMessages() async {
     _messages = await CacheUtils.getPrivateMessages(widget.user.id);
     setState(() {});
-    // TODO scroll to bottom
   }
 
   /// Send message
@@ -173,6 +175,20 @@ class _ChatPageState extends State<ChatPage> {
         leadingWidth: 96, // Increase width to accommodate both icons
         // Title
         title: Text(widget.user.username),
+        // Action buttons
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info),
+            tooltip: 'infoButton'.tr(),
+            onPressed: ()  {
+              // Push info page
+              Navigator.of(context).push(PageTransition(
+                  type: PageTransitionType.rightToLeftJoined,
+                  child: ChatInfoPage(widget.user.id),
+                  childCurrent: widget));
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
