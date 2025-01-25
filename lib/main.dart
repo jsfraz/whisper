@@ -38,17 +38,6 @@ void main() async {
 
   // App
   runApp(
-    /*
-    EasyLocalization(
-      supportedLocales: const [Locale('en'), Locale('cs')],
-      path: 'assets/translations',
-      fallbackLocale: const Locale('en'),
-      child: ChangeNotifierProvider<ThemeNotifier>(
-        create: (_) => ThemeNotifier(Singleton().appTheme),
-        child: const WhisperPage(),
-      ),
-    ),
-    */
     MultiProvider(
       providers: [
         ChangeNotifierProvider<ThemeNotifier>(

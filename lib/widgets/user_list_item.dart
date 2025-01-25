@@ -15,7 +15,6 @@ class UserListItem extends StatefulWidget {
 class _UserListItemState extends State<UserListItem> {
   @override
   Widget build(BuildContext context) {
-    // Get color of user profile picture
     Color userColor = ColorUtils.getColorFromUsername(widget.user.username);
 
     return ListTile(

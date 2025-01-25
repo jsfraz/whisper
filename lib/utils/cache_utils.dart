@@ -3,6 +3,7 @@ import 'package:hive/hive.dart';
 import '../models/app_theme.dart';
 import '../models/private_message.dart';
 import '../models/profile.dart';
+import '../models/user.dart';
 import 'singleton.dart';
 import 'utils.dart';
 
@@ -11,6 +12,7 @@ class CacheUtils {
   static const _profileKey = 'profile';
   static const _themeKey = 'theme';
   static const _privateMessagesKey = 'privateMessages';
+  static const _userKey = 'user';
 
   /// Opens box with password hash
   static Future<Box> _openPasswordHashBox() async {
@@ -78,6 +80,8 @@ class CacheUtils {
     await themeBox.deleteFromDisk();
     Box privateMessagesBox = await _openPrivateMessagesBox();
     await privateMessagesBox.deleteFromDisk();
+    Box userBox = await _openUserBox();
+    userBox.deleteFromDisk();
   }
 
   /// Opens box with theme
@@ -103,7 +107,8 @@ class CacheUtils {
   }
 
   /// Add user message to cache
-  static Future<void> addPrivateMessages(int userId, List<PrivateMessage> messages) async {
+  static Future<void> addPrivateMessages(
+      int userId, List<PrivateMessage> messages) async {
     Box box = await _openPrivateMessagesBox();
     List<PrivateMessage> chatMessages = await getPrivateMessages(userId);
     chatMessages.addAll(messages);
@@ -114,12 +119,57 @@ class CacheUtils {
   static Future<List<PrivateMessage>> getPrivateMessages(int userId) async {
     Box box = await _openPrivateMessagesBox();
     List<dynamic>? messages = box.get(userId);
-    return messages == null ? [] : messages.map((e) => e as PrivateMessage).toList();
+    return messages == null
+        ? []
+        : messages.map((e) => e as PrivateMessage).toList();
   }
 
   /// Delete user messages
-  static Future<void> deletePrivateMessages(int userId) async {
+  static Future<void> deletePrivateMessagesWithUser(int userId) async {
+    Box messageBox = await _openPrivateMessagesBox();
+    await messageBox.delete(userId);
+    Box userBox = await _openUserBox();
+    await userBox.delete(userId);
+  }
+
+  /// Opens box with users
+  static Future<Box> _openUserBox() async {
+    return Hive.openBox(_userKey);
+  }
+
+  /// Gets user by ID
+  static Future<User?> getUserById(int userId) async {
+    Box box = await _openUserBox();
+    return box.get(userId);
+  }
+
+  /// Add user to cache
+  static Future<void> addUser(User user) async {
+    Box box = await _openUserBox();
+    await box.put(user.id, user);
+  }
+
+  /// Get Map of all conversations with their last messages
+  static Future<Map<User, PrivateMessage>> getLatestPrivateMessages() async {
     Box box = await _openPrivateMessagesBox();
-    await box.delete(userId);
+    Map<User, PrivateMessage> conversations = {};
+    for (var entry in box.toMap().entries) {
+      User? user = await getUserById(entry.key as int);
+      List<dynamic> messages = entry.value;
+      conversations[user ?? User(entry.key as int, '', '', false)] =
+          messages.last as PrivateMessage;
+    }
+    // Sort conversations by last message date
+    var sortedEntries = conversations.entries.toList()
+      ..sort((a, b) => b.value.receivedAt.compareTo(a.value.receivedAt));
+    return Map.fromEntries(sortedEntries);
+  }
+
+  /// Delete all private message
+  static Future<void> deleteAllPrivateMessagesWithUsers() async {
+    Box messageBox = await _openPrivateMessagesBox();
+    Box userBox = await _openUserBox();
+    await userBox.deleteAll(messageBox.keys.toList());
+    await messageBox.clear();
   }
 }

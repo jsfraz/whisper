@@ -31,11 +31,8 @@ class DialogUtils {
     /// Creates invite
     Future<void> createInvite() async {
       if (mailOk) {
-        await Utils.callApi(
-            () => Singleton().inviteApi.createInvite(
-                createInviteInput:
-                    CreateInviteInput(mail: controllerMail.text)),
-            true);
+        await Utils.callApi(() => Singleton().inviteApi.createInvite(
+            createInviteInput: CreateInviteInput(mail: controllerMail.text)));
         if (context.mounted) {
           Navigator.pop(context);
         }
@@ -246,7 +243,8 @@ class DialogUtils {
   }
 
   /// Returns yes/no dialog
-  static Future<void> yesNoDialog(BuildContext context, String title, String content, Function onYes) {
+  static Future<void> yesNoDialog(
+      BuildContext context, String title, String content, Function onYes) {
     return showDialog(
       context: context,
       builder: (BuildContext context) {

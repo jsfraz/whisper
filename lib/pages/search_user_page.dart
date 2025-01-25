@@ -22,38 +22,38 @@ class _SearchUserPageState extends State<SearchUserPage> {
   Future<void> _searchUsers() async {
     if (context.mounted) {
       setState(() {
-      _loading = true;
-      _users = [];
-    });
+        _loading = true;
+        _users = [];
+      });
     }
 
     // Empty search
     if (_controllerSearch.text.isEmpty) {
       if (context.mounted) {
         setState(() {
-        _loading = false;
-      });
+          _loading = false;
+        });
       }
       return;
     }
 
     // Get users from server
     var users = await Utils.callApi(
-        () => Singleton().userApi.searchUsers(_controllerSearch.text), true);
+        () => Singleton().userApi.searchUsers(_controllerSearch.text));
     if (context.mounted) {
       setState(() {
-      if (users != null) {
-        for (var x in users) {
-          _users.add(User.fromModel(x));
+        if (users != null) {
+          for (var x in users) {
+            _users.add(User.fromModel(x));
+          }
         }
-      }
-    });
+      });
     }
 
     if (context.mounted) {
       setState(() {
-      _loading = false;
-    });
+        _loading = false;
+      });
     }
   }
 
@@ -115,8 +115,10 @@ class _SearchUserPageState extends State<SearchUserPage> {
                       child: UserListItem(_users[index], () async {
                         Navigator.pushAndRemoveUntil(
                           context,
-                          MaterialPageRoute(builder: (context) => ChatPage(_users[index])),
-                          (route) => route.isFirst, // Returns true only for Home page
+                          MaterialPageRoute(
+                              builder: (context) => ChatPage(_users[index])),
+                          (route) =>
+                              route.isFirst, // Returns true only for Home page
                         );
                       }),
                     );

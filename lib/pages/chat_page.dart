@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
 import 'package:whisper_websocket_client_dart/models/new_private_message.dart';
@@ -44,7 +46,6 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     userColor = ColorUtils.getColorFromUsername(widget.user.username);
-
     // Load messages from cache
     _loadMessages();
   }
@@ -60,15 +61,30 @@ class _ChatPageState extends State<ChatPage> {
       _isSending = true;
     });
     // Encrypt message content
-    var encryptedMessage = await CryptoUtils.rsaEncrypt(
-        utf8.encode(_controllerMessage.text),
-        bu.CryptoUtils.rsaPublicKeyFromPem(widget.user.publicKey));
+    Uint8List encryptedMessage;
+    try {
+      encryptedMessage = await CryptoUtils.rsaEncrypt(
+          utf8.encode(_controllerMessage.text),
+          bu.CryptoUtils.rsaPublicKeyFromPem(widget.user.publicKey));
+    } catch (e) {
+      Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+      setState(() {
+        _isSending = false;
+      });
+      return;
+    }
+    // Send message
     if (Singleton().wsClient.isConnected) {
       DateTime sentAt;
       try {
-        // Send message
         sentAt = Singleton().wsClient.sendMessage(WsMessage.privateMessage(
             NewPrivateMessage(widget.user.id, encryptedMessage)));
+        // Save user to cache
+        if (widget.user.publicKey != '' &&
+            widget.user.username != '' &&
+            !widget.user.isInBox) {
+          CacheUtils.addUser(widget.user);
+        }
         // Add message to cache
         await MessageNotifier().addMessages(widget.user.id, [
           PrivateMessage(Singleton().profile.user.id, _controllerMessage.text,
@@ -158,14 +174,14 @@ class _ChatPageState extends State<ChatPage> {
               onPressed: () => Navigator.pop(context),
             ),
             CircleAvatar(
-              radius: 22,
+              radius: 18,
               backgroundColor: userColor,
               child: Text(
                 widget.user.username.isNotEmpty
                     ? widget.user.username[0].toUpperCase()
                     : '?',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 16,
                   color: ColorUtils.getReadableColor(userColor),
                 ),
               ),
@@ -180,7 +196,7 @@ class _ChatPageState extends State<ChatPage> {
           IconButton(
             icon: const Icon(Icons.info),
             tooltip: 'infoButton'.tr(),
-            onPressed: ()  {
+            onPressed: () {
               // Push info page
               Navigator.of(context).push(PageTransition(
                   type: PageTransitionType.rightToLeftJoined,
@@ -198,7 +214,8 @@ class _ChatPageState extends State<ChatPage> {
               child: FutureBuilder<List<PrivateMessage>>(
                   future: notifier.getMessages(widget.user.id),
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting && _firstLoad) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        _firstLoad) {
                       return Center(
                         child: Transform.scale(
                           scale: 1.5,

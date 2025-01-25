@@ -1,6 +1,12 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:page_transition/page_transition.dart';
+import 'package:provider/provider.dart';
+import '../pages/chat_page.dart';
+import '../widgets/chat_list_item.dart';
+import '../models/private_message.dart';
+import '../utils/cache_utils.dart';
+import '../utils/message_notifier.dart';
 import 'search_user_page.dart';
 import 'settings_page.dart';
 import '../utils/dialog_utils.dart';
@@ -24,6 +30,8 @@ class _HomePageState extends State<HomePage> {
   List<int> _selectedUsers = [];
   int _currentPageIndex = 0;
   List<ModelsInvite> _serverInvites = [];
+  Map<User, PrivateMessage> _chats = {};
+  bool _firstLoad = true;
 
   @override
   void initState() {
@@ -33,16 +41,26 @@ class _HomePageState extends State<HomePage> {
       _getServerUsers();
       _getServerInvites();
     }
+    // Get all conversations with their last messages
+    _getConversations();
     // Connect WebSocket
     _connectToWebSocket();
+  }
+
+  /// Get all conversations with their last messages
+  Future<void> _getConversations() async {
+    _chats = await CacheUtils.getLatestPrivateMessages();
+    if (context.mounted) {
+      setState(() {});
+    }
   }
 
   /// Connect to WebSocket
   Future<void> _connectToWebSocket() async {
     if (!Singleton().wsClient.isConnected) {
       // Get one-time access token for WebSocket
-      var wsAuthResponse = await Utils.callApi(
-          () => Singleton().wsAuthApi.webSocketAuth(), true);
+      var wsAuthResponse =
+          await Utils.callApi(() => Singleton().wsAuthApi.webSocketAuth());
       if (wsAuthResponse != null) {
         // Connect WebSocket
         Singleton().wsClient.connect(wsAuthResponse.accessToken);
@@ -57,8 +75,7 @@ class _HomePageState extends State<HomePage> {
         _serverUsers = [];
         _selectedUsers = [];
       });
-      var users =
-          await Utils.callApi(() => Singleton().userApi.getAllUsers(), true);
+      var users = await Utils.callApi(() => Singleton().userApi.getAllUsers());
       if (mounted) {
         setState(() {
           if (users != null) {
@@ -78,10 +95,9 @@ class _HomePageState extends State<HomePage> {
           []; // I am unable to deactivate the user checkbox, so I will make all the users vanish so it will reset itself :)
     });
     // Delete selected users
-    await Utils.callApi(
-        () => Singleton().userApi.deleteUsers(
-            deleteUsersInput: DeleteUsersInput(ids: _selectedUsers)),
-        true);
+    await Utils.callApi(() => Singleton()
+        .userApi
+        .deleteUsers(deleteUsersInput: DeleteUsersInput(ids: _selectedUsers)));
     setState(() {
       _selectedUsers = [];
     });
@@ -95,8 +111,8 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _serverInvites = [];
       });
-      var invites = await Utils.callApi(
-          () => Singleton().inviteApi.getAllInvites(), true);
+      var invites =
+          await Utils.callApi(() => Singleton().inviteApi.getAllInvites());
       if (mounted) {
         setState(() {
           if (invites != null) {
@@ -115,9 +131,30 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  /// Get ListView with content
+  ListView _getContent(Map<User, PrivateMessage> chats) {
+    _firstLoad = false;
+    return ListView.builder(
+      itemCount: chats.length,
+      itemBuilder: (context, index) {
+        final chat = chats.entries.elementAt(index);
+        return Padding(
+          padding: EdgeInsets.only(right: 5, left: 5, bottom: 3),
+          child: ChatListItem(chat.key, chat.value, () {
+            // Push to chat
+            Navigator.of(context).push(PageTransition(
+                type: PageTransitionType.bottomToTopJoined,
+                child: ChatPage(chat.key),
+                childCurrent: widget));
+          }),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Get color of user profile picture
+    final notifier = context.watch<MessageNotifier>();
     Color userColor =
         ColorUtils.getColorFromUsername(Singleton().profile.user.username);
 
@@ -127,7 +164,7 @@ class _HomePageState extends State<HomePage> {
             ? AppBar(
                 // User icon with first letter
                 leading: Transform.scale(
-                  scale: 0.75,
+                  scale: 0.65,
                   child: CircleAvatar(
                     radius: 22,
                     backgroundColor: userColor,
@@ -221,9 +258,33 @@ class _HomePageState extends State<HomePage> {
         body: <Widget>[
           // Messages
           SafeArea(
-            child: Center(
-              child: Text(
-                  'Hello ${Singleton().profile.user.username}! This is message page.'),
+            child: Column(
+              children: [
+                SizedBox(height: 10),
+                // Messages and avatar list
+                Expanded(
+                  child: FutureBuilder<Map<User, PrivateMessage>>(
+                      future: notifier.getLatestPrivateMessages(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            _firstLoad) {
+                          return Center(
+                            child: Transform.scale(
+                              scale: 1.5,
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                        }
+                        // Return when data present
+                        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                          return _getContent(snapshot.data!);
+                        }
+                        // Return with messages loaded on init
+                        return _getContent(_chats);
+                      }),
+                ),
+              ],
             ),
           ),
           // Admin panel

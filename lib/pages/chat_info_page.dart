@@ -1,7 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-
-import '../utils/cache_utils.dart';
+import '../utils/message_notifier.dart';
 import '../utils/dialog_utils.dart';
 import 'home_page.dart';
 
@@ -32,8 +31,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
               onPressed: () async {
                 await DialogUtils.yesNoDialog(context, 'deleteChatConfirm'.tr(),
                     'deleteChatConfirmText'.tr(), () async {
-                  // Delete chat
-                  await CacheUtils.deletePrivateMessages(widget.userId);
+                  MessageNotifier().deleteChat(widget.userId);
                   // Redirect to home page and clear navigation stack
                   Navigator.pushAndRemoveUntil(
                     context,

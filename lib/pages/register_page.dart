@@ -54,7 +54,7 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!_usernameEditing) {
       return null;
     }
-    RegExp regex = RegExp(r"^[a-zA-Z0-9]{2,32}$");
+    RegExp regex = RegExp(r'^[a-zA-Z0-9]{2,32}$');
     if (regex.hasMatch(_controllerUsername.text)) {
       _usernameOk = true;
       return null;
@@ -96,14 +96,12 @@ class _RegisterPageState extends State<RegisterPage> {
         // OpenAPI client
         Singleton().api = ApiClient(basePath: widget.invite.url);
         // Registration
-        var newUser = await Utils.callApi(
-            () => Singleton().authApi.createUser(
-                createUserInput: CreateUserInput(
-                    inviteCode: widget.invite.code,
-                    publicKey: bu.CryptoUtils.encodeRSAPublicKeyToPem(
-                        keyPair.publicKey as bu.RSAPublicKey),
-                    username: _controllerUsername.text)),
-            false);
+        var newUser = await Utils.callApi(() => Singleton().authApi.createUser(
+            createUserInput: CreateUserInput(
+                inviteCode: widget.invite.code,
+                publicKey: bu.CryptoUtils.encodeRSAPublicKeyToPem(
+                    keyPair.publicKey as bu.RSAPublicKey),
+                username: _controllerUsername.text)));
 
         if (newUser != null) {
           // Create profile
@@ -114,8 +112,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   keyPair.publicKey as bu.RSAPublicKey),
               bu.CryptoUtils.encodeRSAPrivateKeyToPem(
                   keyPair.privateKey as bu.RSAPrivateKey),
-              "",
-              "");
+              '',
+              '');
           // Add profile to singleton
           Singleton().profile = profile;
           // Save password hash to cache
@@ -130,7 +128,9 @@ class _RegisterPageState extends State<RegisterPage> {
           await Utils.authCheck();
 
           // WebSocket client
-          Singleton().wsClient = WsClient(Utils.getWsUrl(Singleton().profile.url), onReceived: Utils.onWsMessageReceived);
+          Singleton().wsClient = WsClient(
+              Utils.getWsUrl(Singleton().profile.url),
+              onReceived: Utils.onWsMessageReceived);
 
           // Redirect to home page
           Navigator.pushReplacement(context,

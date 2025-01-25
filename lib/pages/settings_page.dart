@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../utils/dialog_utils.dart';
+import '../utils/message_notifier.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -51,6 +52,35 @@ class _SettingsPageState extends State<SettingsPage> {
 
             // Divider(thickness: 1),
 
+            // Delete all chats
+            TextButton(
+              onPressed: () async {
+                await DialogUtils.yesNoDialog(context, 'deleteAllChatsConfirm'.tr(),
+                    'deleteAllChatsConfirmText'.tr(), () async {
+                  MessageNotifier().deleteAllChats();
+                });
+                Navigator.pop(context);
+              },
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.delete_forever,
+                    size: 24,
+                    color: Colors.red,
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(left: 5),
+                    child: Text(
+                      'deleteAllChats'.tr(),
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 24,
+                  ),
+                ],
+              ),
+            ),
             // TODO delete account (logout)
 
             // TODO space

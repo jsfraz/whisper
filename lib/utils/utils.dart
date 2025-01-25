@@ -25,11 +25,10 @@ class Utils {
     return input[0].toUpperCase() + input.substring(1);
   }
 
-  // TODO show error parameter
   // TODO offline mode
   /// Call API, handle errors and return result.
-  static Future<T?> callApi<T>(
-      Future<T> Function() call, bool useSecurity) async {
+  static Future<T?> callApi<T>(Future<T> Function() call,
+      {bool useSecurity = true}) async {
     // Check tokens
     if (useSecurity) {
       await authCheck();
@@ -42,7 +41,7 @@ class Utils {
       // Handle error
       if (e is ApiException) {
         if (e.innerException == null) {
-          if (e.message != "") {
+          if (e.message != '') {
             Map<String, dynamic> messageMap =
                 jsonDecode(e.message!) as Map<String, dynamic>;
             Fluttertoast.showToast(
@@ -73,8 +72,8 @@ class Utils {
   static Future<void> authCheck() async {
     bool toAuth = false;
     // Initial auth
-    if (Singleton().profile.refreshToken == "" &&
-        Singleton().profile.accessToken == "") {
+    if (Singleton().profile.refreshToken == '' &&
+        Singleton().profile.accessToken == '') {
       toAuth = true;
     } else {
       // Auth when refresh token is expired
@@ -95,7 +94,7 @@ class Utils {
                   nonce: base64Encode(nonce),
                   signedNonce: base64Encode(signedNonce),
                   userId: Singleton().profile.user.id)),
-          false);
+          useSecurity: false);
 
       if (authResponse != null) {
         // Set tokens to singleton
@@ -110,7 +109,7 @@ class Utils {
           () => Singleton().authApi.refreshUserAccessToken(
               refreshUserAccessTokenInput: RefreshUserAccessTokenInput(
                   refreshToken: Singleton().profile.refreshToken)),
-          false);
+          useSecurity: false);
 
       if (refreshResponse != null) {
         // Set access token to singleton
@@ -140,8 +139,12 @@ class Utils {
       // Message
       case WsResponseType.message:
         var message = wsResponse.payload as PrivateMessage;
-        var decryptedMessage = await CryptoUtils.rsaDecrypt(message.message, bu.CryptoUtils.rsaPrivateKeyFromPem(Singleton().profile.privateKey));
-        var privateMessage = pm.PrivateMessage(message.senderId, utf8.decode(decryptedMessage), message.sentAt, receivedAt);
+        var decryptedMessage = await CryptoUtils.rsaDecrypt(
+            message.message,
+            bu.CryptoUtils.rsaPrivateKeyFromPem(
+                Singleton().profile.privateKey));
+        var privateMessage = pm.PrivateMessage(message.senderId,
+            utf8.decode(decryptedMessage), message.sentAt, receivedAt);
         await MessageNotifier().addMessages(message.senderId, [privateMessage]);
         break;
 
