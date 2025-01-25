@@ -134,7 +134,6 @@ class Utils {
   /// Handle WebSocket message
   static Future<void> onWsMessageReceived(WsResponse wsResponse) async {
     var receivedAt = DateTime.now();
-    // Print received message
     switch (wsResponse.type) {
       // More messages
       case WsResponseType.messages:
@@ -142,13 +141,17 @@ class Utils {
       List<pm.PrivateMessage> decryptedMessages = [];
       // TODO parallelly decrypt
       for (var message in messages) {
-        var decryptedMessage = await CryptoUtils.rsaDecrypt(
+        try {
+          var decryptedMessage = await CryptoUtils.rsaDecrypt(
             message.message,
             bu.CryptoUtils.rsaPrivateKeyFromPem(
                 Singleton().profile.privateKey));
         var privateMessage = pm.PrivateMessage(message.senderId,
             utf8.decode(decryptedMessage), message.sentAt, receivedAt);
         decryptedMessages.add(privateMessage);
+        } catch (e) {
+          Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+        }
       }
       if (decryptedMessages.isNotEmpty) {
         await MessageNotifier().addMessages(decryptedMessages.first.senderId, decryptedMessages);
@@ -158,7 +161,6 @@ class Utils {
       // Error
       case WsResponseType.error:
         var error = wsResponse.payload as String;
-        debugPrint(error);
         Fluttertoast.showToast(msg: error, backgroundColor: Colors.red);
         break;
     }

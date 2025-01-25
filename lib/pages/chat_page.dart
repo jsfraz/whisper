@@ -57,6 +57,9 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Send message
   Future<void> _sendMessage() async {
+    if (_controllerMessage.text.isEmpty) {
+      return;
+    }
     setState(() {
       _isSending = true;
     });
@@ -93,7 +96,7 @@ class _ChatPageState extends State<ChatPage> {
         // Reset text
         _controllerMessage.text = '';
       } catch (e) {
-        // TODO error or something
+        Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
       }
     } else {
       // TODO error or something
@@ -146,9 +149,11 @@ class _ChatPageState extends State<ChatPage> {
             ),
           );
         }
-        // Messages (adjust index to account for header)
+        // Return chat bubble
+        final previousMessage = index > 1 ? messages[index - 2] : null;
         final message = messages[index - 1];
-        return ChatBubble(message);
+        final nextMessage = index < messages.length ? messages[index] : null;
+        return ChatBubble(previousMessage, message, nextMessage, widget.user);
       },
     );
   }

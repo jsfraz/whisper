@@ -16,7 +16,7 @@ class ChatListItem extends StatefulWidget {
 }
 
 class _ChatListItemState extends State<ChatListItem> {
-  String getDate() {
+  String formatDate() {
     final DateTime now = DateTime.now().toLocal();
     final DateTime messageDate = widget.lastMessage.receivedAt.toLocal();
     final int daysDifference = messageDate.difference(now).inDays;
@@ -78,10 +78,10 @@ class _ChatListItemState extends State<ChatListItem> {
           ),
         ),
       ),
-      title: Text(getTitle()),
+      title: Text(widget.user.username.isNotEmpty ? widget.user.username : '?'),
+      subtitle: Text(getTitle()),
       trailing: Text(
-        getDate(),
-        style: TextStyle(fontSize: 15),
+        formatDate(),
       ),
     );
   }

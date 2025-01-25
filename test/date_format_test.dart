@@ -12,4 +12,9 @@ void main() {
     // January 25, 2025
     debugPrint(DateFormat.yMMMMd().format(DateTime.now().toLocal()));
   });
+
+  test('EEEE', () {
+    // Friday
+    debugPrint(DateFormat.EEEE().format(DateTime.now().toLocal()));
+  });
 }

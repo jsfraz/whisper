@@ -40,7 +40,6 @@ class _ScanInvitePageState extends State<ScanInvitePage> {
         return;
         }
       } catch (e) {
-        debugPrint(e.toString());
         Fluttertoast.showToast(
             msg: 'invalidQr'.tr(),
             backgroundColor: Colors.red);
