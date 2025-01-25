@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:page_transition/page_transition.dart';
@@ -161,50 +163,68 @@ class _HomePageState extends State<HomePage> {
     return PopScope(
       child: Scaffold(
         appBar: _currentPageIndex == 0
-            ? AppBar(
-                // User icon with first letter
-                leading: Transform.scale(
-                  scale: 0.65,
-                  child: CircleAvatar(
-                    radius: 22,
-                    backgroundColor: userColor,
-                    child: Text(
-                      Singleton().profile.user.username.isNotEmpty
-                          ? Singleton().profile.user.username[0].toUpperCase()
-                          : '?',
-                      style: TextStyle(
-                        fontSize: 24,
-                        color: ColorUtils.getReadableColor(userColor),
-                      ),
-                    ),
-                  ),
+            ? PreferredSize(
+                preferredSize: Size(
+                  double.infinity,
+                  56.0,
                 ),
-                // Title
-                title: Text('msgPage'.tr()),
-                // Action buttons
-                actions: [
-                  /*
-                  // Search
-                  IconButton(
-                    icon: const Icon(Icons.search),
-                    tooltip: 'searchButton'.tr(),
-                    onPressed: () async {
-                      // TODO search
-                    },
-                  ),
-                  */
-                  // Settings
-                  IconButton(
-                    icon: const Icon(Icons.settings),
-                    tooltip: 'searchButton'.tr(),
-                    onPressed: () {
-                      Navigator.of(context).push(PageTransition(
-                          type: PageTransitionType.rightToLeftJoined,
-                          child: SettingsPage(),
-                          childCurrent: widget));
-                    },
-                  ),
-                ],
+                child: ClipRRect(
+                  child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                      child: AppBar(
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .surface
+                            .withValues(alpha: 0.2),
+                        // User icon with first letter
+                        leading: Transform.scale(
+                          scale: 0.65,
+                          child: CircleAvatar(
+                            radius: 22,
+                            backgroundColor: userColor,
+                            child: Text(
+                              Singleton().profile.user.username.isNotEmpty
+                                  ? Singleton()
+                                      .profile
+                                      .user
+                                      .username[0]
+                                      .toUpperCase()
+                                  : '?',
+                              style: TextStyle(
+                                fontSize: 24,
+                                color: ColorUtils.getReadableColor(userColor),
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Title
+                        title: Text('msgPage'.tr()),
+                        // Action buttons
+                        actions: [
+                          /*
+                          // Search
+                          IconButton(
+                            icon: const Icon(Icons.search),
+                            tooltip: 'searchButton'.tr(),
+                            onPressed: () async {
+                              // TODO search
+                            },
+                          ),
+                          */
+                          // Settings
+                          IconButton(
+                            icon: const Icon(Icons.settings),
+                            tooltip: 'searchButton'.tr(),
+                            onPressed: () {
+                              Navigator.of(context).push(PageTransition(
+                                  type: PageTransitionType.rightToLeftJoined,
+                                  child: SettingsPage(),
+                                  childCurrent: widget));
+                            },
+                          ),
+                        ],
+                      )),
+                ),
               )
             : null,
         resizeToAvoidBottomInset: false,

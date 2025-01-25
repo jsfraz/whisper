@@ -1,7 +1,7 @@
 name: whisper
-description: "A new Flutter project."   # TODO description
+description: "Secure private self-hosted end-to-end encryption messaging app."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
-version: 1.0.0+1
+version: 0.0.1+1    # TODO change version when relasing new version
 
 environment:
   sdk: '>=3.4.3 <4.0.0'

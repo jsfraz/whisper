@@ -50,7 +50,7 @@ class Utils {
           } else {
             Fluttertoast.showToast(
                 msg: Utils.capitalizeFirstLetter(
-                    'HTTP error ${e.code.toString()}'), // TODO better code name
+                    'HTTP error ${e.code.toString()}'),
                 backgroundColor: Colors.red);
           }
         } else {

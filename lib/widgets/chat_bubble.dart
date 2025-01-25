@@ -13,8 +13,7 @@ class ChatBubble extends StatelessWidget {
   const ChatBubble(
       this.previousMessage, this.message, this.nextMessage, this.user,
       {super.key});
-
-  // TODO colors by theme
+  
   @override
   Widget build(BuildContext context) {
     Color userColor = ColorUtils.getColorFromUsername(user.username);
@@ -72,6 +71,27 @@ class ChatBubble extends StatelessWidget {
       else {
         return '${DateFormat.yMMMMd().format(messageDate)} ${DateFormat.Hm().format(messageDate)}';
       }
+    }
+
+    Color bubbleBackground() {
+      var brightness = Theme.of(context).brightness;
+      if (message.isMe) {
+        if (brightness == Brightness.dark) {
+          return Theme.of(context).colorScheme.secondary;
+        }
+        return Theme.of(context).colorScheme.primary;
+      } else {
+        if (brightness == Brightness.dark) {
+          return Theme.of(context).colorScheme.onSecondary;
+        }
+        return Theme.of(context).colorScheme.surfaceDim;
+      }
+    }
+
+    Color bubbleTextColor() {
+      final backgroundColor = bubbleBackground();
+      double luminance = backgroundColor.computeLuminance();
+      return luminance > 0.5 ? Colors.black : Colors.white;
     }
 
     return Padding(
@@ -151,9 +171,7 @@ class ChatBubble extends StatelessWidget {
                       */
                       Container(
                         decoration: BoxDecoration(
-                          color: message.isMe
-                              ? Colors.blue
-                              : Colors.grey[300]!, // TODO Color by theme
+                          color: bubbleBackground(),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         padding: const EdgeInsets.symmetric(
@@ -161,7 +179,7 @@ class ChatBubble extends StatelessWidget {
                         child: Text(
                           message.message,
                           style: TextStyle(
-                            color: message.isMe ? Colors.white : Colors.black,
+                            color: bubbleTextColor(),
                           ),
                           softWrap: true,
                         ),

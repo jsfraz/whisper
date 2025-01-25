@@ -77,13 +77,14 @@ class _SearchUserPageState extends State<SearchUserPage> {
             // Seatch field
             Padding(
               padding: const EdgeInsets.only(bottom: 15),
-              // TODO color by theme
               child: TextField(
                 controller: _controllerSearch,
                 decoration: InputDecoration(
                   hintText: 'enterUsername'.tr(),
                   filled: true,
-                  fillColor: Theme.of(context).colorScheme.surfaceBright,
+                  fillColor: Theme.of(context).brightness == Brightness.dark
+                      ? Theme.of(context).colorScheme.surfaceBright
+                      : Theme.of(context).colorScheme.surfaceDim,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),
                     borderSide: BorderSide.none,

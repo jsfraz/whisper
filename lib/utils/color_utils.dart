@@ -62,7 +62,7 @@ class ColorUtils {
 
     return MaterialColor(color.value, shades);
   }
-  
+
   /// Color to hex string
   static String colorToHex(Color color) {
     return '#${color.value.toRadixString(16)}';

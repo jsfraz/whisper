@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +28,8 @@ class ChatPage extends StatefulWidget {
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
+
+// Transaprent AppBar: https://ckreymborg.medium.com/how-to-create-a-glassmorphism-frosted-glass-appbar-in-flutter-fb217ce1b4ca
 
 class _ChatPageState extends State<ChatPage> {
   // Get color of user profile picture
@@ -170,104 +173,117 @@ class _ChatPageState extends State<ChatPage> {
     final notifier = context.watch<MessageNotifier>();
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leading: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
-            ),
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: userColor,
-              child: Text(
-                widget.user.username.isNotEmpty
-                    ? widget.user.username[0].toUpperCase()
-                    : '?',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: ColorUtils.getReadableColor(userColor),
-                ),
-              ),
-            ),
-          ],
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: Size(
+          double.infinity,
+          56.0,
         ),
-        leadingWidth: 96, // Increase width to accommodate both icons
-        // Title
-        title: Text(widget.user.username),
-        // Action buttons
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info),
-            tooltip: 'infoButton'.tr(),
-            onPressed: () {
-              // Push info page
-              Navigator.of(context).push(PageTransition(
-                  type: PageTransitionType.rightToLeftJoined,
-                  child: ChatInfoPage(widget.user.id),
-                  childCurrent: widget));
-            },
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Messages and avatar list
-            Expanded(
-              child: FutureBuilder<List<PrivateMessage>>(
-                  future: notifier.getMessages(widget.user.id),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        _firstLoad) {
-                      return Center(
-                        child: Transform.scale(
-                          scale: 1.5,
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-                    // Return when data is present
-                    if (snapshot.hasData) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _scrollController
-                            .jumpTo(_scrollController.position.maxScrollExtent);
-                      });
-                      return _getContent(snapshot.data!);
-                    }
-                    // Return with messages loaded on init
-                    return _getContent(_messages);
-                  }),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+            child: AppBar(
+              automaticallyImplyLeading: false,
+              backgroundColor:
+                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.2),
+              leading: Row(
                 children: [
-                  Expanded(
-                    // TODO color by theme
-                    child: TextField(
-                      controller: _controllerMessage,
-                      decoration: InputDecoration(
-                        hintText: 'yourMessage'.tr(),
-                        filled: true,
-                        fillColor: Theme.of(context).colorScheme.surfaceBright,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          borderSide: BorderSide.none,
-                        ),
-                        suffixIcon: IconButton(
-                          onPressed: _isSending ? null : _sendMessage,
-                          icon: const Icon(Icons.send),
-                        ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: userColor,
+                    child: Text(
+                      widget.user.username.isNotEmpty
+                          ? widget.user.username[0].toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: ColorUtils.getReadableColor(userColor),
                       ),
                     ),
                   ),
                 ],
               ),
+              leadingWidth: 96, // Increase width to accommodate both icons
+              // Title
+              title: Text(widget.user.username),
+              // Action buttons
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.info),
+                  tooltip: 'infoButton'.tr(),
+                  onPressed: () {
+                    // Push info page
+                    Navigator.of(context).push(PageTransition(
+                        type: PageTransitionType.rightToLeftJoined,
+                        child: ChatInfoPage(widget.user.id),
+                        childCurrent: widget));
+                  },
+                ),
+              ],
             ),
-          ],
+          ),
         ),
+      ),
+      body: Column(
+        children: [
+          // Messages and avatar list
+          Expanded(
+            child: FutureBuilder<List<PrivateMessage>>(
+                future: notifier.getMessages(widget.user.id),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      _firstLoad) {
+                    return Center(
+                      child: Transform.scale(
+                        scale: 1.5,
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+                  // Return when data is present
+                  if (snapshot.hasData) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _scrollController
+                          .jumpTo(_scrollController.position.maxScrollExtent);
+                    });
+                    return _getContent(snapshot.data!);
+                  }
+                  // Return with messages loaded on init
+                  return _getContent(_messages);
+                }),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controllerMessage,
+                    decoration: InputDecoration(
+                      hintText: 'yourMessage'.tr(),
+                      filled: true,
+                      fillColor: Theme.of(context).brightness == Brightness.dark
+                          ? Theme.of(context).colorScheme.surfaceBright
+                          : Theme.of(context).colorScheme.surfaceDim,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none,
+                      ),
+                      suffixIcon: IconButton(
+                        onPressed: _isSending ? null : _sendMessage,
+                        icon: const Icon(Icons.send),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
