@@ -183,6 +183,7 @@ class _HomePageState extends State<HomePage> {
                 title: Text('msgPage'.tr()),
                 // Action buttons
                 actions: [
+                  /*
                   // Search
                   IconButton(
                     icon: const Icon(Icons.search),
@@ -191,6 +192,7 @@ class _HomePageState extends State<HomePage> {
                       // TODO search
                     },
                   ),
+                  */
                   // Settings
                   IconButton(
                     icon: const Icon(Icons.settings),

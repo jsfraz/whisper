@@ -136,17 +136,24 @@ class Utils {
     var receivedAt = DateTime.now();
     // Print received message
     switch (wsResponse.type) {
-      // Message
-      case WsResponseType.message:
-        var message = wsResponse.payload as PrivateMessage;
+      // More messages
+      case WsResponseType.messages:
+      var messages = wsResponse.payload as List<PrivateMessage>;
+      List<pm.PrivateMessage> decryptedMessages = [];
+      // TODO parallelly decrypt
+      for (var message in messages) {
         var decryptedMessage = await CryptoUtils.rsaDecrypt(
             message.message,
             bu.CryptoUtils.rsaPrivateKeyFromPem(
                 Singleton().profile.privateKey));
         var privateMessage = pm.PrivateMessage(message.senderId,
             utf8.decode(decryptedMessage), message.sentAt, receivedAt);
-        await MessageNotifier().addMessages(message.senderId, [privateMessage]);
-        break;
+        decryptedMessages.add(privateMessage);
+      }
+      if (decryptedMessages.isNotEmpty) {
+        await MessageNotifier().addMessages(decryptedMessages.first.senderId, decryptedMessages);
+      }
+      break;
 
       // Error
       case WsResponseType.error:
