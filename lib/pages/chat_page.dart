@@ -223,8 +223,8 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                       );
                     }
-                    // Return when data present
-                    if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                    // Return when data is present
+                    if (snapshot.hasData) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         _scrollController
                             .jumpTo(_scrollController.position.maxScrollExtent);

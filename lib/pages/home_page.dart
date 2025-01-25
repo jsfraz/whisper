@@ -70,13 +70,13 @@ class _HomePageState extends State<HomePage> {
 
   /// Get server users
   Future<void> _getServerUsers() async {
-    if (mounted) {
+    if (context.mounted) {
       setState(() {
         _serverUsers = [];
         _selectedUsers = [];
       });
       var users = await Utils.callApi(() => Singleton().userApi.getAllUsers());
-      if (mounted) {
+      if (context.mounted) {
         setState(() {
           if (users != null) {
             for (var x in users) {
@@ -276,8 +276,8 @@ class _HomePageState extends State<HomePage> {
                             ),
                           );
                         }
-                        // Return when data present
-                        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                        // Return when data is present
+                        if (snapshot.hasData) {
                           return _getContent(snapshot.data!);
                         }
                         // Return with messages loaded on init
