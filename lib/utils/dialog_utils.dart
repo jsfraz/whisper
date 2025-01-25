@@ -248,45 +248,50 @@ class DialogUtils {
     return showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(content),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: <Widget>[
-            TextButton(
-              style: ButtonStyle(
-                backgroundColor: WidgetStateProperty.all(
-                    Theme.of(context).colorScheme.primary),
-                shape: WidgetStateProperty.all(
-                  RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(35)),
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: AlertDialog(
+            title: Text(title),
+            content: Text(content),
+            actionsAlignment: MainAxisAlignment.center,
+            actions: <Widget>[
+              TextButton(
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.all(
+                      Theme.of(context).colorScheme.primary),
+                  shape: WidgetStateProperty.all(
+                    RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(35)),
+                  ),
+                ),
+                child: Text(
+                  'yesText'.tr(),
+                  style:
+                      TextStyle(color: Theme.of(context).colorScheme.surface),
+                ),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onYes();
+                },
+              ),
+              TextButton(
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.all(
+                      Theme.of(context).colorScheme.primary),
+                  shape: WidgetStateProperty.all(
+                    RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(35)),
+                  ),
+                ),
+                onPressed: Navigator.of(context).pop,
+                child: Text(
+                  'noText'.tr(),
+                  style:
+                      TextStyle(color: Theme.of(context).colorScheme.surface),
                 ),
               ),
-              child: Text(
-                'yesText'.tr(),
-                style: TextStyle(color: Theme.of(context).colorScheme.surface),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-                onYes();
-              },
-            ),
-            TextButton(
-              style: ButtonStyle(
-                backgroundColor: WidgetStateProperty.all(
-                    Theme.of(context).colorScheme.primary),
-                shape: WidgetStateProperty.all(
-                  RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(35)),
-                ),
-              ),
-              onPressed: Navigator.of(context).pop,
-              child: Text(
-                'noText'.tr(),
-                style: TextStyle(color: Theme.of(context).colorScheme.surface),
-              ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

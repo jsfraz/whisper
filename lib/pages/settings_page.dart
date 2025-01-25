@@ -58,8 +58,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 await DialogUtils.yesNoDialog(context, 'deleteAllChatsConfirm'.tr(),
                     'deleteAllChatsConfirmText'.tr(), () async {
                   MessageNotifier().deleteAllChats();
+                  Navigator.pop(context);
                 });
-                Navigator.pop(context);
               },
               child: Row(
                 children: [
