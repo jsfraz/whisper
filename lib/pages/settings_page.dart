@@ -83,8 +83,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             // TODO delete account (logout)
 
-            // TODO space
-
             // TODO how it works
             // TODO repo
           ],

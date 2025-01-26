@@ -112,34 +112,45 @@ class _ChatBubbleState extends State<ChatBubble> {
         crossAxisAlignment:
             widget.message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (_showTooltip)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Center(
-                child: Text(
-                  formatDate(
-                      widget.message.isMe ? widget.message.sentAt : widget.message.receivedAt),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                children: [
+                  if (_showTooltip && !shouldShowTime())
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Center(
+                        child: Text(
+                          formatDate(
+                              widget.message.isMe ? widget.message.sentAt : widget.message.receivedAt),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (shouldShowTime())
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Center(
+                        child: Text(
+                          formatDate(
+                              widget.message.isMe ? widget.message.sentAt : widget.message.receivedAt),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-          if (shouldShowTime())
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Center(
-                child: Text(
-                  formatDate(
-                      widget.message.isMe ? widget.message.sentAt : widget.message.receivedAt),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ),
-            ),
+          ),
           GestureDetector(
             onTap: () {
               setState(() {

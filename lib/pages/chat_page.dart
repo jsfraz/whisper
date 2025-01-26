@@ -66,6 +66,12 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {
       _isSending = true;
     });
+    // TODO Check websocket connection
+    /*
+    if (!Singleton().wsClient.isConnected) {
+      
+    }
+    */
     // Encrypt message content
     Uint8List encryptedMessage;
     try {
@@ -80,6 +86,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     // Send message
+    // TODO delete if
     if (Singleton().wsClient.isConnected) {
       DateTime sentAt;
       try {
