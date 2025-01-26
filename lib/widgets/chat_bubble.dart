@@ -4,7 +4,8 @@ import '../models/user.dart';
 import '../models/private_message.dart';
 import '../utils/color_utils.dart';
 
-class ChatBubble extends StatelessWidget {
+// TODO show options on bottom on holding the widget (like in Messenger)
+class ChatBubble extends StatefulWidget {
   final PrivateMessage? previousMessage;
   final PrivateMessage message;
   final PrivateMessage? nextMessage;
@@ -13,32 +14,39 @@ class ChatBubble extends StatelessWidget {
   const ChatBubble(
       this.previousMessage, this.message, this.nextMessage, this.user,
       {super.key});
-  
+
+  @override
+  State<ChatBubble> createState() => _ChatBubbleState();
+}
+
+class _ChatBubbleState extends State<ChatBubble> {
+  bool _showTooltip = false;
+
   @override
   Widget build(BuildContext context) {
-    Color userColor = ColorUtils.getColorFromUsername(user.username);
+    Color userColor = ColorUtils.getColorFromUsername(widget.user.username);
 
     bool showAvatar() {
-      if (message.isMe) return false;
+      if (widget.message.isMe) return false;
       // Show avatar if next message is null (last message)
-      if (nextMessage == null) return true;
+      if (widget.nextMessage == null) return true;
       // Show avatar if next message is from different user
-      return nextMessage!.senderId != message.senderId;
+      return widget.nextMessage!.senderId != widget.message.senderId;
     }
 
     bool isFromSameUser() {
-      if (previousMessage == null) return false;
-      return previousMessage!.senderId == message.senderId;
+      if (widget.previousMessage == null) return false;
+      return widget.previousMessage!.senderId == widget.message.senderId;
     }
 
     bool shouldShowTime() {
-      if (previousMessage == null) return true;
+      if (widget.previousMessage == null) return true;
 
-      final previousTime = previousMessage!.isMe
-          ? previousMessage!.sentAt
-          : previousMessage!.receivedAt;
+      final previousTime = widget.previousMessage!.isMe
+          ? widget.previousMessage!.sentAt
+          : widget.previousMessage!.receivedAt;
 
-      final currentTime = message.isMe ? message.sentAt : message.receivedAt;
+      final currentTime = widget.message.isMe ? widget.message.sentAt : widget.message.receivedAt;
 
       final difference = currentTime.difference(previousTime).inMinutes;
       return difference >= 10;
@@ -75,7 +83,7 @@ class ChatBubble extends StatelessWidget {
 
     Color bubbleBackground() {
       var brightness = Theme.of(context).brightness;
-      if (message.isMe) {
+      if (widget.message.isMe) {
         if (brightness == Brightness.dark) {
           return Theme.of(context).colorScheme.secondary;
         }
@@ -96,21 +104,21 @@ class ChatBubble extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: message.isMe ? 96 : 16,
-        right: message.isMe ? 16 : 96,
+        left: widget.message.isMe ? 96 : 16,
+        right: widget.message.isMe ? 16 : 96,
         top: isFromSameUser() ? 4 : 16,
       ),
       child: Column(
         crossAxisAlignment:
-            message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            widget.message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (shouldShowTime())
+          if (_showTooltip)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Center(
                 child: Text(
                   formatDate(
-                      message.isMe ? message.sentAt : message.receivedAt),
+                      widget.message.isMe ? widget.message.sentAt : widget.message.receivedAt),
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
@@ -118,76 +126,97 @@ class ChatBubble extends StatelessWidget {
                 ),
               ),
             ),
-          Align(
-            alignment:
-                message.isMe ? Alignment.centerRight : Alignment.centerLeft,
-            child: Row(
-              mainAxisAlignment: message.isMe
-                  ? MainAxisAlignment.end
-                  : MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (!message.isMe)
-                  SizedBox(
-                    width: 40, // 32 (avatar) + 8 (padding)
-                    child: showAvatar()
-                        ? Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: CircleAvatar(
-                              radius: 16,
-                              backgroundColor: userColor,
-                              child: Text(
-                                user.username.isNotEmpty
-                                    ? user.username[0].toUpperCase()
-                                    : '?',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: ColorUtils.getReadableColor(userColor),
-                                ),
-                              ),
-                            ),
-                          )
-                        : null,
-                  ),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: message.isMe
-                        ? CrossAxisAlignment.end
-                        : CrossAxisAlignment.start,
-                    children: [
-                      /*
-                      // Show nick
-                      if (!message.isMe)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 12, bottom: 4),
-                          child: Text(
-                            user.username,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ),
-                      */
-                      Container(
-                        decoration: BoxDecoration(
-                          color: bubbleBackground(),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                        child: Text(
-                          message.message,
-                          style: TextStyle(
-                            color: bubbleTextColor(),
-                          ),
-                          softWrap: true,
-                        ),
-                      ),
-                    ],
+          if (shouldShowTime())
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Center(
+                child: Text(
+                  formatDate(
+                      widget.message.isMe ? widget.message.sentAt : widget.message.receivedAt),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
                   ),
                 ),
-              ],
+              ),
+            ),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _showTooltip = !_showTooltip;
+              });
+            },
+            child: Align(
+              alignment:
+                  widget.message.isMe ? Alignment.centerRight : Alignment.centerLeft,
+              child: Row(
+                mainAxisAlignment: widget.message.isMe
+                    ? MainAxisAlignment.end
+                    : MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (!widget.message.isMe)
+                    SizedBox(
+                      width: 40, // 32 (avatar) + 8 (padding)
+                      child: showAvatar()
+                          ? Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: CircleAvatar(
+                                radius: 16,
+                                backgroundColor: userColor,
+                                child: Text(
+                                  widget.user.username.isNotEmpty
+                                      ? widget.user.username[0].toUpperCase()
+                                      : '?',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: ColorUtils.getReadableColor(userColor),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: widget.message.isMe
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start,
+                      children: [
+                        /*
+                        // Show nick
+                        if (!widget.message.isMe)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12, bottom: 4),
+                            child: Text(
+                              widget.user.username,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                        */
+                        Container(
+                          decoration: BoxDecoration(
+                            color: bubbleBackground(),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          child: Text(
+                            widget.message.message,
+                            style: TextStyle(
+                              color: bubbleTextColor(),
+                            ),
+                            softWrap: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
