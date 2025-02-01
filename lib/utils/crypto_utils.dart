@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:math';
+import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart' as djwt;
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 import 'package:cryptography/cryptography.dart' as cryptography;
@@ -40,35 +40,11 @@ class CryptoUtils {
     return await key.extractBytes();
   }
 
-  /// Sign nonce by RSA private key synchronously.
-  static Uint8List _rsaSignNonce(Map<String, dynamic> data) {
-    final signer = Signer('SHA-256/RSA');
-    final rsaPrivateKeyParams =
-        PrivateKeyParameter<RSAPrivateKey>(data['privateKey']);
-    // Initialize signer with private key
-    signer.init(true, rsaPrivateKeyParams);
-    // Sign the message
-    final signature = signer.generateSignature(data['nonce']) as RSASignature;
-    return signature.bytes;
-  }
-
-  /// Generate nonce.
-  static Uint8List generateNonce(int length) {
-    final random = Random.secure();
-    return Uint8List.fromList(
-        List.generate(length, (_) => random.nextInt(256)));
-  }
-
-  /// Sign nonce by RSA private key asynchronously.
-  static Future<Uint8List> rsaSignNonce(
-      Uint8List nonce, RSAPrivateKey privateKey) async {
-    return await compute(
-        _rsaSignNonce, {'privateKey': privateKey, 'nonce': nonce});
-  }
-
   /// Encrypt by RSA public key asynchronously.
-  static Future<Uint8List> rsaEncrypt(Uint8List message, RSAPublicKey publicKey) async {
-    return await compute(_rsaEncrypt, {'publicKey': publicKey, 'message': message});
+  static Future<Uint8List> rsaEncrypt(
+      Uint8List message, RSAPublicKey publicKey) async {
+    return await compute(
+        _rsaEncrypt, {'publicKey': publicKey, 'message': message});
   }
 
   /// Encrypt by RSA public key synchronously.
@@ -81,8 +57,10 @@ class CryptoUtils {
   }
 
   /// Decrypt by RSA private key asynchronously.
-  static Future<Uint8List> rsaDecrypt(Uint8List message, RSAPrivateKey privateKey) async {
-    return await compute(_rsaDecrypt, {'privateKey': privateKey, 'message': message});
+  static Future<Uint8List> rsaDecrypt(
+      Uint8List message, RSAPrivateKey privateKey) async {
+    return await compute(
+        _rsaDecrypt, {'privateKey': privateKey, 'message': message});
   }
 
   /// Decrypt by RSA private key synchronously.
@@ -92,5 +70,23 @@ class CryptoUtils {
     cipher.init(false, PrivateKeyParameter<RSAPrivateKey>(data['privateKey']));
     // Decrypting message
     return cipher.process(data['message']);
+  }
+
+  /// Generates JWT token valid for 5 seconds asynchronously.
+  static Future<String> generateRsaJwt(int userId, RSAPrivateKey privateKey) async {
+    return await compute(
+        _generateRsaJwt, { 'userId': userId, 'privateKey': privateKey});
+  }
+
+  /// Generate JWT token synchronously.
+  static String _generateRsaJwt(Map<String, dynamic> data) {
+    final jwt = djwt.JWT({'sub': data['userId']});
+    Duration expiresIn = Duration(seconds: 5);
+    Duration notBefore = Duration.zero;
+    return jwt.sign(djwt.RSAPrivateKey.raw(data['privateKey']),
+        algorithm: djwt.JWTAlgorithm.RS256,
+        expiresIn: expiresIn,
+        notBefore: notBefore,
+        noIssueAt: false);
   }
 }

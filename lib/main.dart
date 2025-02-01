@@ -14,6 +14,8 @@ import 'utils/singleton.dart';
 import 'utils/theme_notifier.dart';
 import 'utils/utils.dart';
 
+// TODO tor
+
 void main() async {
   // Initialize Flutter widgets
   WidgetsFlutterBinding.ensureInitialized();

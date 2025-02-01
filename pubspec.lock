@@ -14,6 +14,14 @@ packages:
     description: dart
     source: sdk
     version: "0.3.3"
+  adaptive_number:
+    dependency: transitive
+    description:
+      name: adaptive_number
+      sha256: "3a567544e9b5c9c803006f51140ad544aedc79604fd4f3f2c1380003f97c1d77"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   analyzer:
     dependency: transitive
     description:
@@ -190,22 +198,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.7.0"
+  dart_jsonwebtoken:
+    dependency: "direct main"
+    description:
+      name: dart_jsonwebtoken
+      sha256: "06e02e18827d047f206e1051c15b493c9c29a2dba0f9b2a905d73748dec4f931"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.16.0"
   dart_style:
     dependency: transitive
     description:
       name: dart_style
-      sha256: "7856d364b589d1f08986e140938578ed36ed948581fbc3bc9aef1805039ac5ab"
+      sha256: "7306ab8a2359a48d22310ad823521d723acfed60ee1f7e37388e8986853b6820"
       url: "https://pub.dev"
     source: hosted
-    version: "2.3.7"
+    version: "2.3.8"
   easy_localization:
     dependency: "direct main"
     description:
       name: easy_localization
-      sha256: fa59bcdbbb911a764aa6acf96bbb6fa7a5cf8234354fc45ec1a43a0349ef0201
+      sha256: "0f5239c7b8ab06c66440cfb0e9aa4b4640429c6668d5a42fe389c5de42220b12"
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.7"
+    version: "3.0.7+1"
   easy_logger:
     dependency: transitive
     description:
@@ -214,6 +230,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.2"
+  ed25519_edwards:
+    dependency: transitive
+    description:
+      name: ed25519_edwards
+      sha256: "6ce0112d131327ec6d42beede1e5dfd526069b18ad45dcf654f15074ad9276cd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.1"
   email_validator:
     dependency: "direct main"
     description:
@@ -494,10 +518,10 @@ packages:
     dependency: "direct main"
     description:
       name: mobile_scanner
-      sha256: "57d6269d10912d5d583606b46d963d7c5d0299d2c37add8b7192dd769d40a319"
+      sha256: "8b4d42bbdd5cbba78462e7074d99d413fd6ca998bceb1fa77f54423ead7014f0"
       url: "https://pub.dev"
     source: hosted
-    version: "6.0.3"
+    version: "6.0.5"
   nested:
     dependency: transitive
     description:
@@ -638,26 +662,26 @@ packages:
     dependency: "direct main"
     description:
       name: qr_code_scanner_plus
-      sha256: "5cce6588571dccb4eba755e39d288497b3c70e8a420bfdf72dbd4c5fe9c19236"
+      sha256: "656c3b00066816190bbf929fa0edbbb64dbf659d919eb78099b599b2b82cc287"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.8+1"
+    version: "2.0.9+1"
   shared_preferences:
     dependency: transitive
     description:
       name: shared_preferences
-      sha256: c59819dacc6669a1165d54d2735a9543f136f9b3cec94ca65cea6ab8dffc422e
+      sha256: "688ee90fbfb6989c980254a56cb26ebe9bb30a3a2dff439a78894211f73de67a"
       url: "https://pub.dev"
     source: hosted
-    version: "2.4.0"
+    version: "2.5.1"
   shared_preferences_android:
     dependency: transitive
     description:
       name: shared_preferences_android
-      sha256: "986dc7b7d14f38064bfa85ace28df1f1a66d4fba32e4b1079d4ea537d9541b01"
+      sha256: "650584dcc0a39856f369782874e562efd002a9c94aec032412c9eb81419cce1f"
       url: "https://pub.dev"
     source: hosted
-    version: "2.4.3"
+    version: "2.4.4"
   shared_preferences_foundation:
     dependency: transitive
     description:
@@ -860,7 +884,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: "897076e04e724c6e0ffeb053f3201f677a6f3f2a"
+      resolved-ref: e1d45dbd89c27d1dd1204963b310f7d8fb7f07ec
       url: "https://github.com/jsfraz/whisper_openapi_client_dart.git"
     source: git
     version: "0.0.1"

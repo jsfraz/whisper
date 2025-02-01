@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -82,20 +81,15 @@ class Utils {
 
     // Auth if necessary
     if (toAuth) {
-      // Generate nonce
-      Uint8List nonce = CryptoUtils.generateNonce(256);
-      // Sign nonce
-      Uint8List signedNonce = await CryptoUtils.rsaSignNonce(nonce,
-          bu.CryptoUtils.rsaPrivateKeyFromPem(Singleton().profile.privateKey));
       // Auth
+      final token = await CryptoUtils.generateRsaJwt(
+          Singleton().profile.user.id,
+          bu.CryptoUtils.rsaPrivateKeyFromPem(Singleton().profile.privateKey));
       var authResponse = await Utils.callApi(
-          () => Singleton().authApi.authUser(
-              authUserInput: AuthUserInput(
-                  nonce: base64Encode(nonce),
-                  signedNonce: base64Encode(signedNonce),
-                  userId: Singleton().profile.user.id)),
+          () => Singleton()
+              .authApi
+              .authUser(authUserInput: AuthUserInput(token: token)),
           useSecurity: false);
-
       if (authResponse != null) {
         // Set tokens to singleton
         Singleton().profile.accessToken = authResponse.accessToken;
@@ -137,26 +131,28 @@ class Utils {
     switch (wsResponse.type) {
       // More messages
       case WsResponseType.messages:
-      var messages = wsResponse.payload as List<PrivateMessage>;
-      List<pm.PrivateMessage> decryptedMessages = [];
-      // TODO parallelly decrypt
-      for (var message in messages) {
-        try {
-          var decryptedMessage = await CryptoUtils.rsaDecrypt(
-            message.message,
-            bu.CryptoUtils.rsaPrivateKeyFromPem(
-                Singleton().profile.privateKey));
-        var privateMessage = pm.PrivateMessage(message.senderId,
-            utf8.decode(decryptedMessage), message.sentAt, receivedAt);
-        decryptedMessages.add(privateMessage);
-        } catch (e) {
-          Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+        var messages = wsResponse.payload as List<PrivateMessage>;
+        List<pm.PrivateMessage> decryptedMessages = [];
+        // TODO parallelly decrypt
+        for (var message in messages) {
+          try {
+            var decryptedMessage = await CryptoUtils.rsaDecrypt(
+                message.message,
+                bu.CryptoUtils.rsaPrivateKeyFromPem(
+                    Singleton().profile.privateKey));
+            var privateMessage = pm.PrivateMessage(message.senderId,
+                utf8.decode(decryptedMessage), message.sentAt, receivedAt);
+            decryptedMessages.add(privateMessage);
+          } catch (e) {
+            Fluttertoast.showToast(
+                msg: e.toString(), backgroundColor: Colors.red);
+          }
         }
-      }
-      if (decryptedMessages.isNotEmpty) {
-        await MessageNotifier().addMessages(decryptedMessages.first.senderId, decryptedMessages);
-      }
-      break;
+        if (decryptedMessages.isNotEmpty) {
+          await MessageNotifier()
+              .addMessages(decryptedMessages.first.senderId, decryptedMessages);
+        }
+        break;
 
       // Error
       case WsResponseType.error:
