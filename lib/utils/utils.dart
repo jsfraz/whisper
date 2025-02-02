@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:path_provider/path_provider.dart';
@@ -152,6 +154,14 @@ class Utils {
           await MessageNotifier()
               .addMessages(decryptedMessages.first.senderId, decryptedMessages);
         }
+        break;
+
+      // Delete account
+      case WsResponseType.deleteAccount:
+        await CacheUtils.deleteCache();
+        Fluttertoast.showToast(
+                msg: 'accountDeleted'.tr(), backgroundColor: Colors.red);
+        SystemNavigator.pop();
         break;
 
       // Error

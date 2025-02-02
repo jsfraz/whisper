@@ -101,7 +101,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 inviteCode: widget.invite.code,
                 publicKey: bu.CryptoUtils.encodeRSAPublicKeyToPem(
                     keyPair.publicKey as bu.RSAPublicKey),
-                username: _controllerUsername.text)));
+                username: _controllerUsername.text)), useSecurity: false);
 
         if (newUser != null) {
           // Create profile
