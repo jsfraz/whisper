@@ -161,26 +161,23 @@ class Utils {
         if (decryptedMessages.isNotEmpty) {
           await MessageNotifier()
               .addMessages(decryptedMessages.first.senderId, decryptedMessages);
-          // Notifications
           var currentRoute = Singleton().currentRoute;
           if (currentRoute is PageTransition) {
             if (currentRoute.child is ChatPage) {
               var chatPage = currentRoute.child as ChatPage;
-              for(var m in messages) {
-                if (m.senderId == chatPage.user.id) {
-                  Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
-                  break;
-                }
-              }
+              // Delete messages of current open user chat from notifications
               messages.removeWhere((x) => x.senderId == chatPage.user.id);
             }
-          } else if (currentRoute is MaterialPageRoute) {
-            Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
-            return;
           }
-          // Show notification
+          // Show notification and vibrate if there are messages to announce
           if (messages.isNotEmpty) {
-            await NotificationService().showMessagesNotification(decryptedMessages);
+            Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
+            if (Singleton().profile.enableNotifications) {
+              await NotificationService()
+                  .showMessagesNotification(decryptedMessages);
+            }
+          } else {
+            // Vibrate if all messages were for currently opened user
             Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
           }
         }

@@ -113,7 +113,8 @@ class _RegisterPageState extends State<RegisterPage> {
               bu.CryptoUtils.encodeRSAPrivateKeyToPem(
                   keyPair.privateKey as bu.RSAPrivateKey),
               '',
-              '');
+              '',
+              true);
           // Add profile to singleton
           Singleton().profile = profile;
           // Save password hash to cache

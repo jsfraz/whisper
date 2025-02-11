@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:whisper/utils/singleton.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/message_notifier.dart';
 
@@ -40,22 +41,53 @@ class _SettingsPageState extends State<SettingsPage> {
                           color: Theme.of(context).colorScheme.secondary),
                     ),
                   ),
-                  SizedBox(
-                    width: 24,
-                  ),
                 ],
               ),
             ),
-            // Divider(thickness: 1),
+            // Notifications
+            TextButton(
+              onPressed: null,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.notifications,
+                    size: 24,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(left: 5),
+                    child: Text(
+                      'notificationSettings'.tr(),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.secondary),
+                    ),
+                  ),
+                  Spacer(),
+                  Switch(
+                    value: Singleton().profile.enableNotifications,
+                    onChanged: (value) async {
+                      setState(() {
+                        Singleton().profile.enableNotifications = !Singleton().profile.enableNotifications;
+                      });
+                      await Singleton().profile.save();
+                    },
+                  )
+                ],
+              ),
+            ),
+
+            // Divider(thickness: 1, indent: 10, endIndent: 10),
 
             // TODO change password
 
-            // Divider(thickness: 1),
+            Divider(thickness: 1, indent: 10, endIndent: 10),
 
             // Delete all chats
             TextButton(
               onPressed: () async {
-                await DialogUtils.yesNoDialog(context, 'deleteAllChatsConfirm'.tr(),
+                await DialogUtils.yesNoDialog(
+                    context,
+                    'deleteAllChatsConfirm'.tr(),
                     'deleteAllChatsConfirmText'.tr(), () async {
                   MessageNotifier().deleteAllChats();
                   Navigator.pop(context);

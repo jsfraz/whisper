@@ -20,4 +20,6 @@ class PrivateMessage extends HiveObject {
   PrivateMessage(this.senderId, this.message, this.sentAt, this.receivedAt, this.read);
 
   bool get isMe => senderId == Singleton().profile.user.id;
+
+  int get notificationId => receivedAt.microsecondsSinceEpoch % 0x7FFFFFFF;
 }

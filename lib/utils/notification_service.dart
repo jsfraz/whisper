@@ -38,6 +38,10 @@ class NotificationService {
           messages as List<PrivateMessage>;
     }
 
+    // TODO logic for adding current messages to already active notifications
+    final List<ActiveNotification> activeNotifications =
+        await _flutterLocalNotificationsPlugin.getActiveNotifications();
+
     if (messages.length == 1) {
       showMessageNotification(messages.first);
     }
@@ -46,7 +50,7 @@ class NotificationService {
       final groupedPlatformChannelSpecifics = await groupedNotificationDetails(
           groupedMessagesByUser, messages.length);
       await _flutterLocalNotificationsPlugin.show(
-        0,
+        messages.last.notificationId,
         'newMessagesTitle'.tr(),
         'newMessagesBody'.tr(),
         groupedPlatformChannelSpecifics,
@@ -71,8 +75,8 @@ class NotificationService {
             [totalMessageCount, messages.keys.length]));
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'whisperLocal',
-      'whisperLocal',
+      'whisperLocalNotificationTest2',
+      'whisperLocalNotificationTest2'.tr(),
       groupKey: 'cz.josefraz.flutter_push_notifications',
       channelDescription: 'notificationChannelDesc'.tr(),
       setAsGroupSummary: true,
@@ -80,6 +84,8 @@ class NotificationService {
       priority: Priority.max,
       ticker: 'tickerLocalNotification'.tr(),
       enableVibration: false,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('notification'),
       styleInformation: inboxStyleInformation,
     );
 
@@ -96,18 +102,20 @@ class NotificationService {
 
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'whisperLocal',
-      'whisperLocal',
+      'whisperLocalNotificationTest2',
+      'whisperLocalNotificationTest2'.tr(),
       groupKey: 'cz.josefraz.flutter_push_notifications',
       channelDescription: 'notificationChannelDesc'.tr(),
       importance: Importance.max,
       priority: Priority.max,
       ticker: 'tickerLocalNotification'.tr(),
       enableVibration: false,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('notification'),
     );
     NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
-    await _flutterLocalNotificationsPlugin.show(
-        0, user.username, message.message, platformChannelSpecifics);
+    await _flutterLocalNotificationsPlugin.show(message.notificationId,
+        user.username, message.message, platformChannelSpecifics);
   }
 }

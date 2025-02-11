@@ -12,10 +12,3 @@ InviteData _$InviteDataFromJson(Map<String, dynamic> json) => InviteData(
       DateTime.parse(json['validUntil'] as String),
     );
 
-// ignore: unused_element
-Map<String, dynamic> _$InviteDataToJson(InviteData instance) =>
-    <String, dynamic>{
-      'url': instance.url,
-      'code': instance.code,
-      'validUntil': instance.validUntil.toIso8601String(),
-    };

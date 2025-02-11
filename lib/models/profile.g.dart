@@ -23,13 +23,14 @@ class ProfileAdapter extends TypeAdapter<Profile> {
       fields[3] as String,
       fields[4] as String,
       fields[5] as String,
+      fields[6] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Profile obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.url)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class ProfileAdapter extends TypeAdapter<Profile> {
       ..writeByte(4)
       ..write(obj.accessToken)
       ..writeByte(5)
-      ..write(obj.refreshToken);
+      ..write(obj.refreshToken)
+      ..writeByte(6)
+      ..write(obj.enableNotifications);
   }
 
   @override

@@ -7,7 +7,7 @@ part 'profile.g.dart';
 @HiveType(typeId: 0)
 class Profile extends HiveObject {
   Profile(this.url, this.user, this.publicKey, this.privateKey,
-      this.accessToken, this.refreshToken);
+      this.accessToken, this.refreshToken, this.enableNotifications);
 
   @HiveField(0)
   String url;
@@ -21,4 +21,6 @@ class Profile extends HiveObject {
   String accessToken;
   @HiveField(5)
   String refreshToken;
+  @HiveField(6)
+  bool enableNotifications;
 }
