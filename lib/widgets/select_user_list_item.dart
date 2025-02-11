@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
-import '../utils/color_utils.dart';
 
 class SelectUserListItem extends StatefulWidget {
   const SelectUserListItem(this.user, this.valueChanged, {super.key});
@@ -17,9 +16,6 @@ class _SelectUserListItemState extends State<SelectUserListItem> {
 
   @override
   Widget build(BuildContext context) {
-    // Get color of user profile picture
-    Color userColor = ColorUtils.getColorFromUsername(widget.user.username);
-
     return ListTile(
       onTap: () {},   // Empty method so that the visual effect works
       tileColor: Colors.transparent,
@@ -29,14 +25,14 @@ class _SelectUserListItemState extends State<SelectUserListItem> {
       ),
       leading: CircleAvatar(
         radius: 22,
-        backgroundColor: userColor,
+        backgroundColor: widget.user.avatarColor,
         child: Text(
           widget.user.username.isNotEmpty
               ? widget.user.username[0].toUpperCase()
               : '?',
           style: TextStyle(
             fontSize: 20,
-            color: ColorUtils.getReadableColor(userColor),
+            color: widget.user.avatarTextColor,
           ),
         ),
       ),

@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:whisper_websocket_client_dart/ws_client.dart';
 import '../models/app_theme.dart';
@@ -17,6 +18,8 @@ class Singleton {
   late AppTheme appTheme;
   // WebSocket client
   late WsClient wsClient;
+  // Current route
+  late Route currentRoute;
 
   factory Singleton() {
     return _singleton;

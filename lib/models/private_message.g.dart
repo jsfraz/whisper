@@ -21,13 +21,14 @@ class PrivateMessageAdapter extends TypeAdapter<PrivateMessage> {
       fields[1] as String,
       fields[2] as DateTime,
       fields[3] as DateTime,
+      fields[4] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, PrivateMessage obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.senderId)
       ..writeByte(1)
@@ -35,7 +36,9 @@ class PrivateMessageAdapter extends TypeAdapter<PrivateMessage> {
       ..writeByte(2)
       ..write(obj.sentAt)
       ..writeByte(3)
-      ..write(obj.receivedAt);
+      ..write(obj.receivedAt)
+      ..writeByte(4)
+      ..write(obj.read);
   }
 
   @override

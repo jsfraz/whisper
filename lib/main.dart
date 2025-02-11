@@ -10,6 +10,7 @@ import 'models/private_message.dart';
 import 'models/profile.dart';
 import 'models/user.dart';
 import 'pages/whisper_page.dart';
+import 'utils/notification_service.dart';
 import 'utils/singleton.dart';
 import 'utils/theme_notifier.dart';
 import 'utils/utils.dart';
@@ -19,6 +20,9 @@ import 'utils/utils.dart';
 void main() async {
   // Initialize Flutter widgets
   WidgetsFlutterBinding.ensureInitialized();
+
+  NotificationService().init();
+
   // Load locale
   await EasyLocalization.ensureInitialized();
   // Lock orientation (https://stackoverflow.com/a/52720581/19371130)

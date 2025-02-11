@@ -115,10 +115,18 @@ class CacheUtils {
     await box.put(userId, chatMessages);
   }
 
-  /// Get user messages
-  static Future<List<PrivateMessage>> getPrivateMessages(int userId) async {
+  /// Get user messages and mark them as read
+  static Future<List<PrivateMessage>> getPrivateMessages(int userId,
+      {bool markAsRead = false}) async {
     Box box = await _openPrivateMessagesBox();
     List<dynamic>? messages = box.get(userId);
+    // Mark as read
+    if (markAsRead && messages != null) {
+      for (PrivateMessage msg in messages) {
+        msg.read = true;
+      }
+      await box.put(userId, messages);
+    }
     return messages == null
         ? []
         : messages.map((e) => e as PrivateMessage).toList();

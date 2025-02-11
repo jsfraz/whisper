@@ -15,7 +15,6 @@ import '../utils/dialog_utils.dart';
 import '../widgets/invite_list_item.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import '../models/user.dart';
-import '../utils/color_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import '../widgets/select_user_list_item.dart';
@@ -72,20 +71,19 @@ class _HomePageState extends State<HomePage> {
 
   /// Get server users
   Future<void> _getServerUsers() async {
-    if (context.mounted) {
+    if (mounted) {
       setState(() {
         _serverUsers = [];
         _selectedUsers = [];
       });
       var users = await Utils.callApi(() => Singleton().userApi.getAllUsers());
-      if (context.mounted) {
-        setState(() {
-          if (users != null) {
-            for (var x in users) {
-              _serverUsers.add(User.fromModel(x));
-            }
-          }
-        });
+      if (users != null) {
+        for (var x in users) {
+          _serverUsers.add(User.fromModel(x));
+        }
+        if (mounted) {
+          setState(() {});
+        }
       }
     }
   }
@@ -157,8 +155,6 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<MessageNotifier>();
-    Color userColor =
-        ColorUtils.getColorFromUsername(Singleton().profile.user.username);
 
     return PopScope(
       child: Scaffold(
@@ -181,7 +177,8 @@ class _HomePageState extends State<HomePage> {
                           scale: 0.65,
                           child: CircleAvatar(
                             radius: 22,
-                            backgroundColor: userColor,
+                            backgroundColor:
+                                Singleton().profile.user.avatarColor,
                             child: Text(
                               Singleton().profile.user.username.isNotEmpty
                                   ? Singleton()
@@ -192,7 +189,7 @@ class _HomePageState extends State<HomePage> {
                                   : '?',
                               style: TextStyle(
                                 fontSize: 24,
-                                color: ColorUtils.getReadableColor(userColor),
+                                color: Singleton().profile.user.avatarTextColor,
                               ),
                             ),
                           ),
@@ -201,16 +198,6 @@ class _HomePageState extends State<HomePage> {
                         title: Text('msgPage'.tr()),
                         // Action buttons
                         actions: [
-                          /*
-                          // Search
-                          IconButton(
-                            icon: const Icon(Icons.search),
-                            tooltip: 'searchButton'.tr(),
-                            onPressed: () async {
-                              // TODO search
-                            },
-                          ),
-                          */
                           // Settings
                           IconButton(
                             icon: const Icon(Icons.settings),

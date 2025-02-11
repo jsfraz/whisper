@@ -24,7 +24,7 @@ class MessageNotifier extends ChangeNotifier {
 
   /// Get all messages by user ID
   Future<List<PrivateMessage>> getMessages(int userId) async {
-    return await CacheUtils.getPrivateMessages(userId);
+    return await CacheUtils.getPrivateMessages(userId, markAsRead: true);
   }
 
   /// Get latest private messages
@@ -64,6 +64,10 @@ class MessageNotifier extends ChangeNotifier {
   /// Delete chat by user ID
   Future<void> deleteChat(int userId) async {
     await CacheUtils.deletePrivateMessagesWithUser(userId);
+    notifyListeners();
+  }
+
+  void notify() {
     notifyListeners();
   }
 }

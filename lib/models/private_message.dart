@@ -5,7 +5,7 @@ import '../utils/singleton.dart';
 part 'private_message.g.dart';
 
 @HiveType(typeId: 3)
-class PrivateMessage {
+class PrivateMessage extends HiveObject {
   @HiveField(0)
   int senderId;
   @HiveField(1)
@@ -14,8 +14,10 @@ class PrivateMessage {
   DateTime sentAt;
   @HiveField(3)
   DateTime receivedAt;
+  @HiveField(4)
+  bool read;
 
-  PrivateMessage(this.senderId, this.message, this.sentAt, this.receivedAt);
+  PrivateMessage(this.senderId, this.message, this.sentAt, this.receivedAt, this.read);
 
   bool get isMe => senderId == Singleton().profile.user.id;
 }

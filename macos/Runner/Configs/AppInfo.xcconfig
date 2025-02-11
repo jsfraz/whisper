@@ -8,7 +8,7 @@
 PRODUCT_NAME = whisper
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.whisper
+PRODUCT_BUNDLE_IDENTIFIER = cz.josefraz.whisper
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2024 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2024 cz.josefraz. All rights reserved.

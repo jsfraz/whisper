@@ -5,7 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:page_transition/page_transition.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:vibration/vibration.dart';
+import 'package:whisper/utils/notification_service.dart';
+import '../pages/chat_page.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:whisper_websocket_client_dart/models/private_message.dart';
@@ -129,11 +133,12 @@ class Utils {
 
   /// Handle WebSocket message
   static Future<void> onWsMessageReceived(WsResponse wsResponse) async {
-    var receivedAt = DateTime.now();
     switch (wsResponse.type) {
       // More messages
       case WsResponseType.messages:
         var messages = wsResponse.payload as List<PrivateMessage>;
+        // Seřaď zprávy od nejstarší po nejnovější
+        messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
         List<pm.PrivateMessage> decryptedMessages = [];
         // TODO parallelly decrypt
         for (var message in messages) {
@@ -142,8 +147,12 @@ class Utils {
                 message.message,
                 bu.CryptoUtils.rsaPrivateKeyFromPem(
                     Singleton().profile.privateKey));
-            var privateMessage = pm.PrivateMessage(message.senderId,
-                utf8.decode(decryptedMessage), message.sentAt, receivedAt);
+            var privateMessage = pm.PrivateMessage(
+                message.senderId,
+                utf8.decode(decryptedMessage),
+                message.sentAt,
+                DateTime.now(),
+                false);
             decryptedMessages.add(privateMessage);
           } catch (e) {
             Fluttertoast.showToast(
@@ -153,6 +162,21 @@ class Utils {
         if (decryptedMessages.isNotEmpty) {
           await MessageNotifier()
               .addMessages(decryptedMessages.first.senderId, decryptedMessages);
+          // Notifications
+          var currentRoute = Singleton().currentRoute;
+          if (currentRoute is PageTransition) {
+            if (currentRoute.child is ChatPage) {
+              var chatPage = currentRoute.child as ChatPage;
+              messages.removeWhere((x) => x.senderId == chatPage.user.id);
+            }
+          } else if (currentRoute is MaterialPageRoute) {
+            Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
+            return;
+          }
+          // Show notification
+          if (messages.isNotEmpty) {
+            await NotificationService().showMessagesNotification(decryptedMessages);
+          }
         }
         break;
 
@@ -160,7 +184,7 @@ class Utils {
       case WsResponseType.deleteAccount:
         await CacheUtils.deleteCache();
         Fluttertoast.showToast(
-                msg: 'accountDeleted'.tr(), backgroundColor: Colors.red);
+            msg: 'accountDeleted'.tr(), backgroundColor: Colors.red);
         SystemNavigator.pop();
         break;
 

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 class ColorUtils {
   /// Derives color from username
-  static Color getColorFromUsername(String username) {
+  static Color getAvatarColor(String username) {
     // Hash username
     int hash = username.hashCode;
     // Get RGB values from hash

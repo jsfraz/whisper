@@ -2,7 +2,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../models/private_message.dart';
 import '../models/user.dart';
-import '../utils/color_utils.dart';
 
 class ChatListItem extends StatefulWidget {
   const ChatListItem(this.user, this.lastMessage, this.onPressed, {super.key});
@@ -47,8 +46,6 @@ class _ChatListItemState extends State<ChatListItem> {
 
   @override
   Widget build(BuildContext context) {
-    Color userColor = ColorUtils.getColorFromUsername(widget.user.username);
-
     /// Return message with or without "me: " prefix
     String getTitle() {
       String meText = widget.lastMessage.isMe ? '${'meText'.tr()}: ' : '';
@@ -67,21 +64,34 @@ class _ChatListItemState extends State<ChatListItem> {
       ),
       leading: CircleAvatar(
         radius: 22,
-        backgroundColor: userColor,
+        backgroundColor: widget.user.avatarColor,
         child: Text(
           widget.user.username.isNotEmpty
               ? widget.user.username[0].toUpperCase()
               : '?',
           style: TextStyle(
             fontSize: 20,
-            color: ColorUtils.getReadableColor(userColor),
+            color: widget.user.avatarTextColor,
           ),
         ),
       ),
-      title: Text(widget.user.username.isNotEmpty ? widget.user.username : '?'),
-      subtitle: Text(getTitle()),
+      title: Text(
+        widget.user.username.isNotEmpty ? widget.user.username : '?',
+        style: !widget.lastMessage.read
+            ? TextStyle(fontWeight: FontWeight.bold)
+            : null,
+      ),
+      subtitle: Text(
+        getTitle(),
+        style: !widget.lastMessage.read
+            ? TextStyle(fontWeight: FontWeight.bold)
+            : null,
+      ),
       trailing: Text(
         formatDate(),
+        style: !widget.lastMessage.read
+            ? TextStyle(fontWeight: FontWeight.bold)
+            : null,
       ),
     );
   }

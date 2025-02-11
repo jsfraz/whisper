@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../utils/page_navigator_observer.dart';
 import '../utils/theme_notifier.dart';
 import '../pages/scan_invite_button_page.dart';
 import 'password_page.dart';
@@ -39,6 +40,7 @@ class WhisperPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorObservers: [PageNavigatorObserver()],
       debugShowCheckedModeBanner: true,
       // Light theme
       theme: ThemeData.from(
@@ -71,13 +73,6 @@ class WhisperPage extends StatelessWidget {
             // Loading
             if (snapshot.connectionState != ConnectionState.done) {
               return _getScaffoldCenter(const CircularProgressIndicator());
-            }
-            // Error
-            if (snapshot.hasError) {
-              return _getScaffoldCenter(Text(
-                'fuckedUp'.tr(),
-                textAlign: TextAlign.center,
-              ));
             }
             // Done
             return snapshot.data!;

@@ -2,7 +2,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/private_message.dart';
-import '../utils/color_utils.dart';
 
 // TODO show options on bottom on holding the widget (like in Messenger)
 class ChatBubble extends StatefulWidget {
@@ -23,9 +22,18 @@ class _ChatBubbleState extends State<ChatBubble> {
   bool _showTooltip = false;
 
   @override
-  Widget build(BuildContext context) {
-    Color userColor = ColorUtils.getColorFromUsername(widget.user.username);
+  void initState() {
+    super.initState();
+    /*
+    if (!widget.message.read) {
+      widget.message.read = true;
+      widget.message.save();
+    }
+    */
+  }
 
+  @override
+  Widget build(BuildContext context) {
     bool showAvatar() {
       if (widget.message.isMe) return false;
       // Show avatar if next message is null (last message)
@@ -174,14 +182,14 @@ class _ChatBubbleState extends State<ChatBubble> {
                               padding: const EdgeInsets.only(right: 8),
                               child: CircleAvatar(
                                 radius: 16,
-                                backgroundColor: userColor,
+                                backgroundColor: widget.user.avatarColor,
                                 child: Text(
                                   widget.user.username.isNotEmpty
                                       ? widget.user.username[0].toUpperCase()
                                       : '?',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: ColorUtils.getReadableColor(userColor),
+                                    color: widget.user.avatarTextColor,
                                   ),
                                 ),
                               ),

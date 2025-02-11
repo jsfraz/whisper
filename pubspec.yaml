@@ -17,6 +17,8 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_colorpicker: ^1.1.0
+  flutter_launcher_icons: ^0.14.3
+  flutter_local_notifications: ^18.0.1
   fluttertoast: ^8.2.6
   hive: ^2.2.3
   http: ^1.2.1
@@ -28,6 +30,8 @@ dependencies:
   pointycastle: ^3.9.1
   provider: ^6.1.2
   qr_code_scanner_plus: ^2.0.6
+  sprintf: ^7.0.0
+  vibration: ^3.1.2
   whisper_openapi_client_dart:
     git:
       url: https://github.com/jsfraz/whisper_openapi_client_dart.git

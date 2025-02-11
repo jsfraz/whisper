@@ -12,7 +12,6 @@ import 'package:whisper_websocket_client_dart/models/ws_message.dart';
 import '../models/private_message.dart';
 import '../models/user.dart';
 import '../utils/cache_utils.dart';
-import '../utils/color_utils.dart';
 import '../utils/crypto_utils.dart';
 import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
@@ -32,8 +31,6 @@ class ChatPage extends StatefulWidget {
 // Transaprent AppBar: https://ckreymborg.medium.com/how-to-create-a-glassmorphism-frosted-glass-appbar-in-flutter-fb217ce1b4ca
 
 class _ChatPageState extends State<ChatPage> {
-  // Get color of user profile picture
-  late final Color userColor;
   // Add controller for text input
   final TextEditingController _controllerMessage = TextEditingController();
   // Add list for messages
@@ -48,13 +45,14 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
-    userColor = ColorUtils.getColorFromUsername(widget.user.username);
     // Load messages from cache
     _loadMessages();
   }
 
   Future<void> _loadMessages() async {
-    _messages = await CacheUtils.getPrivateMessages(widget.user.id);
+    _messages =
+        await MessageNotifier().getMessages(widget.user.id);
+    MessageNotifier().notify();
     setState(() {});
   }
 
@@ -101,7 +99,7 @@ class _ChatPageState extends State<ChatPage> {
         // Add message to cache
         await MessageNotifier().addMessages(widget.user.id, [
           PrivateMessage(Singleton().profile.user.id, _controllerMessage.text,
-              sentAt, sentAt)
+              sentAt, sentAt, true)
         ]);
         // Reset text
         _controllerMessage.text = '';
@@ -133,14 +131,14 @@ class _ChatPageState extends State<ChatPage> {
                 children: [
                   CircleAvatar(
                     radius: 50,
-                    backgroundColor: userColor,
+                    backgroundColor: widget.user.avatarColor,
                     child: Text(
                       widget.user.username.isNotEmpty
                           ? widget.user.username[0].toUpperCase()
                           : '?',
                       style: TextStyle(
                         fontSize: 40,
-                        color: ColorUtils.getReadableColor(userColor),
+                        color: widget.user.avatarTextColor,
                       ),
                     ),
                   ),
@@ -201,14 +199,14 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: userColor,
+                    backgroundColor: widget.user.avatarColor,
                     child: Text(
                       widget.user.username.isNotEmpty
                           ? widget.user.username[0].toUpperCase()
                           : '?',
                       style: TextStyle(
                         fontSize: 16,
-                        color: ColorUtils.getReadableColor(userColor),
+                        color: widget.user.avatarTextColor,
                       ),
                     ),
                   ),
