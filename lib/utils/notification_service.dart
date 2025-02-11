@@ -71,15 +71,15 @@ class NotificationService {
             [totalMessageCount, messages.keys.length]));
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'whisperLocalNotifications',
-      'whisperLocalNotifications',
+      'whisperLocal',
+      'whisperLocal',
       groupKey: 'cz.josefraz.flutter_push_notifications',
       channelDescription: 'notificationChannelDesc'.tr(),
       setAsGroupSummary: true,
-      importance: Importance.low,
-      priority: Priority.low,
+      importance: Importance.max,
+      priority: Priority.max,
+      ticker: 'tickerLocalNotification'.tr(),
       enableVibration: false,
-      playSound: true,
       styleInformation: inboxStyleInformation,
     );
 
@@ -96,13 +96,13 @@ class NotificationService {
 
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'whisperLocalNotifications',
-      'whisperLocalNotifications',
+      'whisperLocal',
+      'whisperLocal',
       groupKey: 'cz.josefraz.flutter_push_notifications',
       channelDescription: 'notificationChannelDesc'.tr(),
-      setAsGroupSummary: true,
-      importance: Importance.low,
-      priority: Priority.low,
+      importance: Importance.max,
+      priority: Priority.max,
+      ticker: 'tickerLocalNotification'.tr(),
       enableVibration: false,
     );
     NotificationDetails platformChannelSpecifics =

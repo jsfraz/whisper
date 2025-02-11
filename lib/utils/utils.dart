@@ -137,7 +137,6 @@ class Utils {
       // More messages
       case WsResponseType.messages:
         var messages = wsResponse.payload as List<PrivateMessage>;
-        // Seřaď zprávy od nejstarší po nejnovější
         messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
         List<pm.PrivateMessage> decryptedMessages = [];
         // TODO parallelly decrypt
@@ -167,6 +166,12 @@ class Utils {
           if (currentRoute is PageTransition) {
             if (currentRoute.child is ChatPage) {
               var chatPage = currentRoute.child as ChatPage;
+              for(var m in messages) {
+                if (m.senderId == chatPage.user.id) {
+                  Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
+                  break;
+                }
+              }
               messages.removeWhere((x) => x.senderId == chatPage.user.id);
             }
           } else if (currentRoute is MaterialPageRoute) {
@@ -176,6 +181,7 @@ class Utils {
           // Show notification
           if (messages.isNotEmpty) {
             await NotificationService().showMessagesNotification(decryptedMessages);
+            Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
           }
         }
         break;
