@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:whisper/utils/notification_service.dart';
 
 import '../models/private_message.dart';
 import '../models/user.dart';
@@ -18,13 +19,27 @@ class MessageNotifier extends ChangeNotifier {
 
   /// Add messages to cache
   Future<void> addMessages(int userId, List<PrivateMessage> messages) async {
+    // Check if users exist
+    for (var msg in messages) {
+      if (!await CacheUtils.userExists(msg.senderId)) {
+        var user =
+            await Utils.callApi(() => Singleton().userApi.getUserById(msg.senderId));
+        if (user != null) {
+          // Save user to cache
+          await CacheUtils.addUser(User.fromModel(user));
+        }
+      }
+    }
+    // Add messages to cache
     await CacheUtils.addPrivateMessages(userId, messages);
     notifyListeners();
   }
 
   /// Get all messages by user ID
   Future<List<PrivateMessage>> getMessages(int userId) async {
-    return await CacheUtils.getPrivateMessages(userId, markAsRead: true);
+    var messages = await CacheUtils.getPrivateMessages(userId, markAsRead: true);
+    await NotificationService().removeNotificationsById(messages.map((x) => x.notificationId).toList());
+    return messages;
   }
 
   /// Get latest private messages

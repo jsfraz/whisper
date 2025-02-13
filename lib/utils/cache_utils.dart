@@ -151,6 +151,12 @@ class CacheUtils {
     return box.get(userId);
   }
 
+  // Check if user with ID exists
+  static Future<bool> userExists(int userId) async {
+    Box box = await _openUserBox();
+    return box.containsKey(userId);
+  }
+
   /// Add user to cache
   static Future<void> addUser(User user) async {
     Box box = await _openUserBox();

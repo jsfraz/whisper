@@ -201,7 +201,7 @@ class _HomePageState extends State<HomePage> {
                           // Settings
                           IconButton(
                             icon: const Icon(Icons.settings),
-                            tooltip: 'searchButton'.tr(),
+                            tooltip: 'settingsButton'.tr(),
                             onPressed: () {
                               Navigator.of(context).push(PageTransition(
                                   type: PageTransitionType.rightToLeftJoined,
@@ -270,6 +270,7 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               children: [
                 SizedBox(height: 10),
+                // TODO search bar
                 // Messages and avatar list
                 Expanded(
                   child: FutureBuilder<Map<User, PrivateMessage>>(

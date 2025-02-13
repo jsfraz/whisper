@@ -38,17 +38,15 @@ class NotificationService {
           messages as List<PrivateMessage>;
     }
 
-    // TODO logic for adding current messages to already active notifications
-    final List<ActiveNotification> activeNotifications =
-        await _flutterLocalNotificationsPlugin.getActiveNotifications();
-
+    // One message
     if (messages.length == 1) {
       showMessageNotification(messages.first);
     }
-
+    // More messages
     if (messages.length > 1) {
+      final lines = getGroupedNotificationLines(groupedMessagesByUser);
       final groupedPlatformChannelSpecifics = await groupedNotificationDetails(
-          groupedMessagesByUser, messages.length);
+          lines, groupedMessagesByUser.keys.length, messages.length);
       await _flutterLocalNotificationsPlugin.show(
         messages.last.notificationId,
         'newMessagesTitle'.tr(),
@@ -58,26 +56,34 @@ class NotificationService {
     }
   }
 
+  /// Get lines for grouped notification
+  List<String> getGroupedNotificationLines(
+      Map<User, List<PrivateMessage>> messages) {
+    return messages.entries
+        .expand((entry) {
+          final user = entry.key;
+          final userMessages = entry.value;
+          // Sort messages
+          userMessages.sort((a, b) => b.receivedAt.compareTo(a.receivedAt));
+          return userMessages
+              .map((message) => '${user.username}: ${message.message}');
+        })
+        .toList()
+        .reversed
+        .toList();
+  }
+
   /// Show group notification for more messages
   Future<NotificationDetails> groupedNotificationDetails(
-      Map<User, List<PrivateMessage>> messages, int totalMessageCount) async {
-    final List<String> lines = messages.entries.expand((entry) {
-      final user = entry.key;
-      final userMessages = entry.value;
-      // Sort messages
-      userMessages.sort((a, b) => b.receivedAt.compareTo(a.receivedAt));
-      return userMessages
-          .map((message) => '${user.username}: ${message.message}');
-    }).toList();
-
+      List<String> lines, int chatCount, int totalMessageCount) async {
     InboxStyleInformation inboxStyleInformation = InboxStyleInformation(lines,
-        contentTitle: sprintf('xMessagesFromYChats'.tr(),
-            [totalMessageCount, messages.keys.length]));
+        contentTitle: sprintf(
+            'xMessagesFromYChats'.tr(), [totalMessageCount, chatCount]));
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'whisperLocalNotificationTest2',
-      'whisperLocalNotificationTest2'.tr(),
-      groupKey: 'cz.josefraz.flutter_push_notifications',
+      'whisperLocalNotificationMultipleMessages',
+      'whisperLocalNotificationMultipleMessages'.tr(),
+      groupKey: 'cz.josefraz.flutter_push_notifications_multiple_messages',
       channelDescription: 'notificationChannelDesc'.tr(),
       setAsGroupSummary: true,
       importance: Importance.max,
@@ -102,9 +108,9 @@ class NotificationService {
 
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'whisperLocalNotificationTest2',
-      'whisperLocalNotificationTest2'.tr(),
-      groupKey: 'cz.josefraz.flutter_push_notifications',
+      'whisperLocalNotificationSingleMessage',
+      'whisperLocalNotificationSingleMessage'.tr(),
+      groupKey: 'cz.josefraz.flutter_push_notifications_single_message',
       channelDescription: 'notificationChannelDesc'.tr(),
       importance: Importance.max,
       priority: Priority.max,
@@ -115,7 +121,24 @@ class NotificationService {
     );
     NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
-    await _flutterLocalNotificationsPlugin.show(message.notificationId,
-        user.username, message.message, platformChannelSpecifics);
+    await _flutterLocalNotificationsPlugin.show(
+      message.notificationId,
+      user.username,
+      message.message,
+      platformChannelSpecifics,
+    );
+  }
+
+  /// Remove notifications by ID
+  Future<void> removeNotificationsById(List<int> ids) async {
+    final activeNotifications =
+        await _flutterLocalNotificationsPlugin.getActiveNotifications();
+    for (var id in ids) {
+      for (var notification in activeNotifications) {
+        if (notification.id == id) {
+          await _flutterLocalNotificationsPlugin.cancel(id);
+        }
+      }
+    }
   }
 }
