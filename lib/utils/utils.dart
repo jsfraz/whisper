@@ -46,30 +46,24 @@ class Utils {
       // Handle error
       if (e is ApiException) {
         if (e.innerException == null) {
-            if (e.message != '') {
-              Map<String, dynamic> messageMap =
-                  jsonDecode(e.message!) as Map<String, dynamic>;
-              Fluttertoast.showToast(
-                  msg: Utils.capitalizeFirstLetter(messageMap['error']),
-                  backgroundColor: Colors.red);
-            } else {
-              Fluttertoast.showToast(
-                  msg: Utils.capitalizeFirstLetter(
-                      'HTTP error ${e.code.toString()}'),
-                  backgroundColor: Colors.red);
-            }
-        } else {
-          if (e.innerException is SocketException) {
-            var socketEx = e.innerException as SocketException;
-            if (socketEx.osError!.errorCode == 111) {
-              Singleton().offlineMode = true;
-            } else {
-              Fluttertoast.showToast(
-              msg: e.innerException.toString(), backgroundColor: Colors.red);
-            }
+          if (e.message != '') {
+            Map<String, dynamic> messageMap =
+                jsonDecode(e.message!) as Map<String, dynamic>;
+            Fluttertoast.showToast(
+                msg: Utils.capitalizeFirstLetter(messageMap['error']),
+                backgroundColor: Colors.red);
           } else {
             Fluttertoast.showToast(
-              msg: e.innerException.toString(), backgroundColor: Colors.red);
+                msg: Utils.capitalizeFirstLetter(
+                    'HTTP error ${e.code.toString()}'),
+                backgroundColor: Colors.red);
+          }
+        } else {
+          if (e.innerException is SocketException) {
+            Singleton().offlineMode = true;
+          } else {
+            Fluttertoast.showToast(
+                msg: e.innerException.toString(), backgroundColor: Colors.red);
           }
         }
       }
