@@ -8,7 +8,7 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:vibration/vibration.dart';
-import 'package:whisper/utils/notification_service.dart';
+import '../utils/notification_service.dart';
 import '../pages/chat_page.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
@@ -30,7 +30,6 @@ class Utils {
     return input[0].toUpperCase() + input.substring(1);
   }
 
-  // TODO offline mode
   /// Call API, handle errors and return result.
   static Future<T?> callApi<T>(Future<T> Function() call,
       {bool useSecurity = true}) async {
@@ -41,26 +40,37 @@ class Utils {
     try {
       // Try to call API
       T result = await call();
+      Singleton().offlineMode = false;
       return result;
     } catch (e) {
       // Handle error
       if (e is ApiException) {
         if (e.innerException == null) {
-          if (e.message != '') {
-            Map<String, dynamic> messageMap =
-                jsonDecode(e.message!) as Map<String, dynamic>;
-            Fluttertoast.showToast(
-                msg: Utils.capitalizeFirstLetter(messageMap['error']),
-                backgroundColor: Colors.red);
+            if (e.message != '') {
+              Map<String, dynamic> messageMap =
+                  jsonDecode(e.message!) as Map<String, dynamic>;
+              Fluttertoast.showToast(
+                  msg: Utils.capitalizeFirstLetter(messageMap['error']),
+                  backgroundColor: Colors.red);
+            } else {
+              Fluttertoast.showToast(
+                  msg: Utils.capitalizeFirstLetter(
+                      'HTTP error ${e.code.toString()}'),
+                  backgroundColor: Colors.red);
+            }
+        } else {
+          if (e.innerException is SocketException) {
+            var socketEx = e.innerException as SocketException;
+            if (socketEx.osError!.errorCode == 111) {
+              Singleton().offlineMode = true;
+            } else {
+              Fluttertoast.showToast(
+              msg: e.innerException.toString(), backgroundColor: Colors.red);
+            }
           } else {
             Fluttertoast.showToast(
-                msg: Utils.capitalizeFirstLetter(
-                    'HTTP error ${e.code.toString()}'),
-                backgroundColor: Colors.red);
-          }
-        } else {
-          Fluttertoast.showToast(
               msg: e.innerException.toString(), backgroundColor: Colors.red);
+          }
         }
       }
     }
@@ -196,6 +206,26 @@ class Utils {
         var error = wsResponse.payload as String;
         Fluttertoast.showToast(msg: error, backgroundColor: Colors.red);
         break;
+    }
+  }
+
+  /// Connect to WebSocket
+  static Future<void> wsConnect({bool firstConnect = false}) async {
+    /*
+    debugPrint('WS connected: ${Singleton().wsClient.isConnected}');
+    debugPrint('Offline mode: ${Singleton().offlineMode}');
+    */
+    if (!Singleton().wsClient.isConnected) {
+      if (!firstConnect && !Singleton().offlineMode) {
+        Singleton().offlineMode = true;
+      }
+      // Get one-time access token for WebSocket
+      var wsAuthResponse =
+          await Utils.callApi(() => Singleton().wsAuthApi.webSocketAuth());
+      if (wsAuthResponse != null) {
+        // Connect WebSocket
+        Singleton().wsClient.connect(wsAuthResponse.accessToken);
+      }
     }
   }
 }

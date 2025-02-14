@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -15,9 +14,9 @@ import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
 import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
+import '../utils/utils.dart';
 import '../widgets/chat_bubble.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
-
 import 'chat_info_page.dart';
 
 class ChatPage extends StatefulWidget {
@@ -50,8 +49,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _loadMessages() async {
-    _messages =
-        await MessageNotifier().getMessages(widget.user.id);
+    _messages = await MessageNotifier().getMessages(widget.user.id);
     MessageNotifier().notify();
     setState(() {});
   }
@@ -64,28 +62,22 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {
       _isSending = true;
     });
-    // TODO Check websocket connection
-    /*
-    if (!Singleton().wsClient.isConnected) {
-      
-    }
-    */
-    // Encrypt message content
-    Uint8List encryptedMessage;
-    try {
-      encryptedMessage = await CryptoUtils.rsaEncrypt(
-          utf8.encode(_controllerMessage.text),
-          bu.CryptoUtils.rsaPublicKeyFromPem(widget.user.publicKey));
-    } catch (e) {
-      Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
-      setState(() {
-        _isSending = false;
-      });
-      return;
-    }
+    await Utils.wsConnect();
     // Send message
-    // TODO delete if
     if (Singleton().wsClient.isConnected) {
+      // Encrypt message content
+      Uint8List encryptedMessage;
+      try {
+        encryptedMessage = await CryptoUtils.rsaEncrypt(
+            utf8.encode(_controllerMessage.text),
+            bu.CryptoUtils.rsaPublicKeyFromPem(widget.user.publicKey));
+      } catch (e) {
+        Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+        setState(() {
+          _isSending = false;
+        });
+        return;
+      }
       DateTime sentAt;
       try {
         sentAt = Singleton().wsClient.sendMessage(WsMessage.privateMessage(
@@ -107,7 +99,7 @@ class _ChatPageState extends State<ChatPage> {
         Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
       }
     } else {
-      // TODO error or something
+      Fluttertoast.showToast(msg: 'wsOffline', backgroundColor: Colors.red);
     }
     setState(() {
       _isSending = false;

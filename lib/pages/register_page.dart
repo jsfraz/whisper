@@ -132,6 +132,7 @@ class _RegisterPageState extends State<RegisterPage> {
           Singleton().wsClient = WsClient(
               Utils.getWsUrl(Singleton().profile.url),
               onReceived: Utils.onWsMessageReceived);
+          await Utils.wsConnect(firstConnect: true);
 
           // Redirect to home page
           Navigator.pushReplacement(context,

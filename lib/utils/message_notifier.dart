@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:whisper/utils/notification_service.dart';
+import '../utils/notification_service.dart';
 
 import '../models/private_message.dart';
 import '../models/user.dart';

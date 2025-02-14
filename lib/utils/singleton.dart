@@ -1,4 +1,7 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:whisper_websocket_client_dart/ws_client.dart';
 import '../models/app_theme.dart';
@@ -20,6 +23,8 @@ class Singleton {
   late WsClient wsClient;
   // Current route
   late Route currentRoute;
+  // Offline mode
+  bool _offlineMode = false;
 
   factory Singleton() {
     return _singleton;
@@ -36,6 +41,16 @@ class Singleton {
     _api = ApiClient(basePath: Singleton().profile.url, authentication: auth);
   }
 
+  set offlineMode(bool offline) {
+    if (!_offlineMode && _offlineMode != offline) {
+      Fluttertoast.showToast(msg: 'offlineTrue'.tr(), backgroundColor: Colors.red);
+    }
+    if (_offlineMode && _offlineMode != offline) {
+      Fluttertoast.showToast(msg: 'offlineFalse'.tr(), backgroundColor: Colors.green);
+    }
+    _offlineMode = offline;
+  }
+
   // Getters
   UserApi get userApi => UserApi(_api);
 
@@ -44,4 +59,6 @@ class Singleton {
   InviteApi get inviteApi => InviteApi(_api);
 
   WebSocketAuthenticationApi get wsAuthApi => WebSocketAuthenticationApi(_api);
+
+  bool get offlineMode => _offlineMode;
 }

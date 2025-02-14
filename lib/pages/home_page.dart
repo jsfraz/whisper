@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
 import '../pages/chat_page.dart';
+import '../utils/websocket_manager.dart';
 import '../widgets/chat_list_item.dart';
 import '../models/private_message.dart';
 import '../utils/cache_utils.dart';
@@ -27,6 +28,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final WebSocketManager _webSocketManager = WebSocketManager();
   List<User> _serverUsers = [];
   List<int> _selectedUsers = [];
   int _currentPageIndex = 0;
@@ -44,8 +46,15 @@ class _HomePageState extends State<HomePage> {
     }
     // Get all conversations with their last messages
     _getConversations();
-    // Connect WebSocket
-    _connectToWebSocket();
+    // Start checking WebSocket connection
+    _webSocketManager.startConnectionCheck();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    // Stop checking WebSocket connection
+    _webSocketManager.stopConnectionCheck();
   }
 
   /// Get all conversations with their last messages
@@ -53,19 +62,6 @@ class _HomePageState extends State<HomePage> {
     _chats = await CacheUtils.getLatestPrivateMessages();
     if (context.mounted) {
       setState(() {});
-    }
-  }
-
-  /// Connect to WebSocket
-  Future<void> _connectToWebSocket() async {
-    if (!Singleton().wsClient.isConnected) {
-      // Get one-time access token for WebSocket
-      var wsAuthResponse =
-          await Utils.callApi(() => Singleton().wsAuthApi.webSocketAuth());
-      if (wsAuthResponse != null) {
-        // Connect WebSocket
-        Singleton().wsClient.connect(wsAuthResponse.accessToken);
-      }
     }
   }
 

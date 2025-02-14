@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:whisper/utils/singleton.dart';
+import '../utils/singleton.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/message_notifier.dart';
 

@@ -13,6 +13,7 @@ class ChatInfoPage extends StatefulWidget {
 }
 
 class _ChatInfoPageState extends State<ChatInfoPage> {
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

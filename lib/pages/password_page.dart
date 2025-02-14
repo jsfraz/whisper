@@ -65,10 +65,13 @@ class _PasswordPageState extends State<PasswordPage> {
         await Utils.authCheck();
         // WebSocket client
         Singleton().wsClient = WsClient(Utils.getWsUrl(Singleton().profile.url), onReceived: Utils.onWsMessageReceived);
+        await Utils.wsConnect(firstConnect: true);
 
         // Redirect to password page
-        Navigator.pushReplacement(
+        if (mounted) {
+          Navigator.pushReplacement(
             context, MaterialPageRoute(builder: (context) => const HomePage()));
+        }
       } else {
         Fluttertoast.showToast(
             msg: 'invalidLocalPassword'.tr(),
