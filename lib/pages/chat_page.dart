@@ -46,6 +46,15 @@ class _ChatPageState extends State<ChatPage> {
     super.initState();
     // Load messages from cache
     _loadMessages();
+    // Load concept message
+    getConceptMessage();
+  }
+
+  Future<void> getConceptMessage() async {
+    String? conceptMsg = await CacheUtils.getMessageConcept(widget.user.id);
+    if (conceptMsg != null) {
+      _controllerMessage.text = conceptMsg;
+    }
   }
 
   Future<void> _loadMessages() async {
@@ -95,6 +104,8 @@ class _ChatPageState extends State<ChatPage> {
         ]);
         // Reset text
         _controllerMessage.text = '';
+        // Delete concept
+        await CacheUtils.deleteMessageConcept(widget.user.id);
       } catch (e) {
         Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
       }
@@ -169,118 +180,133 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     final notifier = context.watch<MessageNotifier>();
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: PreferredSize(
-        preferredSize: Size(
-          double.infinity,
-          56.0,
-        ),
-        child: ClipRRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-            child: AppBar(
-              automaticallyImplyLeading: false,
-              backgroundColor:
-                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.2),
-              leading: Row(
-                children: [
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop && _messages.isNotEmpty) {
+          if (_controllerMessage.text.isNotEmpty) {
+            await CacheUtils.setMessageConcept(widget.user.id, _controllerMessage.text);
+          } else {
+            await CacheUtils.deleteMessageConcept(widget.user.id);
+          }
+        }
+      },
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
+        appBar: PreferredSize(
+          preferredSize: Size(
+            double.infinity,
+            56.0,
+          ),
+          child: ClipRRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: AppBar(
+                automaticallyImplyLeading: false,
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .surface
+                    .withValues(alpha: 0.2),
+                leading: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: widget.user.avatarColor,
+                      child: Text(
+                        widget.user.username.isNotEmpty
+                            ? widget.user.username[0].toUpperCase()
+                            : '?',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: widget.user.avatarTextColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                leadingWidth: 96, // Increase width to accommodate both icons
+                // Title
+                title: Text(widget.user.username),
+                // Action buttons
+                actions: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.info),
+                    tooltip: 'infoButton'.tr(),
+                    onPressed: () {
+                      // Push info page
+                      Navigator.of(context).push(PageTransition(
+                          type: PageTransitionType.rightToLeftJoined,
+                          child: ChatInfoPage(widget.user.id),
+                          childCurrent: widget));
+                    },
                   ),
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: widget.user.avatarColor,
-                    child: Text(
-                      widget.user.username.isNotEmpty
-                          ? widget.user.username[0].toUpperCase()
-                          : '?',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: widget.user.avatarTextColor,
+                ],
+              ),
+            ),
+          ),
+        ),
+        body: Column(
+          children: [
+            // Messages and avatar list
+            Expanded(
+              child: FutureBuilder<List<PrivateMessage>>(
+                  future: notifier.getMessages(widget.user.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        _firstLoad) {
+                      return Center(
+                        child: Transform.scale(
+                          scale: 1.5,
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+                    // Return when data is present
+                    if (snapshot.hasData) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _scrollController
+                            .jumpTo(_scrollController.position.maxScrollExtent);
+                      });
+                      _messages = snapshot.data!;   // Set updated messages
+                      return _getContent(snapshot.data!);
+                    }
+                    // Return with messages loaded on init
+                    return _getContent(_messages);
+                  }),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controllerMessage,
+                      decoration: InputDecoration(
+                        hintText: 'yourMessage'.tr(),
+                        filled: true,
+                        fillColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? Theme.of(context).colorScheme.surfaceBright
+                                : Theme.of(context).colorScheme.surfaceDim,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
+                        ),
+                        suffixIcon: IconButton(
+                          onPressed: _isSending ? null : _sendMessage,
+                          icon: const Icon(Icons.send),
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-              leadingWidth: 96, // Increase width to accommodate both icons
-              // Title
-              title: Text(widget.user.username),
-              // Action buttons
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.info),
-                  tooltip: 'infoButton'.tr(),
-                  onPressed: () {
-                    // Push info page
-                    Navigator.of(context).push(PageTransition(
-                        type: PageTransitionType.rightToLeftJoined,
-                        child: ChatInfoPage(widget.user.id),
-                        childCurrent: widget));
-                  },
-                ),
-              ],
             ),
-          ),
+          ],
         ),
-      ),
-      body: Column(
-        children: [
-          // Messages and avatar list
-          Expanded(
-            child: FutureBuilder<List<PrivateMessage>>(
-                future: notifier.getMessages(widget.user.id),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting &&
-                      _firstLoad) {
-                    return Center(
-                      child: Transform.scale(
-                        scale: 1.5,
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
-                  }
-                  // Return when data is present
-                  if (snapshot.hasData) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _scrollController
-                          .jumpTo(_scrollController.position.maxScrollExtent);
-                    });
-                    return _getContent(snapshot.data!);
-                  }
-                  // Return with messages loaded on init
-                  return _getContent(_messages);
-                }),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controllerMessage,
-                    decoration: InputDecoration(
-                      hintText: 'yourMessage'.tr(),
-                      filled: true,
-                      fillColor: Theme.of(context).brightness == Brightness.dark
-                          ? Theme.of(context).colorScheme.surfaceBright
-                          : Theme.of(context).colorScheme.surfaceDim,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
-                      ),
-                      suffixIcon: IconButton(
-                        onPressed: _isSending ? null : _sendMessage,
-                        icon: const Icon(Icons.send),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

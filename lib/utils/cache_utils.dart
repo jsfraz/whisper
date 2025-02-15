@@ -13,6 +13,7 @@ class CacheUtils {
   static const _themeKey = 'theme';
   static const _privateMessagesKey = 'privateMessages';
   static const _userKey = 'user';
+  static const _messageConceptKey = 'messageConcept';
 
   /// Opens box with password hash
   static Future<Box> _openPasswordHashBox() async {
@@ -138,6 +139,7 @@ class CacheUtils {
     await messageBox.delete(userId);
     Box userBox = await _openUserBox();
     await userBox.delete(userId);
+    await deleteMessageConcept(userId);
   }
 
   /// Opens box with users
@@ -179,11 +181,37 @@ class CacheUtils {
     return Map.fromEntries(sortedEntries);
   }
 
-  /// Delete all private message
+  /// Delete all private messages
   static Future<void> deleteAllPrivateMessagesWithUsers() async {
     Box messageBox = await _openPrivateMessagesBox();
     Box userBox = await _openUserBox();
-    await userBox.deleteAll(messageBox.keys.toList());
+    Box conceptBox = await _openMessageConceptBox();
+    await userBox.clear();
     await messageBox.clear();
+    await conceptBox.clear();
+  }
+
+  /// Opens box with message concepts
+  static Future<Box> _openMessageConceptBox() async {
+    return Hive.openBox(_messageConceptKey);
+  }
+
+  /// Sets message concept for user
+  static Future<void> setMessageConcept(int userId, String message) async {
+    Box box = await _openMessageConceptBox();
+    await box.put(userId, message);
+  }
+
+  /// Return message concept for user
+  static Future<String?> getMessageConcept(int userId) async {
+    Box box = await _openMessageConceptBox();
+    String? value = await box.get(userId);
+    return value;
+  }
+
+  /// Delete message concept if it exists
+  static Future<void> deleteMessageConcept(int userId) async {
+    Box box = await _openMessageConceptBox();
+    await box.delete(userId);
   }
 }

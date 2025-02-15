@@ -152,242 +152,237 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final notifier = context.watch<MessageNotifier>();
 
-    return PopScope(
-      child: Scaffold(
-        appBar: _currentPageIndex == 0
-            ? PreferredSize(
-                preferredSize: Size(
-                  double.infinity,
-                  56.0,
-                ),
-                child: ClipRRect(
-                  child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                      child: AppBar(
-                        backgroundColor: Theme.of(context)
-                            .colorScheme
-                            .surface
-                            .withValues(alpha: 0.2),
-                        // User icon with first letter
-                        leading: Transform.scale(
-                          scale: 0.65,
-                          child: CircleAvatar(
-                            radius: 22,
-                            backgroundColor:
-                                Singleton().profile.user.avatarColor,
-                            child: Text(
-                              Singleton().profile.user.username.isNotEmpty
-                                  ? Singleton()
-                                      .profile
-                                      .user
-                                      .username[0]
-                                      .toUpperCase()
-                                  : '?',
-                              style: TextStyle(
-                                fontSize: 24,
-                                color: Singleton().profile.user.avatarTextColor,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Title
-                        title: Text('msgPage'.tr()),
-                        // Action buttons
-                        actions: [
-                          // Settings
-                          IconButton(
-                            icon: const Icon(Icons.settings),
-                            tooltip: 'settingsButton'.tr(),
-                            onPressed: () {
-                              Navigator.of(context).push(PageTransition(
-                                  type: PageTransitionType.rightToLeftJoined,
-                                  child: SettingsPage(),
-                                  childCurrent: widget));
-                            },
-                          ),
-                        ],
-                      )),
-                ),
-              )
-            : null,
-        resizeToAvoidBottomInset: false,
-        // Floating button
-        floatingActionButton: FloatingActionButton(
-          onPressed: _currentPageIndex == 0
-              ? () {
-                  Navigator.of(context).push(PageTransition(
-                      type: PageTransitionType.bottomToTopJoined,
-                      child: SearchUserPage(),
-                      childCurrent: widget));
-                }
-              : () async {
-                  await _createNewInvite(context);
-                },
-          shape: const CircleBorder(),
-          foregroundColor: Theme.of(context).colorScheme.surface,
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          tooltip: _currentPageIndex == 0
-              ? 'addChat'.tr()
-              : 'newInvite'.tr(), // Change tooltip according to page index
-          child: Icon(_currentPageIndex == 0
-              ? Icons.add_comment
-              : Icons.person_add), // Change icon according to page index
-        ),
-        // Bottom navigation bar for admin only
-        bottomNavigationBar: Singleton().profile.user.admin
-            ? SizedBox(
-                height: 70,
-                child: NavigationBar(
-                  onDestinationSelected: (int index) {
-                    setState(() {
-                      _currentPageIndex = index;
-                    });
-                  },
-                  selectedIndex: _currentPageIndex,
-                  destinations: <Widget>[
-                    // Messages
-                    NavigationDestination(
-                      icon: const Icon(Icons.chat),
-                      label: 'msgPage'.tr(),
-                    ),
-                    // Admin panel
-                    NavigationDestination(
-                      icon: const Icon(Icons.admin_panel_settings),
-                      label: 'adminPage'.tr(),
-                    ),
-                  ],
-                ),
-              )
-            : null,
-        // Body
-        body: <Widget>[
-          // Messages
-          SafeArea(
-            child: Column(
-              children: [
-                SizedBox(height: 10),
-                // TODO search bar
-                // Messages and avatar list
-                Expanded(
-                  child: FutureBuilder<Map<User, PrivateMessage>>(
-                      future: notifier.getLatestPrivateMessages(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                                ConnectionState.waiting &&
-                            _firstLoad) {
-                          return Center(
-                            child: Transform.scale(
-                              scale: 1.5,
-                              child: CircularProgressIndicator(),
-                            ),
-                          );
-                        }
-                        // Return when data is present
-                        if (snapshot.hasData) {
-                          return _getContent(snapshot.data!);
-                        }
-                        // Return with messages loaded on init
-                        return _getContent(_chats);
-                      }),
-                ),
-              ],
-            ),
-          ),
-          // Admin panel
-          DefaultTabController(
-            initialIndex: 0,
-            length: 2,
-            child: Scaffold(
-              appBar: AppBar(
-                title: Text('adminPage'.tr()),
-                bottom: TabBar(
-                  tabs: <Widget>[
-                    Tab(
-                      child: Text(
-                        'serverUsersPage'.tr(),
-                        style: TextStyle(fontSize: 18),
-                      ),
-                    ),
-                    Tab(
-                      child: Text(
-                        'serverInvitesPage'.tr(),
-                        style: TextStyle(fontSize: 18),
-                      ),
-                    ),
-                  ],
-                ),
+    return Scaffold(
+      appBar: _currentPageIndex == 0
+          ? PreferredSize(
+              preferredSize: Size(
+                double.infinity,
+                56.0,
               ),
-              body: TabBarView(
-                children: <Widget>[
-                  // Server users
-                  Column(
-                    children: [
-                      Visibility(
-                        visible: _serverUsers.isNotEmpty,
-                        child: Align(
-                          alignment: Alignment.topRight,
-                          child: Padding(
-                            padding: EdgeInsets.all(5),
-                            child: ElevatedButton(
-                              onPressed: _selectedUsers.isEmpty
-                                  ? null
-                                  : () async {
-                                      await DialogUtils.yesNoDialog(
-                                          context,
-                                          'deleteUserConfirm'.tr(),
-                                          'deleteUserConfirmText'.tr(),
-                                          _deleteSelectedUsers);
-                                    },
-                              child: Text('deleteUser'.tr()),
+              child: ClipRRect(
+                child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                    child: AppBar(
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .surface
+                          .withValues(alpha: 0.2),
+                      // User icon with first letter
+                      leading: Transform.scale(
+                        scale: 0.65,
+                        child: CircleAvatar(
+                          radius: 22,
+                          backgroundColor: Singleton().profile.user.avatarColor,
+                          child: Text(
+                            Singleton().profile.user.username.isNotEmpty
+                                ? Singleton()
+                                    .profile
+                                    .user
+                                    .username[0]
+                                    .toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              fontSize: 24,
+                              color: Singleton().profile.user.avatarTextColor,
                             ),
                           ),
                         ),
                       ),
-                      Expanded(
-                        child: RefreshIndicator(
-                          onRefresh: _getServerUsers,
-                          child: ListView.builder(
-                            itemCount: _serverUsers.length,
-                            itemBuilder: (context, index) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: SelectUserListItem(_serverUsers[index],
-                                    (isSelected) {
-                                  // Add/remove selected users from list
-                                  setState(() {
-                                    if (isSelected) {
-                                      isSelected = isSelected;
-                                      _selectedUsers
-                                          .add(_serverUsers[index].id);
-                                    } else {
-                                      _selectedUsers
-                                          .remove(_serverUsers[index].id);
-                                    }
-                                  });
-                                }),
-                              );
-                            },
-                          ),
+                      // Title
+                      title: Text('msgPage'.tr()),
+                      // Action buttons
+                      actions: [
+                        // Settings
+                        IconButton(
+                          icon: const Icon(Icons.settings),
+                          tooltip: 'settingsButton'.tr(),
+                          onPressed: () {
+                            Navigator.of(context).push(PageTransition(
+                                type: PageTransitionType.rightToLeftJoined,
+                                child: SettingsPage(),
+                                childCurrent: widget));
+                          },
                         ),
-                      )
-                    ],
+                      ],
+                    )),
+              ),
+            )
+          : null,
+      resizeToAvoidBottomInset: false,
+      // Floating button
+      floatingActionButton: FloatingActionButton(
+        onPressed: _currentPageIndex == 0
+            ? () {
+                Navigator.of(context).push(PageTransition(
+                    type: PageTransitionType.bottomToTopJoined,
+                    child: SearchUserPage(),
+                    childCurrent: widget));
+              }
+            : () async {
+                await _createNewInvite(context);
+              },
+        shape: const CircleBorder(),
+        foregroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        tooltip: _currentPageIndex == 0
+            ? 'addChat'.tr()
+            : 'newInvite'.tr(), // Change tooltip according to page index
+        child: Icon(_currentPageIndex == 0
+            ? Icons.add_comment
+            : Icons.person_add), // Change icon according to page index
+      ),
+      // Bottom navigation bar for admin only
+      bottomNavigationBar: Singleton().profile.user.admin
+          ? SizedBox(
+              height: 70,
+              child: NavigationBar(
+                onDestinationSelected: (int index) {
+                  setState(() {
+                    _currentPageIndex = index;
+                  });
+                },
+                selectedIndex: _currentPageIndex,
+                destinations: <Widget>[
+                  // Messages
+                  NavigationDestination(
+                    icon: const Icon(Icons.chat),
+                    label: 'msgPage'.tr(),
                   ),
-                  // Invites
-                  RefreshIndicator(
-                    onRefresh: _getServerInvites,
-                    child: ListView.builder(
-                      itemCount: _serverInvites.length,
-                      itemBuilder: (context, index) {
-                        return InviteListItem(_serverInvites[index]);
-                      },
+                  // Admin panel
+                  NavigationDestination(
+                    icon: const Icon(Icons.admin_panel_settings),
+                    label: 'adminPage'.tr(),
+                  ),
+                ],
+              ),
+            )
+          : null,
+      // Body
+      body: <Widget>[
+        // Messages
+        SafeArea(
+          child: Column(
+            children: [
+              SizedBox(height: 10),
+              // TODO search bar
+              // Messages and avatar list
+              Expanded(
+                child: FutureBuilder<Map<User, PrivateMessage>>(
+                    future: notifier.getLatestPrivateMessages(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          _firstLoad) {
+                        return Center(
+                          child: Transform.scale(
+                            scale: 1.5,
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      // Return when data is present
+                      if (snapshot.hasData) {
+                        return _getContent(snapshot.data!);
+                      }
+                      // Return with messages loaded on init
+                      return _getContent(_chats);
+                    }),
+              ),
+            ],
+          ),
+        ),
+        // Admin panel
+        DefaultTabController(
+          initialIndex: 0,
+          length: 2,
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text('adminPage'.tr()),
+              bottom: TabBar(
+                tabs: <Widget>[
+                  Tab(
+                    child: Text(
+                      'serverUsersPage'.tr(),
+                      style: TextStyle(fontSize: 18),
                     ),
-                  )
+                  ),
+                  Tab(
+                    child: Text(
+                      'serverInvitesPage'.tr(),
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  ),
                 ],
               ),
             ),
-          )
-        ][_currentPageIndex], // Pick widget by current index
-      ),
+            body: TabBarView(
+              children: <Widget>[
+                // Server users
+                Column(
+                  children: [
+                    Visibility(
+                      visible: _serverUsers.isNotEmpty,
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: Padding(
+                          padding: EdgeInsets.all(5),
+                          child: ElevatedButton(
+                            onPressed: _selectedUsers.isEmpty
+                                ? null
+                                : () async {
+                                    await DialogUtils.yesNoDialog(
+                                        context,
+                                        'deleteUserConfirm'.tr(),
+                                        'deleteUserConfirmText'.tr(),
+                                        _deleteSelectedUsers);
+                                  },
+                            child: Text('deleteUser'.tr()),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: _getServerUsers,
+                        child: ListView.builder(
+                          itemCount: _serverUsers.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: SelectUserListItem(_serverUsers[index],
+                                  (isSelected) {
+                                // Add/remove selected users from list
+                                setState(() {
+                                  if (isSelected) {
+                                    isSelected = isSelected;
+                                    _selectedUsers.add(_serverUsers[index].id);
+                                  } else {
+                                    _selectedUsers
+                                        .remove(_serverUsers[index].id);
+                                  }
+                                });
+                              }),
+                            );
+                          },
+                        ),
+                      ),
+                    )
+                  ],
+                ),
+                // Invites
+                RefreshIndicator(
+                  onRefresh: _getServerInvites,
+                  child: ListView.builder(
+                    itemCount: _serverInvites.length,
+                    itemBuilder: (context, index) {
+                      return InviteListItem(_serverInvites[index]);
+                    },
+                  ),
+                )
+              ],
+            ),
+          ),
+        )
+      ][_currentPageIndex], // Pick widget by current index
     );
   }
 }
