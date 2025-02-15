@@ -278,11 +278,11 @@ class _HomePageState extends State<HomePage> {
                           ),
                         );
                       }
-                      // Return when data is present
+                      // Set data
                       if (snapshot.hasData) {
-                        return _getContent(snapshot.data!);
+                        _chats = snapshot.data!;
                       }
-                      // Return with messages loaded on init
+                      // Return chats
                       return _getContent(_chats);
                     }),
               ),

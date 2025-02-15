@@ -264,16 +264,15 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                       );
                     }
-                    // Return when data is present
+                    // Set data
                     if (snapshot.hasData) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         _scrollController
                             .jumpTo(_scrollController.position.maxScrollExtent);
                       });
-                      _messages = snapshot.data!;   // Set updated messages
-                      return _getContent(snapshot.data!);
+                      _messages = snapshot.data!;
                     }
-                    // Return with messages loaded on init
+                    // Return messages
                     return _getContent(_messages);
                   }),
             ),
