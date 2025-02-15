@@ -74,7 +74,7 @@ class _SearchUserPageState extends State<SearchUserPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Seatch field
+            // Search field
             Padding(
               padding: const EdgeInsets.only(bottom: 15),
               child: TextField(

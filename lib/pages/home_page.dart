@@ -153,6 +153,7 @@ class _HomePageState extends State<HomePage> {
     final notifier = context.watch<MessageNotifier>();
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: _currentPageIndex == 0
           ? PreferredSize(
               preferredSize: Size(
@@ -260,11 +261,9 @@ class _HomePageState extends State<HomePage> {
       // Body
       body: <Widget>[
         // Messages
-        SafeArea(
-          child: Column(
+        Column(
             children: [
               SizedBox(height: 10),
-              // TODO search bar
               // Messages and avatar list
               Expanded(
                 child: FutureBuilder<Map<User, PrivateMessage>>(
@@ -289,7 +288,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
-        ),
         // Admin panel
         DefaultTabController(
           initialIndex: 0,
