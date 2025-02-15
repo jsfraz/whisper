@@ -20,21 +20,16 @@ class _SearchUserPageState extends State<SearchUserPage> {
 
   /// Search users
   Future<void> _searchUsers() async {
+    // Empty search
+    if (_controllerSearch.text.isEmpty) {
+      return;
+    }
+
     if (context.mounted) {
       setState(() {
         _loading = true;
         _users = [];
       });
-    }
-
-    // Empty search
-    if (_controllerSearch.text.isEmpty) {
-      if (context.mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
-      return;
     }
 
     // Get users from server
@@ -90,7 +85,7 @@ class _SearchUserPageState extends State<SearchUserPage> {
                     borderSide: BorderSide.none,
                   ),
                   suffixIcon: IconButton(
-                    onPressed: _searchUsers,
+                    onPressed: _loading ? null : _searchUsers,
                     icon: const Icon(Icons.search),
                   ),
                 ),

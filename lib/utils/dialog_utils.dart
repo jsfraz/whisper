@@ -17,6 +17,7 @@ class DialogUtils {
     final TextEditingController controllerMail = TextEditingController();
     bool mailOk = false;
     bool mailEditing = false;
+    bool creating = false;
 
     String? errorMail() {
       if (!EmailValidator.validate(controllerMail.text) && mailEditing) {
@@ -31,6 +32,7 @@ class DialogUtils {
     /// Creates invite
     Future<void> createInvite() async {
       if (mailOk) {
+        creating = true;
         await Utils.callApi(() => Singleton().inviteApi.createInvite(
             createInviteInput: CreateInviteInput(mail: controllerMail.text)));
         if (context.mounted) {
@@ -71,7 +73,7 @@ class DialogUtils {
                       borderRadius: BorderRadius.circular(35)),
                 ),
               ),
-              onPressed: createInvite,
+              onPressed: creating ? null : createInvite,
               child: Text(
                 'newInvite'.tr(),
                 style: TextStyle(color: Theme.of(context).colorScheme.surface),
