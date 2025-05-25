@@ -13,7 +13,7 @@ class NotificationService {
   /// Init notification settings
   Future<void> init() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@drawable/ic_launcher_foreground');
+        AndroidInitializationSettings('app_icon');
 
     final InitializationSettings initializationSettings =
         InitializationSettings(android: initializationSettingsAndroid);
