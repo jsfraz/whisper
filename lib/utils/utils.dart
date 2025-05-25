@@ -218,7 +218,12 @@ class Utils {
           await Utils.callApi(() => Singleton().wsAuthApi.webSocketAuth());
       if (wsAuthResponse != null) {
         // Connect WebSocket
-        Singleton().wsClient.connect(wsAuthResponse.accessToken);
+        try {
+          Singleton().wsClient.connect(wsAuthResponse.accessToken);
+          Singleton().offlineMode = false;
+        } catch (e) {
+          Singleton().offlineMode = true;
+        }
       }
     }
   }

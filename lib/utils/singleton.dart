@@ -1,11 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:whisper_websocket_client_dart/ws_client.dart';
 import '../models/app_theme.dart';
 import '../models/profile.dart';
+import 'package:flutter/foundation.dart';
 
 /// Singleton https://stackoverflow.com/a/12649574/19371130
 class Singleton {
@@ -42,11 +42,15 @@ class Singleton {
   }
 
   set offlineMode(bool offline) {
-    if (!_offlineMode && _offlineMode != offline) {
-      Fluttertoast.showToast(msg: 'offlineTrue'.tr(), backgroundColor: Colors.red);
-    }
-    if (_offlineMode && _offlineMode != offline) {
-      Fluttertoast.showToast(msg: 'offlineFalse'.tr(), backgroundColor: Colors.green);
+    if (kDebugMode) {
+      if (!_offlineMode && _offlineMode != offline) {
+        Fluttertoast.showToast(
+            msg: 'offlineTrue'.tr(), backgroundColor: Colors.red);
+      }
+      if (_offlineMode && _offlineMode != offline) {
+        Fluttertoast.showToast(
+            msg: 'offlineFalse'.tr(), backgroundColor: Colors.green);
+      }
     }
     _offlineMode = offline;
   }
