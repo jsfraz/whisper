@@ -6,7 +6,6 @@ import '../utils/theme_notifier.dart';
 import '../pages/scan_invite_button_page.dart';
 import 'password_page.dart';
 import '../utils/cache_utils.dart';
-import '../utils/no_glow_behavior.dart';
 
 class WhisperPage extends StatelessWidget {
   const WhisperPage({super.key});
@@ -61,12 +60,6 @@ class WhisperPage extends StatelessWidget {
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
       locale: context.locale,
-      builder: (context, child) {
-        return ScrollConfiguration(
-          behavior: NoGlowBehavior(),
-          child: child!,
-        );
-      },
       home: FutureBuilder<Widget>(
           future: _getDefaultPage(),
           builder: (context, snapshot) {

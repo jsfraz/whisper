@@ -105,6 +105,9 @@ class _SearchUserPageState extends State<SearchUserPage> {
                 visible: !_loading,
                 child: Expanded(
                   child: ListView.builder(
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
                     itemCount: _users.length,
                     itemBuilder: (context, index) {
                       return Padding(

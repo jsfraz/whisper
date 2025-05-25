@@ -131,6 +131,9 @@ class _HomePageState extends State<HomePage> {
   ListView _getContent(Map<User, PrivateMessage> chats) {
     _firstLoad = false;
     return ListView.builder(
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
       itemCount: chats.length,
       itemBuilder: (context, index) {
         final chat = chats.entries.elementAt(index);
@@ -354,6 +357,9 @@ class _HomePageState extends State<HomePage> {
                       child: RefreshIndicator(
                         onRefresh: _getServerUsers,
                         child: ListView.builder(
+                          physics: const BouncingScrollPhysics(
+                            parent: AlwaysScrollableScrollPhysics(),
+                          ),
                           itemCount: _serverUsers.length,
                           itemBuilder: (context, index) {
                             return Padding(
@@ -382,6 +388,9 @@ class _HomePageState extends State<HomePage> {
                 RefreshIndicator(
                   onRefresh: _getServerInvites,
                   child: ListView.builder(
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
                     itemCount: _serverInvites.length,
                     itemBuilder: (context, index) {
                       return InviteListItem(_serverInvites[index]);

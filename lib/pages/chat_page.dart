@@ -121,6 +121,9 @@ class _ChatPageState extends State<ChatPage> {
   ListView _getContent(List<PrivateMessage> messages) {
     _firstLoad = false;
     return ListView.builder(
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
       controller: _scrollController,
       reverse: false,
       itemCount: messages.length + 1,
