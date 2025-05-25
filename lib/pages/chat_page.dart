@@ -239,6 +239,9 @@ class _ChatPageState extends State<ChatPage> {
                     onPressed: () {
                       // Push info page
                       Navigator.of(context).push(PageTransition(
+                          duration: const Duration(milliseconds: 300),
+                          reverseDuration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
                           type: PageTransitionType.rightToLeftJoined,
                           child: ChatInfoPage(widget.user.id),
                           childCurrent: widget));

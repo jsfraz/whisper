@@ -139,6 +139,9 @@ class _HomePageState extends State<HomePage> {
           child: ChatListItem(chat.key, chat.value, () {
             // Push to chat
             Navigator.of(context).push(PageTransition(
+                duration: const Duration(milliseconds: 300),
+                reverseDuration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
                 type: PageTransitionType.bottomToTopJoined,
                 child: ChatPage(chat.key),
                 childCurrent: widget));
@@ -199,9 +202,14 @@ class _HomePageState extends State<HomePage> {
                           tooltip: 'settingsButton'.tr(),
                           onPressed: () {
                             Navigator.of(context).push(PageTransition(
-                                type: PageTransitionType.rightToLeftJoined,
-                                child: SettingsPage(),
-                                childCurrent: widget));
+                              duration: const Duration(milliseconds: 300),
+                              reverseDuration:
+                                  const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              type: PageTransitionType.rightToLeftJoined,
+                              child: SettingsPage(),
+                              childCurrent: widget,
+                            ));
                           },
                         ),
                       ],
@@ -215,6 +223,9 @@ class _HomePageState extends State<HomePage> {
         onPressed: _currentPageIndex == 0
             ? () {
                 Navigator.of(context).push(PageTransition(
+                    duration: const Duration(milliseconds: 300),
+                    reverseDuration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
                     type: PageTransitionType.bottomToTopJoined,
                     child: SearchUserPage(),
                     childCurrent: widget));
@@ -235,7 +246,7 @@ class _HomePageState extends State<HomePage> {
       // Bottom navigation bar for admin only
       bottomNavigationBar: Singleton().profile.user.admin
           ? SafeArea(
-            child: SizedBox(
+              child: SizedBox(
               height: 70,
               child: NavigationBar(
                 onDestinationSelected: (int index) {
@@ -257,39 +268,38 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-            )
-          )
+            ))
           : null,
       // Body
       body: <Widget>[
         // Messages
         Column(
-            children: [
-              SizedBox(height: 10),
-              // Messages and avatar list
-              Expanded(
-                child: FutureBuilder<Map<User, PrivateMessage>>(
-                    future: notifier.getLatestPrivateMessages(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting &&
-                          _firstLoad) {
-                        return Center(
-                          child: Transform.scale(
-                            scale: 1.5,
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-                      }
-                      // Set data
-                      if (snapshot.hasData) {
-                        _chats = snapshot.data!;
-                      }
-                      // Return chats
-                      return _getContent(_chats);
-                    }),
-              ),
-            ],
-          ),
+          children: [
+            SizedBox(height: 10),
+            // Messages and avatar list
+            Expanded(
+              child: FutureBuilder<Map<User, PrivateMessage>>(
+                  future: notifier.getLatestPrivateMessages(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        _firstLoad) {
+                      return Center(
+                        child: Transform.scale(
+                          scale: 1.5,
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+                    // Set data
+                    if (snapshot.hasData) {
+                      _chats = snapshot.data!;
+                    }
+                    // Return chats
+                    return _getContent(_chats);
+                  }),
+            ),
+          ],
+        ),
         // Admin panel
         DefaultTabController(
           initialIndex: 0,
