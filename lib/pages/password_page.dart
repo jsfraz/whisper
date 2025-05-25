@@ -61,6 +61,7 @@ class _PasswordPageState extends State<PasswordPage> {
 
         // OpenAPI client
         Singleton().api = ApiClient(basePath: Singleton().profile.url);
+        // TODO Check connection/ping
         // Check tokens
         await Utils.authCheck();
         // WebSocket client

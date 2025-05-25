@@ -184,7 +184,8 @@ class _ChatPageState extends State<ChatPage> {
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop && _messages.isNotEmpty) {
           if (_controllerMessage.text.isNotEmpty) {
-            await CacheUtils.setMessageConcept(widget.user.id, _controllerMessage.text);
+            await CacheUtils.setMessageConcept(
+                widget.user.id, _controllerMessage.text);
           } else {
             await CacheUtils.deleteMessageConcept(widget.user.id);
           }
@@ -248,63 +249,65 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
         ),
-        body: Column(
-          children: [
-            // Messages and avatar list
-            Expanded(
-              child: FutureBuilder<List<PrivateMessage>>(
-                  future: notifier.getMessages(widget.user.id),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        _firstLoad) {
-                      return Center(
-                        child: Transform.scale(
-                          scale: 1.5,
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-                    // Set data
-                    if (snapshot.hasData) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _scrollController
-                            .jumpTo(_scrollController.position.maxScrollExtent);
-                      });
-                      _messages = snapshot.data!;
-                    }
-                    // Return messages
-                    return _getContent(_messages);
-                  }),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controllerMessage,
-                      decoration: InputDecoration(
-                        hintText: 'yourMessage'.tr(),
-                        filled: true,
-                        fillColor:
-                            Theme.of(context).brightness == Brightness.dark
-                                ? Theme.of(context).colorScheme.surfaceBright
-                                : Theme.of(context).colorScheme.surfaceDim,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          borderSide: BorderSide.none,
-                        ),
-                        suffixIcon: IconButton(
-                          onPressed: _isSending ? null : _sendMessage,
-                          icon: const Icon(Icons.send),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Messages and avatar list
+              Expanded(
+                child: FutureBuilder<List<PrivateMessage>>(
+                    future: notifier.getMessages(widget.user.id),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          _firstLoad) {
+                        return Center(
+                          child: Transform.scale(
+                            scale: 1.5,
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      // Set data
+                      if (snapshot.hasData) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _scrollController.jumpTo(
+                              _scrollController.position.maxScrollExtent);
+                        });
+                        _messages = snapshot.data!;
+                      }
+                      // Return messages
+                      return _getContent(_messages);
+                    }),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controllerMessage,
+                        decoration: InputDecoration(
+                          hintText: 'yourMessage'.tr(),
+                          filled: true,
+                          fillColor:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? Theme.of(context).colorScheme.surfaceBright
+                                  : Theme.of(context).colorScheme.surfaceDim,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30),
+                            borderSide: BorderSide.none,
+                          ),
+                          suffixIcon: IconButton(
+                            onPressed: _isSending ? null : _sendMessage,
+                            icon: const Icon(Icons.send),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

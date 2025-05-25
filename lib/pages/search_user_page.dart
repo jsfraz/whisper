@@ -65,64 +65,66 @@ class _SearchUserPageState extends State<SearchUserPage> {
         title: Text('searchUserPage'.tr()),
       ),
       resizeToAvoidBottomInset: false,
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Search field
-            Padding(
-              padding: const EdgeInsets.only(bottom: 15),
-              child: TextField(
-                controller: _controllerSearch,
-                decoration: InputDecoration(
-                  hintText: 'enterUsername'.tr(),
-                  filled: true,
-                  fillColor: Theme.of(context).brightness == Brightness.dark
-                      ? Theme.of(context).colorScheme.surfaceBright
-                      : Theme.of(context).colorScheme.surfaceDim,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none,
-                  ),
-                  suffixIcon: IconButton(
-                    onPressed: _loading ? null : _searchUsers,
-                    icon: const Icon(Icons.search),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              // Search field
+              Padding(
+                padding: const EdgeInsets.only(bottom: 15),
+                child: TextField(
+                  controller: _controllerSearch,
+                  decoration: InputDecoration(
+                    hintText: 'enterUsername'.tr(),
+                    filled: true,
+                    fillColor: Theme.of(context).brightness == Brightness.dark
+                        ? Theme.of(context).colorScheme.surfaceBright
+                        : Theme.of(context).colorScheme.surfaceDim,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    suffixIcon: IconButton(
+                      onPressed: _loading ? null : _searchUsers,
+                      icon: const Icon(Icons.search),
+                    ),
                   ),
                 ),
               ),
-            ),
-            // Loading
-            Visibility(
-              visible: _loading,
-              child: const Padding(
-                padding: EdgeInsets.only(top: 20, left: 7, right: 7),
-                child: CircularProgressIndicator(),
-              ),
-            ),
-            // Users list
-            Visibility(
-              visible: !_loading,
-              child: Expanded(
-                child: ListView.builder(
-                  itemCount: _users.length,
-                  itemBuilder: (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: UserListItem(_users[index], () async {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => ChatPage(_users[index])),
-                          (route) =>
-                              route.isFirst, // Returns true only for Home page
-                        );
-                      }),
-                    );
-                  },
+              // Loading
+              Visibility(
+                visible: _loading,
+                child: const Padding(
+                  padding: EdgeInsets.only(top: 20, left: 7, right: 7),
+                  child: CircularProgressIndicator(),
                 ),
               ),
-            ),
-          ],
+              // Users list
+              Visibility(
+                visible: !_loading,
+                child: Expanded(
+                  child: ListView.builder(
+                    itemCount: _users.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: UserListItem(_users[index], () async {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => ChatPage(_users[index])),
+                            (route) => route
+                                .isFirst, // Returns true only for Home page
+                          );
+                        }),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

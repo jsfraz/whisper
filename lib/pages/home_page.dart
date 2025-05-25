@@ -234,7 +234,8 @@ class _HomePageState extends State<HomePage> {
       ),
       // Bottom navigation bar for admin only
       bottomNavigationBar: Singleton().profile.user.admin
-          ? SizedBox(
+          ? SafeArea(
+            child: SizedBox(
               height: 70,
               child: NavigationBar(
                 onDestinationSelected: (int index) {
@@ -257,6 +258,7 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             )
+          )
           : null,
       // Body
       body: <Widget>[
