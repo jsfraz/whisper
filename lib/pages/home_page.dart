@@ -109,6 +109,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // FIXME token is being set all the time
   /// Send FCM token when online, store when offline
   Future<void> _sendFcmTokenWhenOnline(String token) async {
     // Skip if in offline mode
