@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
@@ -35,6 +38,7 @@ class _HomePageState extends State<HomePage> {
   List<ModelsInvite> _serverInvites = [];
   Map<User, PrivateMessage> _chats = {};
   bool _firstLoad = true;
+  String? _pendingFcmToken; // Store pending token
 
   @override
   void initState() {
@@ -48,6 +52,28 @@ class _HomePageState extends State<HomePage> {
     _getConversations();
     // Start checking WebSocket connection
     _webSocketManager.startConnectionCheck();
+
+    // Request FCM notification permissions
+    FirebaseMessaging.instance.requestPermission(provisional: true);
+
+    // FCM token refresh - store token and send when online
+    FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) async {
+      _pendingFcmToken = fcmToken;
+      await _sendFcmTokenWhenOnline(fcmToken);
+    }).onError((err) {
+      if (kDebugMode) {
+        debugPrint('Error getting FCM token: $err');
+      }
+    });
+    
+    // Enable FCM notifications
+    FirebaseMessaging.instance.setAutoInitEnabled(true);
+    
+    // Set initial FCM token
+    _setFcmToken();
+
+    // Listen to offline mode changes to send pending tokens
+    _listenToConnectivityChanges();
   }
 
   @override
@@ -55,6 +81,61 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
     // Stop checking WebSocket connection
     _webSocketManager.stopConnectionCheck();
+  }
+
+  /// Listen to connectivity changes and send pending FCM token
+  void _listenToConnectivityChanges() {
+    // Check periodically if we came back online and have a pending token
+    Timer.periodic(Duration(seconds: 30), (timer) {
+      if (!Singleton().offlineMode && _pendingFcmToken != null) {
+        _sendFcmTokenWhenOnline(_pendingFcmToken!);
+      }
+    });
+  }
+
+  /// Set FCM token on server with offline mode handling
+  Future<void> _setFcmToken() async {
+    try {
+      var token = await FirebaseMessaging.instance.getToken();
+      if (token == null) {
+        return;
+      }
+      _pendingFcmToken = token;
+      await _sendFcmTokenWhenOnline(token);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error setting FCM token: $e');
+      }
+    }
+  }
+
+  /// Send FCM token when online, store when offline
+  Future<void> _sendFcmTokenWhenOnline(String token) async {
+    // Skip if in offline mode
+    if (Singleton().offlineMode) {
+      if (kDebugMode) {
+        debugPrint('Offline mode - FCM token will be sent when online');
+      }
+      return;
+    }
+
+    try {
+      await Utils.callApi<void>(
+        () => Singleton().firebaseApi.setFirebaseToken(
+          setFirebaseTokenInput: SetFirebaseTokenInput(token: token)
+        ),
+        useSecurity: true,
+      ).timeout(
+        Duration(seconds: 10),
+        onTimeout: () => null,
+      );
+    } catch (e) {
+      // Error occurred, keep token pending
+      _pendingFcmToken = token;
+      if (kDebugMode) {
+        debugPrint('Error sending FCM token: $e');
+      }
+    }
   }
 
   /// Get all conversations with their last messages

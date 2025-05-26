@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -32,7 +33,7 @@ class Utils {
 
   /// Call API, handle errors and return result.
   static Future<T?> callApi<T>(Future<T> Function() call,
-      {bool useSecurity = true}) async {
+      {bool useSecurity = true, bool rethrowErr = false}) async {
     // Check tokens
     if (useSecurity) {
       await authCheck();
@@ -66,6 +67,10 @@ class Utils {
                 msg: e.innerException.toString(), backgroundColor: Colors.red);
           }
         }
+      }
+      // Rethrow
+      if (rethrowErr) {
+        rethrow;
       }
     }
     return null;
@@ -162,6 +167,7 @@ class Utils {
                 msg: e.toString(), backgroundColor: Colors.red);
           }
         }
+        // TODO do not show notification for messages when user was offline
         if (decryptedMessages.isNotEmpty) {
           await MessageNotifier()
               .addMessages(decryptedMessages.first.senderId, decryptedMessages);
@@ -203,28 +209,87 @@ class Utils {
     }
   }
 
-  /// Connect to WebSocket
+  /// Connect to WebSocket with improved connection handling
   static Future<void> wsConnect({bool firstConnect = false}) async {
-    /*
-    debugPrint('WS connected: ${Singleton().wsClient.isConnected}');
-    debugPrint('Offline mode: ${Singleton().offlineMode}');
-    */
-    if (!Singleton().wsClient.isConnected) {
-      if (!firstConnect && !Singleton().offlineMode) {
+    // Skip if already connected
+    if (Singleton().wsClient.isConnected) {
+      // Ensure we're not in offline mode if connected
+      if (Singleton().offlineMode) {
+        Singleton().offlineMode = false;
+      }
+      return;
+    }
+
+    // Set offline mode immediately if disconnected (except on first connect)
+    if (!firstConnect && !Singleton().offlineMode) {
+      Singleton().offlineMode = true;
+    }
+
+    try {
+      // Attempt to get WebSocket access token
+      var wsAuthResponse = await Utils.callApi(
+        () => Singleton().wsAuthApi.webSocketAuth(),
+        useSecurity: true,
+      ).timeout(
+        Duration(seconds: 10), // Add timeout for API calls
+        onTimeout: () => null,
+      );
+
+      if (wsAuthResponse?.accessToken != null) {
+        // Attempt WebSocket connection
+        await _attemptWsConnection(wsAuthResponse!.accessToken);
+      } else {
+        // API call failed, ensure offline mode
         Singleton().offlineMode = true;
       }
-      // Get one-time access token for WebSocket
-      var wsAuthResponse =
-          await Utils.callApi(() => Singleton().wsAuthApi.webSocketAuth());
-      if (wsAuthResponse != null) {
-        // Connect WebSocket
-        try {
-          Singleton().wsClient.connect(wsAuthResponse.accessToken);
-          Singleton().offlineMode = false;
-        } catch (e) {
-          Singleton().offlineMode = true;
-        }
+    } catch (e) {
+      // Any error during the process
+      Singleton().offlineMode = true;
+      if (kDebugMode) {
+        debugPrint('WebSocket connection failed: $e');
       }
     }
+  }
+
+  /// Helper method to attempt WebSocket connection
+  static Future<void> _attemptWsConnection(String accessToken) async {
+    try {
+      await Singleton().wsClient.connect(accessToken, Duration(seconds: 5));
+      
+      // Connection successful
+      Singleton().offlineMode = false;
+      
+      if (kDebugMode) {
+        debugPrint('WebSocket connected successfully');
+      }
+    } catch (e) {
+      // WebSocket connection failed
+      Singleton().offlineMode = true;
+      
+      if (kDebugMode) {
+        debugPrint('WebSocket connection attempt failed: $e');
+      }
+      
+      // Optionally disconnect if partially connected
+      try {
+        Singleton().wsClient.disconnect();
+      } catch (_) {
+        // Ignore disconnect errors
+      }
+    }
+  }
+
+  /// Get current connection status
+  static bool get isOnline => 
+    Singleton().wsClient.isConnected && !Singleton().offlineMode;
+
+  /// Force disconnect and set offline mode
+  static void forceOfflineMode() {
+    try {
+      Singleton().wsClient.disconnect();
+    } catch (_) {
+      // Ignore disconnect errors
+    }
+    Singleton().offlineMode = true;
   }
 }

@@ -64,5 +64,7 @@ class Singleton {
 
   WebSocketAuthenticationApi get wsAuthApi => WebSocketAuthenticationApi(_api);
 
+  FirebaseApi get firebaseApi => FirebaseApi(_api);
+
   bool get offlineMode => _offlineMode;
 }

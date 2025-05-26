@@ -6,6 +6,10 @@ For Whisper server, see [whisper-server](https://github.com/jsfraz/whisper-serve
 
 <!-- TODO images/gifs/something -->
 
+## Download
+
+TODO download
+
 ## Dependencies
 
 - [basic_utils](https://pub.dev/packages/basic_utils)
@@ -79,3 +83,8 @@ For Whisper server, see [whisper-server](https://github.com/jsfraz/whisper-serve
   - used for generating app icons
   - run `dart run flutter_launcher_icons` to generate icons
   - see configuration file [flutter_launcher_icons.yaml](flutter_launcher_icons.yaml)
+
+https://firebase.google.com/docs/flutter/setup?platform=android
+https://firebase.google.com/docs/cloud-messaging/flutter/client
+
+<!-- TODO license -->

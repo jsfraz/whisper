@@ -1,8 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
+import 'package:whisper/firebase_options.dart';
 import '../utils/message_notifier.dart';
 import '../utils/cache_utils.dart';
 import 'models/app_theme.dart';
@@ -21,10 +23,17 @@ void main() async {
   // Initialize Flutter widgets
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Firebase initialization
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Local notifications
   NotificationService().init();
 
   // Load locale
   await EasyLocalization.ensureInitialized();
+  
   // Lock orientation (https://stackoverflow.com/a/52720581/19371130)
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
