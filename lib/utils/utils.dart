@@ -167,10 +167,13 @@ class Utils {
                 msg: e.toString(), backgroundColor: Colors.red);
           }
         }
-        // TODO do not show notification for messages when user was offline
         if (decryptedMessages.isNotEmpty) {
           await MessageNotifier()
               .addMessages(decryptedMessages.first.senderId, decryptedMessages);
+          
+          // Remove messages from notifications if user was not online when they were sent
+          messages.removeWhere((x) => !x.recipientOnline);
+
           var currentRoute = Singleton().currentRoute;
           if (currentRoute is PageTransition) {
             if (currentRoute.child is ChatPage) {

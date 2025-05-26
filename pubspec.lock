@@ -1085,7 +1085,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: "3cbdf22fe9fc7bd21af5cc3a2302aae5bb2d081c"
+      resolved-ref: "3d473c803fc8a3b94d69e229a0f8a9aed5f1c389"
       url: "https://github.com/jsfraz/whisper_websocket_client_dart.git"
     source: git
     version: "1.0.0"
