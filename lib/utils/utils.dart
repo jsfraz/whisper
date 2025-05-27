@@ -148,24 +148,43 @@ class Utils {
         var messages = wsResponse.payload as List<PrivateMessage>;
         messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
         List<pm.PrivateMessage> decryptedMessages = [];
-        // TODO parallelly decrypt
-        for (var message in messages) {
-          try {
-            var decryptedMessage = await CryptoUtils.rsaDecrypt(
-                message.message,
-                bu.CryptoUtils.rsaPrivateKeyFromPem(
-                    Singleton().profile.privateKey));
-            var privateMessage = pm.PrivateMessage(
-                message.senderId,
-                utf8.decode(decryptedMessage),
-                message.sentAt,
-                DateTime.now(),
-                false);
-            decryptedMessages.add(privateMessage);
-          } catch (e) {
+        
+        // Parallel decrypt all messages
+        try {
+          final decryptionTasks = messages.map((message) async {
+            try {
+              var decryptedMessage = await CryptoUtils.rsaDecrypt(
+                  message.message,
+                  bu.CryptoUtils.rsaPrivateKeyFromPem(
+                      Singleton().profile.privateKey));
+              return pm.PrivateMessage(
+                  message.senderId,
+                  utf8.decode(decryptedMessage),
+                  message.sentAt,
+                  DateTime.now(),
+                  false);
+            } catch (e) {
+              // Log individual message decryption errors
+              if (kDebugMode) {
+                debugPrint('Failed to decrypt message from ${message.senderId}: $e');
+              }
+              return null; // Return null for failed decryptions
+            }
+          });
+
+          final results = await Future.wait(decryptionTasks);
+          
+          // Filter out failed decryptions (null values)
+          decryptedMessages = results.whereType<pm.PrivateMessage>().toList();
+          
+          // Show toast only if all messages failed to decrypt
+          if (decryptedMessages.isEmpty && messages.isNotEmpty) {
             Fluttertoast.showToast(
-                msg: e.toString(), backgroundColor: Colors.red);
+                msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
           }
+        } catch (_) {
+          Fluttertoast.showToast(
+              msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
         }
         if (decryptedMessages.isNotEmpty) {
           await MessageNotifier()
