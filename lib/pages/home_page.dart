@@ -53,6 +53,7 @@ class _HomePageState extends State<HomePage> {
     // Start checking WebSocket connection
     _webSocketManager.startConnectionCheck();
 
+    // TODO set icon, sound and vibration patter (same as local notifications)
     // Request FCM notification permissions
     FirebaseMessaging.instance.requestPermission(provisional: true);
 

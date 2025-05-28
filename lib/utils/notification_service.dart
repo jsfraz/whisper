@@ -89,7 +89,7 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.max,
       ticker: 'tickerLocalNotification'.tr(),
-      enableVibration: false,
+      enableVibration: true,
       playSound: true,
       sound: RawResourceAndroidNotificationSound('notification'),
       styleInformation: inboxStyleInformation,
@@ -115,7 +115,7 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.max,
       ticker: 'tickerLocalNotification'.tr(),
-      enableVibration: false,
+      enableVibration: true,
       playSound: true,
       sound: RawResourceAndroidNotificationSound('notification'),
     );

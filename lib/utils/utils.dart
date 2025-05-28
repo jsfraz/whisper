@@ -148,7 +148,7 @@ class Utils {
         var messages = wsResponse.payload as List<PrivateMessage>;
         messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
         List<pm.PrivateMessage> decryptedMessages = [];
-        
+
         // Parallel decrypt all messages
         try {
           final decryptionTasks = messages.map((message) async {
@@ -166,17 +166,18 @@ class Utils {
             } catch (e) {
               // Log individual message decryption errors
               if (kDebugMode) {
-                debugPrint('Failed to decrypt message from ${message.senderId}: $e');
+                debugPrint(
+                    'Failed to decrypt message from ${message.senderId}: $e');
               }
               return null; // Return null for failed decryptions
             }
           });
 
           final results = await Future.wait(decryptionTasks);
-          
+
           // Filter out failed decryptions (null values)
           decryptedMessages = results.whereType<pm.PrivateMessage>().toList();
-          
+
           // Show toast only if all messages failed to decrypt
           if (decryptedMessages.isEmpty && messages.isNotEmpty) {
             Fluttertoast.showToast(
@@ -189,21 +190,28 @@ class Utils {
         if (decryptedMessages.isNotEmpty) {
           await MessageNotifier()
               .addMessages(decryptedMessages.first.senderId, decryptedMessages);
-          
-          // Remove messages from notifications if user was not online when they were sent
-          messages.removeWhere((x) => !x.recipientOnline);
 
+          // Remove messages from notifications if user was not online when they were sent
+          decryptedMessages.removeWhere((x) => !messages
+              .where((y) => y.sentAt == x.sentAt && y.senderId == x.senderId)
+              .first
+              .recipientOnline);
+
+          bool homePageOpened = false;
           var currentRoute = Singleton().currentRoute;
           if (currentRoute is PageTransition) {
             if (currentRoute.child is ChatPage) {
               var chatPage = currentRoute.child as ChatPage;
               // Delete messages of current open user chat from notifications
-              messages.removeWhere((x) => x.senderId == chatPage.user.id);
+              decryptedMessages
+                  .removeWhere((x) => x.senderId == chatPage.user.id);
             }
+          } else {
+            // Home page is opened
+            homePageOpened = true;
           }
-          // Show notification and vibrate if there are messages to announce
-          if (messages.isNotEmpty) {
-            Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
+          // Show notification if there are messages to announce and HomePage is not opened
+          if (decryptedMessages.isNotEmpty && !homePageOpened) {
             if (Singleton().profile.enableNotifications) {
               await NotificationService()
                   .showMessagesNotification(decryptedMessages);
@@ -277,21 +285,21 @@ class Utils {
   static Future<void> _attemptWsConnection(String accessToken) async {
     try {
       await Singleton().wsClient.connect(accessToken, Duration(seconds: 5));
-      
+
       // Connection successful
       Singleton().offlineMode = false;
-      
+
       if (kDebugMode) {
         debugPrint('WebSocket connected successfully');
       }
     } catch (e) {
       // WebSocket connection failed
       Singleton().offlineMode = true;
-      
+
       if (kDebugMode) {
         debugPrint('WebSocket connection attempt failed: $e');
       }
-      
+
       // Optionally disconnect if partially connected
       try {
         Singleton().wsClient.disconnect();
@@ -302,8 +310,8 @@ class Utils {
   }
 
   /// Get current connection status
-  static bool get isOnline => 
-    Singleton().wsClient.isConnected && !Singleton().offlineMode;
+  static bool get isOnline =>
+      Singleton().wsClient.isConnected && !Singleton().offlineMode;
 
   /// Force disconnect and set offline mode
   static void forceOfflineMode() {
