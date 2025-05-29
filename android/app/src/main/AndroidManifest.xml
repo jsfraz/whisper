@@ -63,5 +63,10 @@
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />
         </intent>
+        <!-- Launching URL using https://pub.dev/packages/url_launcher library -->
+        <!-- TODO setup for iOS too -->
+        <intent>
+    <action android:name="android.support.customtabs.action.CustomTabsService" />
+  </intent>
     </queries>
 </manifest>

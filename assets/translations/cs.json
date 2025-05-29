@@ -1,3 +1,4 @@
 {
-    "xMessagesFromYChats": "%d nových zpráv z %d chatů"
+    "xMessagesFromYChats": "%d nových zpráv z %d chatů",
+    "urlError": "Chyba při otevířání URL %s"
 }

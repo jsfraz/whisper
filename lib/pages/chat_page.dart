@@ -50,6 +50,8 @@ class _ChatPageState extends State<ChatPage> {
     getConceptMessage();
   }
 
+  // TODO delete message from input field
+
   Future<void> getConceptMessage() async {
     String? conceptMsg = await CacheUtils.getMessageConcept(widget.user.id);
     if (conceptMsg != null) {
@@ -289,6 +291,8 @@ class _ChatPageState extends State<ChatPage> {
                 child: Row(
                   children: [
                     Expanded(
+                      child: Padding(padding: EdgeInsets.only(right: 5, left: 5),
+                      // TODO certically expandable text field
                       child: TextField(
                         controller: _controllerMessage,
                         decoration: InputDecoration(
@@ -307,7 +311,7 @@ class _ChatPageState extends State<ChatPage> {
                             icon: const Icon(Icons.send),
                           ),
                         ),
-                      ),
+                      ),),
                     ),
                   ],
                 ),

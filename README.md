@@ -4,7 +4,11 @@ Secure private self-hosted end-to-end encryption messaging app.
 
 For Whisper server, see [whisper-server](https://github.com/jsfraz/whisper-server) repository.
 
-<!-- TODO images/gifs/something -->
+<!-- TODO features/images/gifs/something -->
+
+## How this works
+
+Refer to repository [wiki](https://github.com/jsfraz/whisper/wiki)
 
 ## Download
 
@@ -56,6 +60,8 @@ TODO download
   - used for enhanced QR code scanning
 - [sprintf](https://pub.dev/packages/sprintf)
   - used for string formatting
+- [url_launcher](https://pub.dev/packages/url_launcher)
+  - used for launching URLs
 - [vibration](https://pub.dev/packages/vibration)
   - used for device vibration feedback
 - [whisper_openapi_client_dart](https://github.com/jsfraz/whisper_openapi_client_dart)
@@ -84,7 +90,11 @@ TODO download
   - run `dart run flutter_launcher_icons` to generate icons
   - see configuration file [flutter_launcher_icons.yaml](flutter_launcher_icons.yaml)
 
-https://firebase.google.com/docs/flutter/setup?platform=android
-https://firebase.google.com/docs/cloud-messaging/flutter/client
+## Firebase Messaging
+
+- [Firebase](https://firebase.google.com/)
+  - used for push notifications when user is offline
+  - see [Firebase setup for Flutter](https://firebase.google.com/docs/flutter/setup) and [Firebase Cloud Messaging for Flutter](https://firebase.google.com/docs/cloud-messaging/flutter/client) for more details how to implement this
+  - app specific configuration files [are not included](.gitignore) in the repository, you need to create them yourself if you plan self host Whisper (refer to [whisper-server](https://github.com/jsfraz/whisper-server) repository for more details)
 
 <!-- TODO license -->

@@ -1,5 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:sprintf/sprintf.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../utils/singleton.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/message_notifier.dart';
@@ -67,7 +70,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: Singleton().profile.enableNotifications,
                     onChanged: (value) async {
                       setState(() {
-                        Singleton().profile.enableNotifications = !Singleton().profile.enableNotifications;
+                        Singleton().profile.enableNotifications =
+                            !Singleton().profile.enableNotifications;
                       });
                       await Singleton().profile.save();
                     },
@@ -76,7 +80,73 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
 
-            // Divider(thickness: 1, indent: 10, endIndent: 10),
+            Divider(thickness: 1, indent: 10, endIndent: 10),
+
+            // How it works
+            TextButton(
+              onPressed: () async {
+                var url = Uri.parse('https://github.com/jsfraz/whisper/wiki');
+                if (!await launchUrl(url)) {
+                  Fluttertoast.showToast(
+                      msg: sprintf('urlError'.tr(), [url.toString()]),
+                      backgroundColor: Colors.red);
+                }
+              },
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.help,
+                    size: 24,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(left: 5),
+                    child: Text(
+                      'wikiLink'.tr(),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.secondary),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 24,
+                  ),
+                ],
+              ),
+            ),
+
+            // Repo
+            TextButton(
+              onPressed: () async {
+                var url = Uri.parse('https://github.com/jsfraz/whisper');
+                if (!await launchUrl(url)) {
+                  Fluttertoast.showToast(
+                      msg: sprintf('urlError'.tr(), [url.toString()]),
+                      backgroundColor: Colors.red);
+                }
+              },
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.code,
+                    size: 24,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(left: 5),
+                    child: Text(
+                      'repoLink'.tr(),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.secondary),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 24,
+                  ),
+                ],
+              ),
+            ),
+
+            Divider(thickness: 1, indent: 10, endIndent: 10),
 
             // TODO change password
 
@@ -113,10 +183,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
-            // TODO delete account (logout)
 
-            // TODO how it works
-            // TODO repo
+            // TODO delete account (logout)
           ],
         ),
       ),

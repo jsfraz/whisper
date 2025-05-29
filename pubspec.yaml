@@ -33,6 +33,7 @@ dependencies:
   provider: ^6.1.2
   qr_code_scanner_plus: ^2.0.6
   sprintf: ^7.0.0
+  url_launcher: ^6.3.1
   vibration: ^3.1.2
   whisper_openapi_client_dart:
     git:

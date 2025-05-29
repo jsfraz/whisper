@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/private_message.dart';
 
-// TODO show options on bottom on holding the widget (like in Messenger)
+// TODO show options on bottom on holding the widget (like in Messenger - copy etc)
 class ChatBubble extends StatefulWidget {
   final PrivateMessage? previousMessage;
   final PrivateMessage message;

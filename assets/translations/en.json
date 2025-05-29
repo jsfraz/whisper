@@ -1,3 +1,4 @@
 {
-    "xMessagesFromYChats": "%d new messages from %d chats"
+    "xMessagesFromYChats": "%d new messages from %d chats",
+    "urlError": "Error opening URL %s"
 }

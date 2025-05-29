@@ -5,6 +5,8 @@ import 'package:pointycastle/export.dart';
 import 'package:cryptography/cryptography.dart' as cryptography;
 import 'package:crypto/crypto.dart';
 
+// TODO hybrid encryption: https://mbed-tls.readthedocs.io/en/latest/kb/cryptography/rsa-encryption-maximum-data-size/
+
 class CryptoUtils {
   /// Generate RSA keypair synchronously
   static AsymmetricKeyPair<PublicKey, PrivateKey> _getRSAKeyPair(
