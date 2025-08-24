@@ -1,7 +1,10 @@
 {
     "recommendations": [
         "dart-code.flutter",
+        "bierner.markdown-preview-github-styles",
+        "davidanson.vscode-markdownlint",
         "gruntfuggly.todo-tree",
-        "wakatime.vscode-wakatime"
+        "wakatime.vscode-wakatime",
+        "eamodio.gitlens"
     ]
 }

@@ -83,6 +83,8 @@ class CacheUtils {
     await privateMessagesBox.deleteFromDisk();
     Box userBox = await _openUserBox();
     userBox.deleteFromDisk();
+    Box messageConceptBox = await _openMessageConceptBox();
+    messageConceptBox.deleteFromDisk();
   }
 
   /// Opens box with theme

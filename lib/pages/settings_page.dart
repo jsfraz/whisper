@@ -1,11 +1,17 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:sprintf/sprintf.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/cache_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/message_notifier.dart';
+import '../utils/utils.dart';
+import 'scan_invite_button_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -152,6 +158,18 @@ class _SettingsPageState extends State<SettingsPage> {
 
             Divider(thickness: 1, indent: 10, endIndent: 10),
 
+            // Danger zone title
+            Padding(
+              padding: EdgeInsets.only(bottom: 5),
+              child: Text(
+                'dangerZone'.tr(),
+                style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16),
+              ),
+            ),
+
             // Delete all chats
             TextButton(
               onPressed: () async {
@@ -184,7 +202,53 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
 
-            // TODO delete account (logout)
+            // Logout (delete account)
+            TextButton(
+              onPressed: () async {
+                await DialogUtils.yesNoDialog(
+                    context, 'logoutConfirm'.tr(), 'logoutConfirmText'.tr(),
+                    () async {
+                  // Delete everything and close app
+                  try {
+                    await Utils.callApi(() => Singleton().userApi.deleteMe(),
+                        rethrowErr: true);
+                    await CacheUtils.deleteCache();
+                    Fluttertoast.showToast(
+                        msg: 'accountDeleted'.tr(),
+                        backgroundColor: Colors.grey);
+                    if (Platform.isIOS) {
+                      // Apple (https://stackoverflow.com/a/57534684/19371130)
+                      Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => ScanInviteButtonPage()));
+                    } else if (Platform.isAndroid) {
+                      // Android
+                      SystemNavigator.pop();
+                    }
+                  } catch (_) {}
+                });
+              },
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.logout,
+                    size: 24,
+                    color: Colors.red,
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(left: 5),
+                    child: Text(
+                      'logoutAndDelete'.tr(),
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 24,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
