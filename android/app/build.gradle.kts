@@ -11,8 +11,8 @@ plugins {
 android {
     namespace = "cz.josefraz.whisper"
     compileSdk = flutter.compileSdkVersion
-    // ndkVersion = flutter.ndkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = flutter.ndkVersion
+    // ndkVersion = "27.0.12077973"
 
     compileOptions {
         // Flag to enable support for the new language APIs
