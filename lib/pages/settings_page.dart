@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:sprintf/sprintf.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/biometric_auth.dart';
 import '../utils/cache_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/dialog_utils.dart';
@@ -21,6 +22,19 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  bool _isBiometryEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    _isBiometryEnabled = await CacheUtils.isBiometryEnabled();
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -88,12 +102,73 @@ class _SettingsPageState extends State<SettingsPage> {
 
             Divider(thickness: 1, indent: 10, endIndent: 10),
 
+            // Biometric authentication
+            TextButton(
+              onPressed: null,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.fingerprint,
+                    size: 24,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(left: 5),
+                    child: Text(
+                      'biometrySettings'.tr(),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.secondary),
+                    ),
+                  ),
+                  Spacer(),
+                  Switch(
+                    value: _isBiometryEnabled,
+                    onChanged: (value) async {
+                      if (value) {
+                        // Enable
+                        final success = await BiometricAuth.storeEncryptionKey(
+                            Singleton().boxCollectionKey, context);
+                        if (success) {
+                          await Fluttertoast.showToast(
+                              msg: 'biometricsEnabled'.tr(),
+                              backgroundColor: Colors.grey);
+                          setState(() {
+                            _isBiometryEnabled = true;
+                          });
+                        } else {
+                          await Fluttertoast.showToast(
+                              msg: 'biometricSetupFailed'.tr(),
+                              backgroundColor: Colors.red);
+                          setState(() {
+                            _isBiometryEnabled = false;
+                          });
+                        }
+                      } else {
+                        // Disable
+                        await CacheUtils.setBiometryEnabled(false);
+                        await BiometricAuth.clearEncryptionKey();
+                        await Fluttertoast.showToast(
+                            msg: 'biometricsDisabled'.tr(),
+                            backgroundColor: Colors.grey);
+                        setState(() {
+                          _isBiometryEnabled = false;
+                        });
+                      }
+                      await Singleton().profile.save();
+                    },
+                  )
+                ],
+              ),
+            ),
+
+            Divider(thickness: 1, indent: 10, endIndent: 10),
+
             // How it works
             TextButton(
               onPressed: () async {
                 var url = Uri.parse('https://github.com/jsfraz/whisper/wiki');
                 if (!await launchUrl(url)) {
-                  Fluttertoast.showToast(
+                  await Fluttertoast.showToast(
                       msg: sprintf('urlError'.tr(), [url.toString()]),
                       backgroundColor: Colors.red);
                 }
@@ -125,7 +200,7 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: () async {
                 var url = Uri.parse('https://github.com/jsfraz/whisper');
                 if (!await launchUrl(url)) {
-                  Fluttertoast.showToast(
+                  await Fluttertoast.showToast(
                       msg: sprintf('urlError'.tr(), [url.toString()]),
                       backgroundColor: Colors.red);
                 }
@@ -212,7 +287,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   try {
                     await Utils.callApi(() => Singleton().userApi.deleteMe());
                     await CacheUtils.deleteCache();
-                    Fluttertoast.showToast(
+                    await Fluttertoast.showToast(
                         msg: 'accountDeleted'.tr(),
                         backgroundColor: Colors.grey);
                     if (Platform.isIOS) {
@@ -226,7 +301,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       SystemNavigator.pop();
                     }
                   } catch (e) {
-                    Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+                    await Fluttertoast.showToast(
+                        msg: e.toString(), backgroundColor: Colors.red);
                   }
                 });
               },

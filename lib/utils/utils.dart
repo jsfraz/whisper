@@ -50,11 +50,11 @@ class Utils {
           if (e.message != '') {
             Map<String, dynamic> messageMap =
                 jsonDecode(e.message!) as Map<String, dynamic>;
-            Fluttertoast.showToast(
+            await Fluttertoast.showToast(
                 msg: Utils.capitalizeFirstLetter(messageMap['error']),
                 backgroundColor: Colors.red);
           } else {
-            Fluttertoast.showToast(
+            await Fluttertoast.showToast(
                 msg: Utils.capitalizeFirstLetter(
                     'HTTP error ${e.code.toString()}'),
                 backgroundColor: Colors.red);
@@ -63,7 +63,7 @@ class Utils {
           if (e.innerException is SocketException) {
             Singleton().offlineMode = true;
           } else {
-            Fluttertoast.showToast(
+            await Fluttertoast.showToast(
                 msg: e.innerException.toString(), backgroundColor: Colors.red);
           }
         }
@@ -183,11 +183,11 @@ class Utils {
 
           // Show toast only if all messages failed to decrypt
           if (decryptedMessages.isEmpty && messages.isNotEmpty) {
-            Fluttertoast.showToast(
+            await Fluttertoast.showToast(
                 msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
           }
         } catch (_) {
-          Fluttertoast.showToast(
+          await Fluttertoast.showToast(
               msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
         }
         if (decryptedMessages.isNotEmpty) {
@@ -229,7 +229,7 @@ class Utils {
       // Delete account
       case WsResponseType.deleteAccount:
         await CacheUtils.deleteCache();
-        Fluttertoast.showToast(
+        await Fluttertoast.showToast(
             msg: 'accountDeleted'.tr(), backgroundColor: Colors.red);
         SystemNavigator.pop();
         break;
@@ -237,7 +237,7 @@ class Utils {
       // Error
       case WsResponseType.error:
         var error = wsResponse.payload as String;
-        Fluttertoast.showToast(msg: error, backgroundColor: Colors.red);
+        await Fluttertoast.showToast(msg: error, backgroundColor: Colors.red);
         break;
     }
   }

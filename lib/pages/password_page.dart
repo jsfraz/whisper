@@ -3,6 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:whisper_websocket_client_dart/ws_client.dart';
+import '../utils/biometric_auth.dart';
 import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';
@@ -21,6 +22,65 @@ class _PasswordPageState extends State<PasswordPage> {
   bool _localPasswordEditing = false;
   bool _localPasswordOk = false;
   bool _isButtonDisabled = false;
+  bool _isBiometryEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometry();
+  }
+
+  /// Checks if biometric authentication is available on the device
+  Future<void> _checkBiometry() async {
+    final biometricEnabled = await CacheUtils.isBiometryEnabled();
+    setState(() {
+      _isBiometryEnabled = biometricEnabled;
+    });
+    await _authenticateWithBiometric();
+  }
+
+  /// Attempts biometric authentication if enabled
+  Future<void> _authenticateWithBiometric() async {
+    // Check if biometric authentication is enabled
+    if (!_isBiometryEnabled) return;
+
+    // Attempt to get the key using biometric authentication
+    final key = await BiometricAuth.getEncryptionKey(context);
+    if (key != null) {
+      setState(() {
+        _isButtonDisabled = true;
+        _controllerLocalPassword.text = 'yourAmazingPasswordIsHereOhYesItIs';
+      });
+
+      // Set the decryption key
+      Singleton().boxCollectionKey = key;
+
+      try {
+        // Load profile
+        Singleton().profile = await CacheUtils.getProfile();
+        // OpenAPI client
+        Singleton().api = ApiClient(basePath: Singleton().profile.url);
+        // Check tokens
+        await Utils.authCheck();
+        // WebSocket client
+        Singleton().wsClient = WsClient(Utils.getWsUrl(Singleton().profile.url),
+            onReceived: Utils.onWsMessageReceived);
+        await Utils.wsConnect(firstConnect: true);
+
+        // Redirect to home page
+        if (mounted) {
+          Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (context) => const HomePage()));
+        }
+      } catch (e) {
+        setState(() {
+          _isButtonDisabled = false;
+        });
+        await Fluttertoast.showToast(
+            msg: 'biometricAuthFailed'.tr(), backgroundColor: Colors.red);
+      }
+    }
+  }
 
   /// Check password
   String? _errorLocalPasswordText() {
@@ -47,36 +107,35 @@ class _PasswordPageState extends State<PasswordPage> {
     // Check input
     if (_localPasswordOk) {
       // Existing data
-      bool password = await CacheUtils.isCorrectPassword(_controllerLocalPassword.text);
+      bool password =
+          await CacheUtils.isCorrectPassword(_controllerLocalPassword.text);
       // Check password
       if (password) {
-        Fluttertoast.showToast(
-            msg: 'passwordPlsWait'.tr(),
-            backgroundColor: Colors.grey);
+        await Fluttertoast.showToast(
+            msg: 'passwordPlsWait'.tr(), backgroundColor: Colors.grey);
+        // Derive key from password
+        List<int> key = await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
         // Add key to singleton
-        Singleton().boxCollectionKey =
-            await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
+        Singleton().boxCollectionKey = key;
         // Add profile to singleton
         Singleton().profile = await CacheUtils.getProfile();
-
         // OpenAPI client
         Singleton().api = ApiClient(basePath: Singleton().profile.url);
-        // TODO Check connection/ping
-        // Check tokens
+        // Kontrola tokenů
         await Utils.authCheck();
+
         // WebSocket client
-        Singleton().wsClient = WsClient(Utils.getWsUrl(Singleton().profile.url), onReceived: Utils.onWsMessageReceived);
+        Singleton().wsClient = WsClient(Utils.getWsUrl(Singleton().profile.url),
+            onReceived: Utils.onWsMessageReceived);
         await Utils.wsConnect(firstConnect: true);
 
-        // Redirect to password page
         if (mounted) {
-          Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (context) => const HomePage()));
+          Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (context) => const HomePage()));
         }
       } else {
-        Fluttertoast.showToast(
-            msg: 'invalidLocalPassword'.tr(),
-            backgroundColor: Colors.red);
+        await Fluttertoast.showToast(
+            msg: 'invalidLocalPassword'.tr(), backgroundColor: Colors.red);
       }
     }
     // Enable button
@@ -153,6 +212,17 @@ class _PasswordPageState extends State<PasswordPage> {
                   child: const Padding(
                     padding: EdgeInsets.only(top: 20, left: 7, right: 7),
                     child: CircularProgressIndicator(),
+                  ),
+                ),
+                // Button for biometric authentication
+                Visibility(
+                  visible: _isBiometryEnabled,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: IconButton(
+                      icon: const Icon(Icons.fingerprint, size: 40),
+                      onPressed: _isButtonDisabled ? null : _authenticateWithBiometric,
+                    ),
                   ),
                 ),
               ],

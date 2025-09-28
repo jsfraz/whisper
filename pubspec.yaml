@@ -21,11 +21,13 @@ dependencies:
   flutter_colorpicker: ^1.1.0
   flutter_launcher_icons: ^0.14.3
   flutter_local_notifications: ^19.2.1
+  flutter_secure_storage: ^9.2.4
   fluttertoast: ^9.0.0
   hive: ^2.2.3
   http: ^1.2.1
   json_annotation: ^4.9.0
   jwt_decoder: ^2.0.1
+  local_auth: ^2.3.0
   mobile_scanner: ^7.0.0
   page_transition: ^2.2.1
   path_provider: ^2.1.3

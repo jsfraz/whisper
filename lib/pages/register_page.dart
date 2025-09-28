@@ -7,12 +7,13 @@ import '../models/invite_data.dart';
 import '../models/profile.dart';
 import '../models/user.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
+import '../utils/biometric_auth.dart';
 import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
+import '../utils/dialog_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
-
 import 'home_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -35,6 +36,7 @@ class _RegisterPageState extends State<RegisterPage> {
   late Timer _timer;
   late Duration _remainingTime;
   bool _isButtonDisabled = false;
+  bool _isBiometricAvailable = false;
 
   @override
   void initState() {
@@ -47,9 +49,20 @@ class _RegisterPageState extends State<RegisterPage> {
         _remainingTime = widget.invite.validUntil.difference(DateTime.now());
       });
     });
+
+    // Check biometric availability
+    _checkBiometricAvailability();
   }
 
-  /// Check username.
+  /// Check biometric availability
+  Future<void> _checkBiometricAvailability() async {
+    final available = await BiometricAuth.isBiometricAvailable();
+    setState(() {
+      _isBiometricAvailable = available;
+    });
+  }
+
+  /// Check username
   String? _errorUsernameText() {
     if (!_usernameEditing) {
       return null;
@@ -89,19 +102,21 @@ class _RegisterPageState extends State<RegisterPage> {
 
       if (_usernameOk && _localPasswordOk) {
         // Toast and async sleep before heavy computation
-        Fluttertoast.showToast(
+        await Fluttertoast.showToast(
             msg: 'waitPls'.tr(), backgroundColor: Colors.grey);
         // Generate RSA keypair
         var keyPair = await CryptoUtils.getRSAKeyPair();
         // OpenAPI client
         Singleton().api = ApiClient(basePath: widget.invite.url);
         // Registration
-        var newUser = await Utils.callApi(() => Singleton().authApi.createUser(
-            createUserInput: CreateUserInput(
-                inviteCode: widget.invite.code,
-                publicKey: bu.CryptoUtils.encodeRSAPublicKeyToPem(
-                    keyPair.publicKey as bu.RSAPublicKey),
-                username: _controllerUsername.text)), useSecurity: false);
+        var newUser = await Utils.callApi(
+            () => Singleton().authApi.createUser(
+                createUserInput: CreateUserInput(
+                    inviteCode: widget.invite.code,
+                    publicKey: bu.CryptoUtils.encodeRSAPublicKeyToPem(
+                        keyPair.publicKey as bu.RSAPublicKey),
+                    username: _controllerUsername.text)),
+            useSecurity: false);
 
         if (newUser != null) {
           // Create profile
@@ -119,9 +134,11 @@ class _RegisterPageState extends State<RegisterPage> {
           Singleton().profile = profile;
           // Save password hash to cache
           CacheUtils.setPasswordHash(_controllerLocalPassword.text);
-          // Add key to singleton
-          Singleton().boxCollectionKey =
+          // Generování klíče z hesla a uložení do singletonu
+          List<int> key =
               await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
+          Singleton().boxCollectionKey = key;
+
           // Save profile to cache
           await CacheUtils.setProfile(Singleton().profile);
 
@@ -133,6 +150,28 @@ class _RegisterPageState extends State<RegisterPage> {
               Utils.getWsUrl(Singleton().profile.url),
               onReceived: Utils.onWsMessageReceived);
           await Utils.wsConnect(firstConnect: true);
+
+          // Ask for biometric auth setup
+          if (_isBiometricAvailable) {
+            await DialogUtils.yesNoDialog(
+              context,
+              'enableBiometrics'.tr(),
+              'useBiometrics'.tr(),
+              () async {
+                final success =
+                    await BiometricAuth.storeEncryptionKey(key, context);
+                if (success) {
+                  await Fluttertoast.showToast(
+                      msg: 'biometricsEnabled'.tr(),
+                      backgroundColor: Colors.grey);
+                } else {
+                  await Fluttertoast.showToast(
+                      msg: 'biometricSetupFailed'.tr(),
+                      backgroundColor: Colors.red);
+                }
+              },
+            );
+          }
 
           // Redirect to home page
           Navigator.pushReplacement(context,

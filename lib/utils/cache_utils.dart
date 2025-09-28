@@ -1,5 +1,6 @@
 import 'package:bcrypt/bcrypt.dart';
 import 'package:hive/hive.dart';
+import 'package:whisper/utils/biometric_auth.dart';
 import '../models/app_theme.dart';
 import '../models/private_message.dart';
 import '../models/profile.dart';
@@ -14,6 +15,7 @@ class CacheUtils {
   static const _privateMessagesKey = 'privateMessages';
   static const _userKey = 'user';
   static const _messageConceptKey = 'messageConcept';
+  static const _biometry = 'biometry';
 
   /// Opens box with password hash
   static Future<Box> _openPasswordHashBox() async {
@@ -85,6 +87,11 @@ class CacheUtils {
     userBox.deleteFromDisk();
     Box messageConceptBox = await _openMessageConceptBox();
     messageConceptBox.deleteFromDisk();
+    if (await isBiometryEnabled()) {
+      await BiometricAuth.clearEncryptionKey();
+    }
+    Box biometryBox = await _openBiometryBox();
+    await biometryBox.deleteFromDisk();
   }
 
   /// Opens box with theme
@@ -102,6 +109,23 @@ class CacheUtils {
   static Future<void> setTheme(AppTheme theme) async {
     Box box = await _openThemeBox();
     await box.put(_themeKey, theme);
+  }
+
+  /// Opens box with biometry
+  static Future<Box> _openBiometryBox() async {
+    return Hive.openBox(_biometry);
+  }
+
+  /// Returns biometry
+  static Future<bool> isBiometryEnabled() async {
+    Box box = await _openBiometryBox();
+    return box.get(_biometry) ?? false;
+  }
+
+  /// Sets biometry
+  static Future<void> setBiometryEnabled(bool enabled) async {
+    Box box = await _openBiometryBox();
+    await box.put(_biometry, enabled);
   }
 
   /// Opens box with private messages

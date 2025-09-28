@@ -1,4 +1,15 @@
 {
     "xMessagesFromYChats": "%d nových zpráv z %d chatů",
-    "urlError": "Chyba při otevířání URL %s"
+    "urlError": "Chyba při otevířání URL %s",
+    "passwordPlsWait": "Ověřování hesla, čekejte prosím...",
+    "useBiometrics": "Použít otisk prstu",
+    "biometricAuthReason": "Prosím, ověřte svou identitu otiskem prstu",
+    "biometricAuthPrompt": "Přiložte prst k senzoru",
+    "biometricSetupReason": "Nastavení ověřování otiskem prstu",
+    "biometricSetupAuth": "Přiložte prst k senzoru pro aktivaci",
+    "biometricAuthFailed": "Ověření otiskem prstu selhalo",
+    "biometricSetupFailed": "Nastavení otisku prstu selhalo",
+    "enableBiometrics": "Povolit přihlašování otiskem prstu",
+    "biometricsEnabled": "Přihlašování otiskem prstu povoleno",
+    "biometricsDisabled": "Přihlašování otiskem prstu vypnuto"
 }

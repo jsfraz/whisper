@@ -84,7 +84,7 @@ class _ChatPageState extends State<ChatPage> {
             utf8.encode(_controllerMessage.text),
             bu.CryptoUtils.rsaPublicKeyFromPem(widget.user.publicKey));
       } catch (e) {
-        Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+        await Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
         setState(() {
           _isSending = false;
         });
@@ -111,10 +111,10 @@ class _ChatPageState extends State<ChatPage> {
         // Delete concept
         await CacheUtils.deleteMessageConcept(widget.user.id);
       } catch (e) {
-        Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+        await Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
       }
     } else {
-      Fluttertoast.showToast(msg: 'wsOffline', backgroundColor: Colors.red);
+      await Fluttertoast.showToast(msg: 'wsOffline', backgroundColor: Colors.red);
     }
     setState(() {
       _isSending = false;

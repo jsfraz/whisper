@@ -1,4 +1,15 @@
 {
     "xMessagesFromYChats": "%d new messages from %d chats",
-    "urlError": "Error opening URL %s"
+    "urlError": "Error opening URL %s",
+    "passwordPlsWait": "Verifying password, please wait...",
+    "useBiometrics": "Use fingerprint",
+    "biometricAuthReason": "Please verify your identity with fingerprint",
+    "biometricAuthPrompt": "Place your finger on the sensor",
+    "biometricSetupReason": "Setting up fingerprint authentication",
+    "biometricSetupAuth": "Place your finger on the sensor to activate",
+    "biometricAuthFailed": "Fingerprint authentication failed",
+    "biometricSetupFailed": "Fingerprint setup failed",
+    "enableBiometrics": "Enable fingerprint login",
+    "biometricsEnabled": "Fingerprint login enabled",
+    "biometricsDisabled": "Fingerprint login disabled"
 }
