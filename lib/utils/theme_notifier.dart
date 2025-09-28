@@ -8,7 +8,7 @@ class ThemeNotifier extends ChangeNotifier {
 
   AppTheme appTheme;
 
-  changeTheme(AppTheme theme) {
+  void changeTheme(AppTheme theme) {
     appTheme = theme;
     return notifyListeners();
   }

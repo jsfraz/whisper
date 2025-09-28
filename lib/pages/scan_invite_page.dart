@@ -73,8 +73,16 @@ class _ScanInvitePageState extends State<ScanInvitePage> {
               Expanded(
                 flex: 15,
                 child: QRView(
+                  overlay: QrScannerOverlayShape(
+                    borderColor: Theme.of(context).colorScheme.secondary,
+                    borderRadius: 10,
+                    borderLength: 30,
+                    borderWidth: 10,
+                    cutOutSize: MediaQuery.of(context).size.width * 0.8,
+                  ),
                   key: _qrKey,
                   onQRViewCreated: _onQRViewCreated,
+                  formatsAllowed: [BarcodeFormat.qrcode],
                 ),
               ),
               Expanded(

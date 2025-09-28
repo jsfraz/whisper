@@ -210,8 +210,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     () async {
                   // Delete everything and close app
                   try {
-                    await Utils.callApi(() => Singleton().userApi.deleteMe(),
-                        rethrowErr: true);
+                    await Utils.callApi(() => Singleton().userApi.deleteMe());
                     await CacheUtils.deleteCache();
                     Fluttertoast.showToast(
                         msg: 'accountDeleted'.tr(),
@@ -226,7 +225,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       // Android
                       SystemNavigator.pop();
                     }
-                  } catch (_) {}
+                  } catch (e) {
+                    Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+                  }
                 });
               },
               child: Row(
