@@ -288,7 +288,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     await Utils.callApi(() => Singleton().userApi.deleteMe());
                     await CacheUtils.deleteCache();
                     await Fluttertoast.showToast(
-                        msg: 'accountDeleted'.tr(),
+                        msg: 'accountDeleted1'.tr(),
                         backgroundColor: Colors.grey);
                     if (Platform.isIOS) {
                       // Apple (https://stackoverflow.com/a/57534684/19371130)

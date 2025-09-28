@@ -48,12 +48,6 @@ class _ScanInvitePageState extends State<ScanInvitePage> {
   }
 
   @override
-  void dispose() {
-    _qrController?.dispose();
-    super.dispose();
-  }
-
-  @override
   void reassemble() {
     super.reassemble();
     if (_qrController != null) {

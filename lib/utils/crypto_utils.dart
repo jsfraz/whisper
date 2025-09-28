@@ -35,7 +35,7 @@ class CryptoUtils {
       iterations: 310000,
       bits: 256,
     );
-    List<int> salt = md5.convert(utf8.encode(password)).bytes;    // TODO Random salt
+    List<int> salt = md5.convert(utf8.encode(password)).bytes;    // TODO Secure salt?
     final key =
         await pbkdf2.deriveKeyFromPassword(password: password, nonce: salt);
     return await key.extractBytes();

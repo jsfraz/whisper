@@ -133,7 +133,7 @@ class DialogUtils {
                       items: ThemeMode.values.map((ThemeMode mode) {
                         return DropdownMenuItem(
                           value: mode,
-                          child: Text('${mode.name}Text'),
+                          child: Text('${mode.name}Text'.tr()),
                         );
                       }).toList(),
                       onChanged: (ThemeMode? value) async {
@@ -156,7 +156,7 @@ class DialogUtils {
                     Spacer(),
                     ElevatedButton(
                       onPressed: openColorPickerDialog,
-                      child: Text('chooseColor'),
+                      child: Text('chooseColor'.tr()),
                     ),
                   ],
                 ),

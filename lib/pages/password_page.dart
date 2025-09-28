@@ -97,8 +97,8 @@ class _PasswordPageState extends State<PasswordPage> {
     }
   }
 
-  /// Save password
-  Future<void> _localPassword() async {
+  /// Login with local password
+  Future<void> _login() async {
     // Disable button
     setState(() {
       _isButtonDisabled = true;
@@ -194,7 +194,7 @@ class _PasswordPageState extends State<PasswordPage> {
                               borderRadius: BorderRadius.circular(35)),
                         ),
                       ),
-                      onPressed: _localPassword,
+                      onPressed: _login,
                       child: Padding(
                         padding: const EdgeInsets.all(7),
                         child: Text(

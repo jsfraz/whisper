@@ -230,7 +230,7 @@ class Utils {
       case WsResponseType.deleteAccount:
         await CacheUtils.deleteCache();
         await Fluttertoast.showToast(
-            msg: 'accountDeleted'.tr(), backgroundColor: Colors.red);
+            msg: 'accountDeleted2'.tr(), backgroundColor: Colors.red);
         SystemNavigator.pop();
         break;
 

@@ -50,8 +50,6 @@ class _ChatPageState extends State<ChatPage> {
     getConceptMessage();
   }
 
-  // TODO delete message from input field
-
   Future<void> getConceptMessage() async {
     String? conceptMsg = await CacheUtils.getMessageConcept(widget.user.id);
     if (conceptMsg != null) {
@@ -84,7 +82,8 @@ class _ChatPageState extends State<ChatPage> {
             utf8.encode(_controllerMessage.text),
             bu.CryptoUtils.rsaPublicKeyFromPem(widget.user.publicKey));
       } catch (e) {
-        await Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+        await Fluttertoast.showToast(
+            msg: e.toString(), backgroundColor: Colors.red);
         setState(() {
           _isSending = false;
         });
@@ -111,10 +110,12 @@ class _ChatPageState extends State<ChatPage> {
         // Delete concept
         await CacheUtils.deleteMessageConcept(widget.user.id);
       } catch (e) {
-        await Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+        await Fluttertoast.showToast(
+            msg: e.toString(), backgroundColor: Colors.red);
       }
     } else {
-      await Fluttertoast.showToast(msg: 'wsOffline', backgroundColor: Colors.red);
+      await Fluttertoast.showToast(
+          msg: 'wsOffline', backgroundColor: Colors.red);
     }
     setState(() {
       _isSending = false;
@@ -161,7 +162,10 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                   ),
                   const SizedBox(height: 30),
-                  Text('legendaryChat'.tr()),
+                  Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 50),
+                      child: Text('legendaryChat'.tr(),
+                          textAlign: TextAlign.center)),
                 ],
               ),
             ),
@@ -278,8 +282,8 @@ class _ChatPageState extends State<ChatPage> {
                     // Set data
                     if (snapshot.hasData) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _scrollController.jumpTo(
-                            _scrollController.position.maxScrollExtent);
+                        _scrollController
+                            .jumpTo(_scrollController.position.maxScrollExtent);
                       });
                       _messages = snapshot.data!;
                     }
