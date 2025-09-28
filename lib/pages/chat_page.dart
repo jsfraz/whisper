@@ -67,6 +67,7 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Send message
   Future<void> _sendMessage() async {
+    debugPrint(_controllerMessage.text.length.toString());
     if (_controllerMessage.text.isEmpty) {
       return;
     }
@@ -77,9 +78,9 @@ class _ChatPageState extends State<ChatPage> {
     // Send message
     if (Singleton().wsClient.isConnected) {
       // Encrypt message content
-      Uint8List encryptedMessage;
+      Map<String, Uint8List> data;
       try {
-        encryptedMessage = await CryptoUtils.rsaEncrypt(
+        data = await CryptoUtils.encryptMessageData(
             utf8.encode(_controllerMessage.text),
             bu.CryptoUtils.rsaPublicKeyFromPem(widget.user.publicKey));
       } catch (e) {
@@ -92,7 +93,8 @@ class _ChatPageState extends State<ChatPage> {
       DateTime sentAt;
       try {
         sentAt = Singleton().wsClient.sendMessage(WsMessage.privateMessage(
-            NewPrivateMessage(widget.user.id, encryptedMessage)));
+            NewPrivateMessage(widget.user.id, data['encryptedData']!,
+                data['encryptedKey']!, data['nonce']!, data['mac']!)));
         // Save user to cache
         if (widget.user.publicKey != '' &&
             widget.user.username != '' &&
@@ -257,67 +259,70 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
         ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              // Messages and avatar list
-              Expanded(
-                child: FutureBuilder<List<PrivateMessage>>(
-                    future: notifier.getMessages(widget.user.id),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting &&
-                          _firstLoad) {
-                        return Center(
-                          child: Transform.scale(
-                            scale: 1.5,
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-                      }
-                      // Set data
-                      if (snapshot.hasData) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _scrollController.jumpTo(
-                              _scrollController.position.maxScrollExtent);
-                        });
-                        _messages = snapshot.data!;
-                      }
-                      // Return messages
-                      return _getContent(_messages);
-                    }),
-              ),
-              Padding(
+        body: Column(
+          children: [
+            // Messages and avatar list
+            Expanded(
+              child: FutureBuilder<List<PrivateMessage>>(
+                  future: notifier.getMessages(widget.user.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        _firstLoad) {
+                      return Center(
+                        child: Transform.scale(
+                          scale: 1.5,
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+                    // Set data
+                    if (snapshot.hasData) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _scrollController.jumpTo(
+                            _scrollController.position.maxScrollExtent);
+                      });
+                      _messages = snapshot.data!;
+                    }
+                    // Return messages
+                    return _getContent(_messages);
+                  }),
+            ),
+            SafeArea(
+              top: false,
+              child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Row(
                   children: [
                     Expanded(
-                      child: Padding(padding: EdgeInsets.only(right: 5, left: 5),
-                      // TODO certically expandable text field
-                      child: TextField(
-                        controller: _controllerMessage,
-                        decoration: InputDecoration(
-                          hintText: 'yourMessage'.tr(),
-                          filled: true,
-                          fillColor:
-                              Theme.of(context).brightness == Brightness.dark
-                                  ? Theme.of(context).colorScheme.surfaceBright
-                                  : Theme.of(context).colorScheme.surfaceDim,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30),
-                            borderSide: BorderSide.none,
-                          ),
-                          suffixIcon: IconButton(
-                            onPressed: _isSending ? null : _sendMessage,
-                            icon: const Icon(Icons.send),
+                      child: Padding(
+                        padding: EdgeInsets.only(right: 5, left: 5),
+                        // TODO certically expandable text field
+                        child: TextField(
+                          controller: _controllerMessage,
+                          decoration: InputDecoration(
+                            hintText: 'yourMessage'.tr(),
+                            filled: true,
+                            fillColor: Theme.of(context).brightness ==
+                                    Brightness.dark
+                                ? Theme.of(context).colorScheme.surfaceBright
+                                : Theme.of(context).colorScheme.surfaceDim,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide.none,
+                            ),
+                            suffixIcon: IconButton(
+                              onPressed: _isSending ? null : _sendMessage,
+                              icon: const Icon(Icons.send),
+                            ),
                           ),
                         ),
-                      ),),
+                      ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

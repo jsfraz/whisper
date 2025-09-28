@@ -153,8 +153,11 @@ class Utils {
         try {
           final decryptionTasks = messages.map((message) async {
             try {
-              var decryptedMessage = await CryptoUtils.rsaDecrypt(
-                  message.message,
+              var decryptedMessage = await CryptoUtils.decryptMessageData(
+                  message.content,
+                  message.key,
+                  message.nonce,
+                  message.mac,
                   bu.CryptoUtils.rsaPrivateKeyFromPem(
                       Singleton().profile.privateKey));
               return pm.PrivateMessage(

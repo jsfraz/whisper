@@ -156,7 +156,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
             // TODO change password
 
-            Divider(thickness: 1, indent: 10, endIndent: 10),
+            // Divider(thickness: 1, indent: 10, endIndent: 10),
 
             // Danger zone title
             Padding(

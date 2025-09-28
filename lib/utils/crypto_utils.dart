@@ -1,11 +1,10 @@
 import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart' as djwt;
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 import 'package:cryptography/cryptography.dart' as cryptography;
-import 'package:crypto/crypto.dart';
-
-// TODO hybrid encryption: https://mbed-tls.readthedocs.io/en/latest/kb/cryptography/rsa-encryption-maximum-data-size/
 
 class CryptoUtils {
   /// Generate RSA keypair synchronously
@@ -36,7 +35,7 @@ class CryptoUtils {
       iterations: 310000,
       bits: 256,
     );
-    List<int> salt = md5.convert(utf8.encode(password)).bytes;
+    List<int> salt = md5.convert(utf8.encode(password)).bytes;    // TODO Random salt
     final key =
         await pbkdf2.deriveKeyFromPassword(password: password, nonce: salt);
     return await key.extractBytes();
@@ -75,9 +74,10 @@ class CryptoUtils {
   }
 
   /// Generates JWT token valid for 5 seconds asynchronously.
-  static Future<String> generateRsaJwt(int userId, RSAPrivateKey privateKey) async {
+  static Future<String> generateRsaJwt(
+      int userId, RSAPrivateKey privateKey) async {
     return await compute(
-        _generateRsaJwt, { 'userId': userId, 'privateKey': privateKey});
+        _generateRsaJwt, {'userId': userId, 'privateKey': privateKey});
   }
 
   /// Generate JWT token synchronously.
@@ -90,5 +90,68 @@ class CryptoUtils {
         expiresIn: expiresIn,
         notBefore: notBefore,
         noIssueAt: false);
+  }
+
+  /// Encrypts data using hybrid encryption (RSA + AES)
+  static Future<Map<String, Uint8List>> encryptMessageData(
+      Uint8List data, RSAPublicKey publicKey) async {
+    // Generate a random AES key
+    final aesAlgorithm = cryptography.AesGcm.with256bits();
+    final secretKey = await aesAlgorithm.newSecretKey();
+    final aesKeyBytes = await secretKey.extractBytes();
+
+    // Generate a random nonce (initialization vector)
+    final secureRandom = FortunaRandom();
+    secureRandom.seed(KeyParameter(
+      Uint8List.fromList(List.generate(32, (i) => Random.secure().nextInt(256))),
+    ));
+    final nonce = Uint8List.fromList(
+        List.generate(12, (_) => secureRandom.nextUint8()));
+
+    // Encrypt data using AES-GCM
+    final secretBox = await aesAlgorithm.encrypt(
+      data,
+      secretKey: secretKey,
+      nonce: nonce,
+    );
+
+    // Encrypt the AES key using RSA
+    final encryptedAesKey = await CryptoUtils.rsaEncrypt(
+        Uint8List.fromList(aesKeyBytes), publicKey);
+
+    // Return all the necessary information for decryption
+    return {
+      'encryptedData': Uint8List.fromList(secretBox.cipherText),
+      'encryptedKey': encryptedAesKey,
+      'nonce': Uint8List.fromList(secretBox.nonce),
+      'mac': Uint8List.fromList(secretBox.mac.bytes),
+    };
+  }
+
+  /// Decrypts data using hybrid encryption (RSA + AES)
+  static Future<Uint8List> decryptMessageData(
+      Uint8List encryptedData,
+      Uint8List encryptedKey,
+      Uint8List nonce,
+      Uint8List mac,
+      RSAPrivateKey privateKey) async {
+    // Decrypt the AES key using RSA
+    final aesKeyBytes = await CryptoUtils.rsaDecrypt(encryptedKey, privateKey);
+
+    // Create an AES key from bytes
+    final secretKey = cryptography.SecretKey(aesKeyBytes);
+
+    // Decrypt data using AES-GCM
+    final aesAlgorithm = cryptography.AesGcm.with256bits();
+    final secretBox = cryptography.SecretBox(
+      encryptedData,
+      nonce: nonce,
+      mac: cryptography.Mac(mac),
+    );
+
+    return Uint8List.fromList(await aesAlgorithm.decrypt(
+      secretBox,
+      secretKey: secretKey,
+    ));
   }
 }

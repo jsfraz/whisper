@@ -65,10 +65,10 @@ class _HomePageState extends State<HomePage> {
         debugPrint('Error getting FCM token: $err');
       }
     });
-    
+
     // Enable FCM notifications
     FirebaseMessaging.instance.setAutoInitEnabled(true);
-    
+
     // Set initial FCM token
     _setFcmToken();
 
@@ -123,8 +123,7 @@ class _HomePageState extends State<HomePage> {
     try {
       await Utils.callApi<void>(
         () => Singleton().firebaseApi.setFirebaseToken(
-          setFirebaseTokenInput: SetFirebaseTokenInput(token: token)
-        ),
+            setFirebaseTokenInput: SetFirebaseTokenInput(token: token)),
         useSecurity: true,
       ).timeout(
         Duration(seconds: 10),
@@ -250,55 +249,55 @@ class _HomePageState extends State<HomePage> {
               ),
               child: ClipRRect(
                 child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                    child: AppBar(
-                      backgroundColor: Theme.of(context)
-                          .colorScheme
-                          .surface
-                          .withValues(alpha: 0.2),
-                      // User icon with first letter
-                      leading: Transform.scale(
-                        scale: 0.65,
-                        child: CircleAvatar(
-                          radius: 22,
-                          backgroundColor: Singleton().profile.user.avatarColor,
-                          child: Text(
-                            Singleton().profile.user.username.isNotEmpty
-                                ? Singleton()
-                                    .profile
-                                    .user
-                                    .username[0]
-                                    .toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                              fontSize: 24,
-                              color: Singleton().profile.user.avatarTextColor,
-                            ),
+                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  child: AppBar(
+                    backgroundColor: Theme.of(context)
+                        .colorScheme
+                        .surface
+                        .withValues(alpha: 0.2),
+                    // User icon with first letter
+                    leading: Transform.scale(
+                      scale: 0.65,
+                      child: CircleAvatar(
+                        radius: 22,
+                        backgroundColor: Singleton().profile.user.avatarColor,
+                        child: Text(
+                          Singleton().profile.user.username.isNotEmpty
+                              ? Singleton()
+                                  .profile
+                                  .user
+                                  .username[0]
+                                  .toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            fontSize: 24,
+                            color: Singleton().profile.user.avatarTextColor,
                           ),
                         ),
                       ),
-                      // Title
-                      title: Text('msgPage'.tr()),
-                      // Action buttons
-                      actions: [
-                        // Settings
-                        IconButton(
-                          icon: const Icon(Icons.settings),
-                          tooltip: 'settingsButton'.tr(),
-                          onPressed: () {
-                            Navigator.of(context).push(PageTransition(
-                              duration: const Duration(milliseconds: 300),
-                              reverseDuration:
-                                  const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                              type: PageTransitionType.rightToLeftJoined,
-                              child: SettingsPage(),
-                              childCurrent: widget,
-                            ));
-                          },
-                        ),
-                      ],
-                    )),
+                    ),
+                    // Title
+                    title: Text('msgPage'.tr()),
+                    // Action buttons
+                    actions: [
+                      // Settings
+                      IconButton(
+                        icon: const Icon(Icons.settings),
+                        tooltip: 'settingsButton'.tr(),
+                        onPressed: () {
+                          Navigator.of(context).push(PageTransition(
+                            duration: const Duration(milliseconds: 300),
+                            reverseDuration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                            type: PageTransitionType.rightToLeftJoined,
+                            child: SettingsPage(),
+                            childCurrent: widget,
+                          ));
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
             )
           : null,
