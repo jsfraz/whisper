@@ -19,8 +19,8 @@ class UserAdapter extends TypeAdapter<User> {
     return User(
       fields[0] as int,
       fields[1] as String,
-      fields[2] as bool,
-      fields[3] as String,
+      fields[2] as String,
+      fields[3] as bool,
     );
   }
 
@@ -33,9 +33,9 @@ class UserAdapter extends TypeAdapter<User> {
       ..writeByte(1)
       ..write(obj.username)
       ..writeByte(2)
-      ..write(obj.hasImage)
+      ..write(obj.publicKey)
       ..writeByte(3)
-      ..write(obj.publicKey);
+      ..write(obj.admin);
   }
 
   @override

@@ -1,15 +1,25 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import '../utils/is_response_ok.dart';
-import 'package:whisper_openapi_client/api.dart';
-
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:whisper_websocket_client_dart/ws_client.dart';
+import '../models/invite_data.dart';
+import '../models/profile.dart';
+import '../models/user.dart';
+import 'package:whisper_openapi_client_dart/api.dart';
+import '../utils/biometric_auth.dart';
+import '../utils/cache_utils.dart';
+import '../utils/crypto_utils.dart';
+import '../utils/dialog_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
-import 'login_page.dart';
-import 'verify_page.dart';
+import 'package:basic_utils/basic_utils.dart' as bu;
+import 'home_page.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  const RegisterPage(this.invite, {super.key});
+
+  final InviteData invite;
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -17,44 +27,47 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   // https://codewithandrea.com/articles/flutter-text-field-form-validation/
-  final _controllerServer = TextEditingController();
-  bool _serverEditing = false;
-  bool _serverOk = false;
   final _controllerUsername = TextEditingController();
   bool _usernameEditing = false;
   bool _usernameOk = false;
-  final _controllerMail = TextEditingController();
-  bool _mailEditing = false;
-  bool _mailOk = false;
-  final _controllerPassword = TextEditingController();
-  bool _passwordEditing = false;
-  bool _passwordOk = false;
-  final _controllerPasswordRepeat = TextEditingController();
-  bool _passwordRepeatEditing = false;
-  bool _passwordRepeatOk = false;
-  bool _forceHttps = true;
+  final _controllerLocalPassword = TextEditingController();
+  bool _localPasswordEditing = false;
+  bool _localPasswordOk = false;
+  late Timer _timer;
+  late Duration _remainingTime;
   bool _isButtonDisabled = false;
+  bool _isBiometricAvailable = false;
 
-  /// Check server address.
-  String? _errorServerText() {
-    if (!_serverEditing) {
-      return null;
-    }
-    if (_controllerServer.text.isNotEmpty) {
-      _serverOk = true;
-      return null;
-    } else {
-      _serverOk = false;
-      return 'invalidServer'.tr();
-    }
+  @override
+  void initState() {
+    super.initState();
+    _remainingTime = widget.invite.validUntil.difference(DateTime.now());
+
+    // Start the timer to update every second
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        _remainingTime = widget.invite.validUntil.difference(DateTime.now());
+      });
+    });
+
+    // Check biometric availability
+    _checkBiometricAvailability();
   }
 
-  /// Check username.
+  /// Check biometric availability
+  Future<void> _checkBiometricAvailability() async {
+    final available = await BiometricAuth.isBiometricAvailable();
+    setState(() {
+      _isBiometricAvailable = available;
+    });
+  }
+
+  /// Check username
   String? _errorUsernameText() {
     if (!_usernameEditing) {
       return null;
     }
-    RegExp regex = RegExp(r"^[a-zA-Z0-9]{2,32}$");
+    RegExp regex = RegExp(r'^[a-zA-Z0-9]{2,32}$');
     if (regex.hasMatch(_controllerUsername.text)) {
       _usernameOk = true;
       return null;
@@ -64,51 +77,18 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  /// Check mail.
-  String? _errorMailText() {
-    if (!_mailEditing) {
+  /// Check password
+  String? _errorLocalPasswordText() {
+    if (!_localPasswordEditing) {
       return null;
     }
-    // https://regexr.com/3e48o
-    RegExp regex = RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$");
-    if (regex.hasMatch(_controllerMail.text)) {
-      _mailOk = true;
+    if (_controllerLocalPassword.text.length >= 8 &&
+        _controllerLocalPassword.text.length <= 64) {
+      _localPasswordOk = true;
       return null;
     } else {
-      _mailOk = false;
-      return 'invalidMail'.tr();
-    }
-  }
-
-  /// Check password.
-  String? _errorPasswordText() {
-    if (!_passwordEditing) {
-      return null;
-    }
-    if (_controllerPassword.text.length >= 8 &&
-        _controllerPassword.text.length <= 64) {
-      _passwordOk = true;
-      return null;
-    } else {
-      _passwordOk = false;
+      _localPasswordOk = false;
       return 'invalidPassword'.tr();
-    }
-  }
-
-  /// Check repeated password.
-  String? _errorPasswordRepeatText() {
-    if (!_passwordRepeatEditing) {
-      return null;
-    }
-    if (_controllerPasswordRepeat.text.length >= 8 &&
-        _controllerPasswordRepeat.text.length <= 64 &&
-        _controllerPassword.text == _controllerPasswordRepeat.text &&
-        _controllerPasswordRepeat.text.isNotEmpty) {
-      _passwordRepeatOk = true;
-      return null;
-    } else {
-      _passwordRepeatOk = false;
-      return 'invalidPasswordRepeat'.tr();
     }
   }
 
@@ -120,35 +100,82 @@ class _RegisterPageState extends State<RegisterPage> {
         _isButtonDisabled = true;
       });
 
-      // Check input
-      if (_serverOk &&
-          _usernameOk &&
-          _mailOk &&
-          _passwordOk &&
-          _passwordRepeatOk) {
-        // HTTPS option
-        String url = '';
-        if (_forceHttps) {
-          url = 'https://${_controllerServer.text}';
-        } else {
-          url = 'http://${_controllerServer.text}';
-        }
-
+      if (_usernameOk && _localPasswordOk) {
+        // Toast and async sleep before heavy computation
+        await Fluttertoast.showToast(
+            msg: 'waitPls'.tr(), backgroundColor: Colors.grey);
+        // Generate RSA keypair
+        var keyPair = await CryptoUtils.getRSAKeyPair();
         // OpenAPI client
-        Singleton().api = ApiClient(basePath: url);
+        Singleton().api = ApiClient(basePath: widget.invite.url);
         // Registration
-        var response = await Utils.callApi(
-            () => Singleton().authApi.registerUserWithHttpInfo(
-                registerUserInput: RegisterUserInput(
-                    mail: _controllerMail.text,
-                    password: _controllerPassword.text,
+        var newUser = await Utils.callApi(
+            () => Singleton().authApi.createUser(
+                createUserInput: CreateUserInput(
+                    inviteCode: widget.invite.code,
+                    publicKey: bu.CryptoUtils.encodeRSAPublicKeyToPem(
+                        keyPair.publicKey as bu.RSAPublicKey),
                     username: _controllerUsername.text)),
-            context);
-        // Response check
-        if (response?.ok ?? false) {
-          _clearInput();
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => VerifyPage(url)));
+            useSecurity: false);
+
+        if (newUser != null) {
+          // Create profile
+          Profile profile = Profile(
+              widget.invite.url,
+              User.fromModel(newUser),
+              bu.CryptoUtils.encodeRSAPublicKeyToPem(
+                  keyPair.publicKey as bu.RSAPublicKey),
+              bu.CryptoUtils.encodeRSAPrivateKeyToPem(
+                  keyPair.privateKey as bu.RSAPrivateKey),
+              '',
+              '',
+              true);
+          // Add profile to singleton
+          Singleton().profile = profile;
+          // Save password hash to cache
+          CacheUtils.setPasswordHash(_controllerLocalPassword.text);
+          // Generování klíče z hesla a uložení do singletonu
+          List<int> key =
+              await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
+          Singleton().boxCollectionKey = key;
+
+          // Save profile to cache
+          await CacheUtils.setProfile(Singleton().profile);
+
+          // Check tokens
+          await Utils.authCheck();
+
+          // WebSocket client
+          Singleton().wsClient = WsClient(
+              Utils.getWsUrl(Singleton().profile.url),
+              onReceived: Utils.onWsMessageReceived);
+          await Utils.wsConnect(firstConnect: true);
+
+          // Ask for biometric auth setup
+          if (_isBiometricAvailable) {
+            await DialogUtils.yesNoDialog(
+              context,
+              'enableBiometrics'.tr(),
+              'useBiometrics'.tr(),
+              () async {
+                final success =
+                    await BiometricAuth.storeEncryptionKey(key, context);
+                if (success) {
+                  await Fluttertoast.showToast(
+                      msg: 'biometricsEnabled'.tr(),
+                      backgroundColor: Colors.grey);
+                } else {
+                  await Fluttertoast.showToast(
+                      msg: 'biometricSetupFailed'.tr(),
+                      backgroundColor: Colors.red);
+                }
+              },
+            );
+          }
+
+          // Redirect to home page
+          Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (context) => const HomePage()));
         }
       }
 
@@ -159,42 +186,28 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  /// Clears user input.
-  _clearInput() {
-    setState(() {
-      _controllerServer.clear();
-      _serverEditing = false;
-      _serverOk = false;
-      _controllerUsername.clear();
-      _usernameEditing = false;
-      _usernameOk = false;
-      _controllerMail.clear();
-      _mailEditing = false;
-      _mailOk = false;
-      _controllerPassword.clear();
-      _passwordEditing = false;
-      _passwordOk = false;
-      _controllerPasswordRepeat.clear();
-      _passwordRepeatEditing = false;
-      _passwordEditing = false;
-      _forceHttps = true;
-    });
-  }
-
   @override
   void dispose() {
-    _controllerServer.dispose();
     _controllerUsername.dispose();
-    _controllerMail.dispose();
-    _controllerPassword.dispose();
-    _controllerPasswordRepeat.dispose();
+    _controllerLocalPassword.dispose();
+    _timer.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Stop when remaining time is negative
+    if (_remainingTime.isNegative) {
+      _timer.cancel();
+    }
+    // Calculate absolute remaining time
+    Duration displayDuration = _remainingTime;
+    // Format display time
+    String displayTime =
+        displayDuration.toString().split('.').first.padLeft(8, '0');
+
     return PopScope(
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           !_isButtonDisabled;
         }
@@ -205,148 +218,79 @@ class _RegisterPageState extends State<RegisterPage> {
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
+              children: [
                 SizedBox(
                   width: 300,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 15),
-                    child: TextField(
-                      enabled: !_isButtonDisabled,
-                      controller: _controllerServer,
-                      onChanged: (_) => setState(() {
-                        _serverEditing = true;
-                      }),
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        labelText: 'serverPlaceholder'.tr(),
-                        errorText: _errorServerText(),
-                      ),
+                  child: TextField(
+                    enabled: !_isButtonDisabled,
+                    controller: _controllerUsername,
+                    onChanged: (_) => setState(() {
+                      _usernameEditing = true;
+                    }),
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      labelText: 'usernamePlaceholder'.tr(),
+                      errorText: _errorUsernameText(),
                     ),
                   ),
                 ),
-                SizedBox(
-                  width: 300,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 15),
-                    child: TextField(
-                      enabled: !_isButtonDisabled,
-                      controller: _controllerUsername,
-                      onChanged: (_) => setState(() {
-                        _usernameEditing = true;
-                      }),
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        labelText: 'usernamePlaceholder'.tr(),
-                        errorText: _errorUsernameText(),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 300,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 15),
-                    child: TextField(
-                      enabled: !_isButtonDisabled,
-                      controller: _controllerMail,
-                      onChanged: (_) => setState(() {
-                        _mailEditing = true;
-                      }),
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        labelText: 'mailPlaceholder'.tr(),
-                        errorText: _errorMailText(),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 300,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 15),
+                Padding(
+                  padding: const EdgeInsets.only(top: 15),
+                  child: SizedBox(
+                    width: 300,
                     child: TextField(
                       enabled: !_isButtonDisabled,
                       obscureText: true,
-                      controller: _controllerPassword,
+                      controller: _controllerLocalPassword,
                       onChanged: (_) => setState(() {
-                        _passwordEditing = true;
+                        _localPasswordEditing = true;
                       }),
                       decoration: InputDecoration(
                         border: const OutlineInputBorder(),
-                        labelText: 'passwordPlaceholder'.tr(),
-                        errorText: _errorPasswordText(),
+                        labelText: 'localPasswordPlaceholder'.tr(),
+                        errorText: _errorLocalPasswordText(),
                       ),
                     ),
                   ),
                 ),
-                SizedBox(
-                  width: 300,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 15),
-                    child: TextField(
-                      enabled: !_isButtonDisabled,
-                      obscureText: true,
-                      controller: _controllerPasswordRepeat,
-                      onChanged: (_) => setState(() {
-                        _passwordRepeatEditing = true;
-                      }),
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        labelText: 'passwordRepeatPlaceholder'.tr(),
-                        errorText: _errorPasswordRepeatText(),
-                      ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 15),
+                  child: Text(
+                    _remainingTime.isNegative
+                        ? 'inviteExpired'.tr()
+                        : '${'inviteValidFor'.tr()}: $displayTime',
+                    style: TextStyle(
+                      color: _remainingTime.isNegative
+                          ? Colors.red
+                          : Theme.of(context).colorScheme.secondary,
+                      fontWeight: _remainingTime.isNegative
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
-                  ),
-                ),
-                SizedBox(
-                  width: 300,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 15, bottom: 20),
-                    child: Row(children: [
-                      Column(
-                        children: [
-                          Switch(
-                              value: _forceHttps,
-                              onChanged: (bool value) {
-                                setState(() {
-                                  if (!_isButtonDisabled) {
-                                    _forceHttps = !_forceHttps;
-                                  }
-                                });
-                              }),
-                        ],
-                      ),
-                      Column(children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 10),
-                          child: Text(
-                            'forceHttps'.tr(),
-                            style: const TextStyle(fontSize: 15),
-                          ),
-                        ),
-                      ])
-                    ]),
                   ),
                 ),
                 Visibility(
                   visible: !_isButtonDisabled,
-                  child: TextButton(
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.all(
-                          Theme.of(context).colorScheme.primary),
-                      shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                        RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(35)),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: TextButton(
+                      style: ButtonStyle(
+                        backgroundColor: WidgetStateProperty.all(
+                            Theme.of(context).colorScheme.primary),
+                        shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                          RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(35)),
+                        ),
                       ),
-                    ),
-                    onPressed: _register,
-                    child: Padding(
-                      padding: const EdgeInsets.all(7),
-                      child: Text(
-                        'registerButton'.tr(),
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.surface,
-                            fontSize: 16),
+                      onPressed: _register,
+                      child: Padding(
+                        padding: const EdgeInsets.all(7),
+                        child: Text(
+                          'registerButton'.tr(),
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.surface,
+                              fontSize: 16),
+                        ),
                       ),
                     ),
                   ),
@@ -357,31 +301,6 @@ class _RegisterPageState extends State<RegisterPage> {
                     padding: EdgeInsets.only(top: 20, left: 7, right: 7),
                     child: CircularProgressIndicator(),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 25),
-                  child: TextButton(
-                    onPressed: () {
-                      if (_isButtonDisabled == false) {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const VerifyPage('')));
-                      }
-                    },
-                    child: Text('verifyMail'.tr()),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    if (_isButtonDisabled == false) {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const LoginPage('')));
-                    }
-                  },
-                  child: Text('haveAccount'.tr()),
                 ),
               ],
             ),
