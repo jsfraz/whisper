@@ -1223,7 +1223,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: "69721439606b556d5ad0b99d53a806ff04504e8e"
+      resolved-ref: b3511cc765cb349df2a9e7355a7dbb865145b079
       url: "https://github.com/jsfraz/whisper_openapi_client_dart.git"
     source: git
     version: "0.0.1"
@@ -1232,7 +1232,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: "23a5b671a97362bb45655039119d244dc7e017fc"
+      resolved-ref: "5e2d056568f13c1b72780d16a39d9e69bc1ce002"
       url: "https://github.com/jsfraz/whisper_websocket_client_dart.git"
     source: git
     version: "1.0.0"

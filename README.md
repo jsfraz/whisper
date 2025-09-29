@@ -4,15 +4,13 @@ Secure private self-hosted end-to-end encryption messaging app.
 
 For Whisper server, see [whisper-server](https://github.com/jsfraz/whisper-server) repository.
 
+Also see [Wiki](https://github.com/jsfraz/whisper/wiki)!
+
 <!-- TODO features/images/gifs/something -->
-
-## How this works
-
-Refer to repository [wiki](https://github.com/jsfraz/whisper/wiki)
 
 ## Download
 
-TODO download
+You can download the app [here in the releases](https://github.com/jsfraz/whisper/releases).
 
 ## Dependencies
 
