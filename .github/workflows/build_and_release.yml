@@ -26,13 +26,36 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # Creating Firebase configuration files from secret keys
+      # Creating Firebase configuration files from base64 encoded secret keys
       - name: Create Firebase configuration files
         run: |
-          echo '${{ secrets.FIREBASE_JSON || '' }}' > firebase.json
-          printf '%s' "${{ secrets.FIREBASE_OPTIONS_DART || '' }}" > lib/firebase_options.dart
-          printf '%s' "${{ secrets.GOOGLE_SERVICES_JSON || '' }}" > android/app/google-services.json
-          printf '%s' "${{ secrets.GOOGLE_SERVICE_INFO_PLIST || '' }}" > ios/Runner/GoogleService-Info.plist
+          if [ -n "${{ secrets.FIREBASE_JSON_BASE64 }}" ]; then
+            echo "${{ secrets.FIREBASE_JSON_BASE64 }}" | base64 -d > firebase.json
+          else
+            echo "Error: FIREBASE_JSON_BASE64 secret is required"
+            exit 1
+          fi
+          
+          if [ -n "${{ secrets.FIREBASE_OPTIONS_DART_BASE64 }}" ]; then
+            echo "${{ secrets.FIREBASE_OPTIONS_DART_BASE64 }}" | base64 -d > lib/firebase_options.dart
+          else
+            echo "Error: FIREBASE_OPTIONS_DART_BASE64 secret is required"
+            exit 1
+          fi
+          
+          if [ -n "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" ]; then
+            echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 -d > android/app/google-services.json
+          else
+            echo "Error: GOOGLE_SERVICES_JSON_BASE64 secret is required"
+            exit 1
+          fi
+          
+          # if [ -n "${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}" ]; then
+          #  echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}" | base64 -d > ios/Runner/GoogleService-Info.plist
+          #else
+          #  echo "Error: GOOGLE_SERVICE_INFO_PLIST_BASE64 secret is required"
+          #  exit 1
+          #fi
 
       # Building Android APK
       - name: Build Android APK

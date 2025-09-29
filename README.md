@@ -103,17 +103,22 @@ You can download the app [here in the releases](https://github.com/jsfraz/whispe
 
 The application uses GitHub Actions to automatically build and release the APK file when pushing to the `main` branch. For this process to work correctly, the following secret keys must be set in the repository settings (Settings > Secrets and variables > Actions):
 
-- `FIREBASE_JSON` - contents of the `firebase.json` file
-- `FIREBASE_OPTIONS_DART` - contents of the `lib/firebase_options.dart` file
-- `GOOGLE_SERVICES_JSON` - contents of the `android/app/google-services.json` file
-- `GOOGLE_SERVICE_INFO_PLIST` - contents of the `ios/Runner/GoogleService-Info.plist` file
+- `FIREBASE_JSON_BASE64` - base64 encoded contents of the `firebase.json` file
+- `FIREBASE_OPTIONS_DART_BASE64` - base64 encoded contents of the `lib/firebase_options.dart` file (required)
+- `GOOGLE_SERVICES_JSON_BASE64` - base64 encoded contents of the `android/app/google-services.json` file
+<!--
+- `GOOGLE_SERVICE_INFO_PLIST_BASE64` - base64 encoded contents of the `ios/Runner/GoogleService-Info.plist` file
+-->
 
-These secret keys will be used during application build to generate the necessary Firebase configuration files, which are not included in the repository for security reasons.
+These secret keys will be used during application build to generate the necessary Firebase configuration files, which are not included in the repository for security reasons. The base64 encoding ensures safe transmission and prevents issues with special characters.
 
 ### Procedure for setting up CI/CD
 
 1. In the repository, go to Settings > Secrets and variables > Actions
-2. Click on "New repository secret" for each of the secret keys listed above
-3. Paste the contents of the relevant file as the secret key value
+2. For each configuration file, encode it to base64 format:
+   - **Linux/macOS**: `base64 -w 0 < firebase.json` (copy the output)
+   - **Windows**: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("firebase.json"))` (in PowerShell)
+3. Click on "New repository secret" for each of the secret keys listed above
+4. Paste the base64 encoded content as the secret key value
 
 After setting these secret keys, the workflow will automatically build the APK on every push to the `main` branch and create a new GitHub Release with the version according to `pubspec.yaml`.
