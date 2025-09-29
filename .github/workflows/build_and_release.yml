@@ -29,10 +29,10 @@ jobs:
       # Creating Firebase configuration files from secret keys
       - name: Create Firebase configuration files
         run: |
-          echo "${{ secrets.FIREBASE_JSON || '' }}" > firebase.json
-          echo "${{ secrets.FIREBASE_OPTIONS_DART || '' }}" > lib/firebase_options.dart
-          echo "${{ secrets.GOOGLE_SERVICES_JSON || '' }}" > android/app/google-services.json
-          echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST || '' }}" > ios/Runner/GoogleService-Info.plist
+          echo '${{ secrets.FIREBASE_JSON || '' }}' > firebase.json
+          printf '%s' "${{ secrets.FIREBASE_OPTIONS_DART || '' }}" > lib/firebase_options.dart
+          printf '%s' "${{ secrets.GOOGLE_SERVICES_JSON || '' }}" > android/app/google-services.json
+          printf '%s' "${{ secrets.GOOGLE_SERVICE_INFO_PLIST || '' }}" > ios/Runner/GoogleService-Info.plist
 
       # Building Android APK
       - name: Build Android APK

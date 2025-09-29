@@ -46,6 +46,8 @@ You can download the app [here in the releases](https://github.com/jsfraz/whispe
   - used for JSON serialization annotations
 - [jwt_decoder](https://pub.dev/packages/jwt_decoder)
   - used for JWT token decoding
+- [local_auth](https://pub.dev/packages/local_auth)
+  - used for biometric authentication
 - [mobile_scanner](https://pub.dev/packages/mobile_scanner)
   - used for QR code scanning
 - [page_transition](https://pub.dev/packages/page_transition)
