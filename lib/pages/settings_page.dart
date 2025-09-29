@@ -35,6 +35,43 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {});
   }
 
+  Future<void> _toggleBiometry(bool switchValue) async {
+    if (switchValue) {
+      // Enable
+      final success = await BiometricAuth.storeEncryptionKey(
+          Singleton().boxCollectionKey, context);
+      if (success) {
+        await Fluttertoast.showToast(
+            msg: 'biometricsEnabled'.tr(), backgroundColor: Colors.grey);
+        setState(() {
+          _isBiometryEnabled = true;
+        });
+      } else {
+        await Fluttertoast.showToast(
+            msg: 'biometricSetupFailed'.tr(), backgroundColor: Colors.red);
+        setState(() {
+          _isBiometryEnabled = false;
+        });
+      }
+    } else {
+      // Disable
+      final success = await BiometricAuth.disableBiometricAuth(context);
+      if (success) {
+        await Fluttertoast.showToast(
+            msg: 'biometricsDisabled'.tr(), backgroundColor: Colors.grey);
+        setState(() {
+          _isBiometryEnabled = false;
+        });
+      } else {
+        await Fluttertoast.showToast(
+            msg: 'biometricSetupFailed'.tr(), backgroundColor: Colors.red);
+        setState(() {
+          _isBiometryEnabled = true;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -123,39 +160,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   Spacer(),
                   Switch(
                     value: _isBiometryEnabled,
-                    onChanged: (value) async {
-                      if (value) {
-                        // Enable
-                        final success = await BiometricAuth.storeEncryptionKey(
-                            Singleton().boxCollectionKey, context);
-                        if (success) {
-                          await Fluttertoast.showToast(
-                              msg: 'biometricsEnabled'.tr(),
-                              backgroundColor: Colors.grey);
-                          setState(() {
-                            _isBiometryEnabled = true;
-                          });
-                        } else {
-                          await Fluttertoast.showToast(
-                              msg: 'biometricSetupFailed'.tr(),
-                              backgroundColor: Colors.red);
-                          setState(() {
-                            _isBiometryEnabled = false;
-                          });
-                        }
-                      } else {
-                        // Disable
-                        await CacheUtils.setBiometryEnabled(false);
-                        await BiometricAuth.clearEncryptionKey();
-                        await Fluttertoast.showToast(
-                            msg: 'biometricsDisabled'.tr(),
-                            backgroundColor: Colors.grey);
-                        setState(() {
-                          _isBiometryEnabled = false;
-                        });
-                      }
-                      await Singleton().profile.save();
-                    },
+                    onChanged: _toggleBiometry,
                   )
                 ],
               ),

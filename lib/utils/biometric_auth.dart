@@ -70,6 +70,34 @@ class BiometricAuth {
     }
   }
 
+  /// Delete the decryption key from secure storage and disable biometric authentication
+  static Future<bool> disableBiometricAuth(BuildContext context) async {
+    try {
+      // Verify biometric credentials before storing the key
+      bool authenticated = await authenticate(
+        'biometricSetupReason'.tr(), 
+        'biometricSetupAuth'.tr(),
+        context);
+      
+      if (authenticated) {
+        // Delete the stored key
+        await _secureStorage.delete(key: _biometricKeyStorageKey);
+        // Disable biometric authentication
+        await CacheUtils.setBiometryEnabled(false);
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      debugPrint('Error disabling encryption key: $e');
+      await Fluttertoast.showToast(
+        msg: 'biometricSetupFailed'.tr(), 
+        backgroundColor: Colors.red
+      );
+      return false;
+    }
+  }
+
   /// Gets the decryption key from secure storage after biometric authentication
   static Future<List<int>?> getEncryptionKey(BuildContext context) async {
     try {

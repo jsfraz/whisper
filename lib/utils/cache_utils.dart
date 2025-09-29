@@ -1,6 +1,6 @@
 import 'package:bcrypt/bcrypt.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/utils/biometric_auth.dart';
+import '../utils/biometric_auth.dart';
 import '../models/app_theme.dart';
 import '../models/private_message.dart';
 import '../models/profile.dart';
