@@ -115,7 +115,7 @@ class _ChatPageState extends State<ChatPage> {
       }
     } else {
       await Fluttertoast.showToast(
-          msg: 'wsOffline', backgroundColor: Colors.red);
+          msg: 'wsOffline'.tr(), backgroundColor: Colors.red);
     }
     setState(() {
       _isSending = false;

@@ -83,5 +83,6 @@
     "yesterdayText": "Yesterday",
     "todayText": "Today",
     "meText": "Me",
-    "accountDeleted2": "Your account has been deleted :P"
+    "accountDeleted2": "Your account has been deleted :P",
+    "wsOffline": "WebSocket is offline"
 }

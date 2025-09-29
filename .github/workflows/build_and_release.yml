@@ -1,0 +1,60 @@
+name: Build and Release Flutter App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # Creating Firebase configuration files from secret keys
+      - name: Create Firebase configuration files
+        run: |
+          echo "${{ secrets.FIREBASE_JSON || '' }}" > firebase.json
+          echo "${{ secrets.FIREBASE_OPTIONS_DART || '' }}" > lib/firebase_options.dart
+          echo "${{ secrets.GOOGLE_SERVICES_JSON || '' }}" > android/app/google-services.json
+          echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST || '' }}" > ios/Runner/GoogleService-Info.plist
+
+      # Building Android APK
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      # Getting version from pubspec.yaml for release name
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '[:space:]')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      # Creating GitHub release
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk

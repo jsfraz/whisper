@@ -94,3 +94,22 @@ You can download the app [here in the releases](https://github.com/jsfraz/whispe
   - used for push notifications when user is offline
   - see [Firebase setup for Flutter](https://firebase.google.com/docs/flutter/setup) and [Firebase Cloud Messaging for Flutter](https://firebase.google.com/docs/cloud-messaging/flutter/client) for more details how to implement this
   - app specific configuration files [are not included](.gitignore) in the repository, you need to create them yourself if you plan self host Whisper (refer to [whisper-server](https://github.com/jsfraz/whisper-server) repository for more details)
+
+## Continuous Integration a Deployment (CI/CD)
+
+The application uses GitHub Actions to automatically build and release the APK file when pushing to the `main` branch. For this process to work correctly, the following secret keys must be set in the repository settings (Settings > Secrets and variables > Actions):
+
+- `FIREBASE_JSON` - contents of the `firebase.json` file
+- `FIREBASE_OPTIONS_DART` - contents of the `lib/firebase_options.dart` file
+- `GOOGLE_SERVICES_JSON` - contents of the `android/app/google-services.json` file
+- `GOOGLE_SERVICE_INFO_PLIST` - contents of the `ios/Runner/GoogleService-Info.plist` file
+
+These secret keys will be used during application build to generate the necessary Firebase configuration files, which are not included in the repository for security reasons.
+
+### Procedure for setting up CI/CD
+
+1. In the repository, go to Settings > Secrets and variables > Actions
+2. Click on "New repository secret" for each of the secret keys listed above
+3. Paste the contents of the relevant file as the secret key value
+
+After setting these secret keys, the workflow will automatically build the APK on every push to the `main` branch and create a new GitHub Release with the version according to `pubspec.yaml`.

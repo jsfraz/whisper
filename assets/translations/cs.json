@@ -83,5 +83,6 @@
     "yesterdayText": "Včera",
     "todayText": "Dnes",
     "meText": "Já",
-    "accountDeleted2": "Váš účet byl smazán :P"
+    "accountDeleted2": "Váš účet byl smazán :P",
+    "wsOffline": "WebSocket je offline"
 }
