@@ -6,7 +6,9 @@ For Whisper server, see [whisper-server](https://github.com/jsfraz/whisper-serve
 
 Also see [Wiki](https://github.com/jsfraz/whisper/wiki)!
 
-<!-- TODO features/images/gifs/something -->
+|   |   |   |
+|---|---|---|
+|![Screenshot 1](screenshots/1.png)|![Screenshot 2](screenshots/2.png)|![Screenshot 3](screenshots/3.png)|
 
 ## Download
 

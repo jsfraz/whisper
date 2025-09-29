@@ -35,9 +35,9 @@ class _ScanInvitePageState extends State<ScanInvitePage> {
             backgroundColor: Colors.red);
         } else {
           // Push registration page
-        Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (context) => RegisterPage(invite)));
-        return;
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => RegisterPage(invite)));
+          return;
         }
       } catch (e) {
         Fluttertoast.showToast(

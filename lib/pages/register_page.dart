@@ -173,9 +173,11 @@ class _RegisterPageState extends State<RegisterPage> {
             );
           }
 
-          // Redirect to home page
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (context) => const HomePage()));
+          // Redirect to home page and clear navigation history
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const HomePage()),
+            (Route<dynamic> route) => false,
+          );
         }
       }
 
@@ -209,7 +211,9 @@ class _RegisterPageState extends State<RegisterPage> {
     return PopScope(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
-          !_isButtonDisabled;
+          setState(() {
+            _isButtonDisabled = false;
+          });
         }
       },
       child: Scaffold(
