@@ -37,10 +37,17 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Different applicationId for debug version
+            applicationIdSuffix = ".debug"
+            // Add suffix
+            resValue("string", "app_name", "Whisper Debug")
+        }
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            resValue("string", "app_name", "Whisper")
         }
     }
 }

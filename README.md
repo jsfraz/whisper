@@ -99,6 +99,24 @@ You can download the app [here in the releases](https://github.com/jsfraz/whispe
   - see [Firebase setup for Flutter](https://firebase.google.com/docs/flutter/setup) and [Firebase Cloud Messaging for Flutter](https://firebase.google.com/docs/cloud-messaging/flutter/client) for more details how to implement this
   - app specific configuration files [are not included](.gitignore) in the repository, you need to create them yourself if you plan self host Whisper (refer to [whisper-server](https://github.com/jsfraz/whisper-server) repository for more details)
 
+### Development
+
+To setup Firebase using Flutterfire you can run:
+
+```bash+
+flutterfire configure
+```
+
+Or run this for the development environment:
+
+```bash
+flutterfire configure \
+  --android-package-name cz.josefraz.whisper.debug \
+  --ios-bundle-id cz.josefraz.whisper.debug
+```
+
+Then select your Firebase project. This will generate the necessary `firebase.json` and `lib/firebase_options.dart` files.
+
 ## Continuous Integration a Deployment (CI/CD)
 
 The application uses GitHub Actions to automatically build and release the APK file when pushing to the `main` branch. For this process to work correctly, the following secret keys must be set in the repository settings (Settings > Secrets and variables > Actions):

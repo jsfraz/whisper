@@ -164,20 +164,32 @@ class _RegisterPageState extends State<RegisterPage> {
                   await Fluttertoast.showToast(
                       msg: 'biometricsEnabled'.tr(),
                       backgroundColor: Colors.grey);
+
+                  // Redirect to home page and clear navigation history
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const HomePage()),
+                    (Route<dynamic> route) => false,
+                  );
                 } else {
                   await Fluttertoast.showToast(
                       msg: 'biometricSetupFailed'.tr(),
                       backgroundColor: Colors.red);
+
+                  // Redirect to home page and clear navigation history
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const HomePage()),
+                    (Route<dynamic> route) => false,
+                  );
                 }
               },
             );
+          } else {
+            // Redirect to home page and clear navigation history
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const HomePage()),
+              (Route<dynamic> route) => false,
+            );
           }
-
-          // Redirect to home page and clear navigation history
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const HomePage()),
-            (Route<dynamic> route) => false,
-          );
         }
       }
 
