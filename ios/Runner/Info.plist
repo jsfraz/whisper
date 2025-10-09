@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Tato aplikace potřebuje kameru pro skenování QR kódů a posílání zpráv.</string>
 </dict>
 </plist>
