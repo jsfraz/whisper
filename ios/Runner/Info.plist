@@ -47,5 +47,20 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Tato aplikace potřebuje kameru pro skenování QR kódů a posílání zpráv.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Tato aplikace používá Face ID/Touch ID pro bezpečné odemknutí a autentifikaci.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Tato aplikace může potřebovat lokaci pro některé funkce.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Tato aplikace může potřebovat mikrofon pro hlasové zprávy.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Tato aplikace může potřebovat přístup k fotkám pro sdílení obrázků.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Tato aplikace potřebuje přístup k místní síti pro komunikaci se serverem.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+		<string>_https._tcp</string>
+	</array>
 </dict>
 </plist>
