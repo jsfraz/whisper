@@ -103,7 +103,7 @@ You can download the app [here in the releases](https://github.com/jsfraz/whispe
 
 To setup Firebase using Flutterfire you can run:
 
-```bash+
+```bash
 flutterfire configure
 ```
 
