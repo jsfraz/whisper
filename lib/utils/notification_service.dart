@@ -14,11 +14,17 @@ class NotificationService {
   Future<void> init() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('app_icon');
+    const LinuxInitializationSettings initializationSettingsLinux =
+        LinuxInitializationSettings(
+            defaultActionName: 'whisper_message'); // TODO other options
 
     final InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
+        InitializationSettings(
+            android: initializationSettingsAndroid,
+            linux: initializationSettingsLinux);
 
-    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    await _flutterLocalNotificationsPlugin.initialize(
+        settings: initializationSettings);
   }
 
   /// Show notifications.
@@ -48,10 +54,10 @@ class NotificationService {
       final groupedPlatformChannelSpecifics = await groupedNotificationDetails(
           lines, groupedMessagesByUser.keys.length, messages.length);
       await _flutterLocalNotificationsPlugin.show(
-        messages.last.notificationId,
-        'newMessagesTitle'.tr(),
-        'newMessagesBody'.tr(),
-        groupedPlatformChannelSpecifics,
+        id: messages.last.notificationId,
+        title: 'newMessagesTitle'.tr(),
+        body: 'newMessagesBody'.tr(),
+        notificationDetails: groupedPlatformChannelSpecifics,
       );
     }
   }
@@ -122,10 +128,10 @@ class NotificationService {
     NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
     await _flutterLocalNotificationsPlugin.show(
-      message.notificationId,
-      user.username,
-      message.message,
-      platformChannelSpecifics,
+      id: message.notificationId,
+      title: user.username,
+      body: message.message,
+      notificationDetails: platformChannelSpecifics,
     );
   }
 
@@ -136,7 +142,7 @@ class NotificationService {
     for (var id in ids) {
       for (var notification in activeNotifications) {
         if (notification.id == id) {
-          await _flutterLocalNotificationsPlugin.cancel(id);
+          await _flutterLocalNotificationsPlugin.cancel(id: id);
         }
       }
     }

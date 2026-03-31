@@ -19,7 +19,8 @@ class BiometricAuth {
 
     try {
       canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
-      canAuthenticate = canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
+      canAuthenticate =
+          canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
     } on PlatformException catch (e) {
       debugPrint(e.toString());
       return false;
@@ -40,32 +41,30 @@ class BiometricAuth {
   }
 
   /// Saves the decryption key to a secure storage protected by biometrics
-  static Future<bool> storeEncryptionKey(List<int> key, BuildContext context) async {
+  static Future<bool> storeEncryptionKey(
+      List<int> key, BuildContext context) async {
     try {
       // Convert the key to a string for storage
       final String keyString = key.join(',');
 
       // Verify biometric credentials before storing the key
       bool authenticated = await authenticate(
-        'biometricSetupReason'.tr(), 
-        'biometricSetupAuth'.tr(),
-        context);
-      
+          'biometricSetupReason'.tr(), 'biometricSetupAuth'.tr(), context);
+
       if (authenticated) {
         // Store the key securely
-        await _secureStorage.write(key: _biometricKeyStorageKey, value: keyString);
+        await _secureStorage.write(
+            key: _biometricKeyStorageKey, value: keyString);
         // Enable biometric authentication
         await CacheUtils.setBiometryEnabled(true);
         return true;
       }
-      
+
       return false;
     } catch (e) {
       debugPrint('Error storing encryption key: $e');
       await Fluttertoast.showToast(
-        msg: 'biometricSetupFailed'.tr(), 
-        backgroundColor: Colors.red
-      );
+          msg: 'biometricSetupFailed'.tr(), backgroundColor: Colors.red);
       return false;
     }
   }
@@ -75,10 +74,8 @@ class BiometricAuth {
     try {
       // Verify biometric credentials before storing the key
       bool authenticated = await authenticate(
-        'biometricSetupReason'.tr(), 
-        'biometricSetupAuth'.tr(),
-        context);
-      
+          'biometricSetupReason'.tr(), 'biometricSetupAuth'.tr(), context);
+
       if (authenticated) {
         // Delete the stored key
         await _secureStorage.delete(key: _biometricKeyStorageKey);
@@ -86,14 +83,12 @@ class BiometricAuth {
         await CacheUtils.setBiometryEnabled(false);
         return true;
       }
-      
+
       return false;
     } catch (e) {
       debugPrint('Error disabling encryption key: $e');
       await Fluttertoast.showToast(
-        msg: 'biometricSetupFailed'.tr(), 
-        backgroundColor: Colors.red
-      );
+          msg: 'biometricSetupFailed'.tr(), backgroundColor: Colors.red);
       return false;
     }
   }
@@ -103,19 +98,18 @@ class BiometricAuth {
     try {
       // Verify biometric credentials before retrieving the key
       bool authenticated = await authenticate(
-        'biometricAuthReason'.tr(), 
-        'biometricAuthPrompt'.tr(),
-        context);
-      
+          'biometricAuthReason'.tr(), 'biometricAuthPrompt'.tr(), context);
+
       if (authenticated) {
         // Get the stored key
-        final String? keyString = await _secureStorage.read(key: _biometricKeyStorageKey);
+        final String? keyString =
+            await _secureStorage.read(key: _biometricKeyStorageKey);
         if (keyString != null && keyString.isNotEmpty) {
           // Convert the string back to a list of bytes
           return keyString.split(',').map((s) => int.parse(s)).toList();
         }
       }
-      
+
       return null;
     } catch (e) {
       debugPrint('Error retrieving encryption key: $e');
@@ -129,21 +123,18 @@ class BiometricAuth {
   }
 
   /// Performs biometric authentication
-  static Future<bool> authenticate(String reason, String authString, BuildContext context) async {
+  static Future<bool> authenticate(
+      String reason, String authString, BuildContext context) async {
     try {
       return await _auth.authenticate(
         localizedReason: reason,
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly: true,
-        )
+        biometricOnly: true,
+        persistAcrossBackgrounding: true,
       );
-    } on PlatformException catch (e) {
-      debugPrint('Authentication error: $e');
+    } on LocalAuthException catch (e) {
+      debugPrint('Authentication error: ${e.code} - ${e.description}');
       await Fluttertoast.showToast(
-        msg: 'biometricAuthFailed'.tr(), 
-        backgroundColor: Colors.red
-      );
+          msg: 'biometricAuthFailed'.tr(), backgroundColor: Colors.red);
       return false;
     }
   }

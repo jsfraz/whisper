@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -23,19 +25,22 @@ void main() async {
   // Initialize Flutter widgets
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Firebase initialization
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  if (Platform.isAndroid || Platform.isIOS) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
 
   // Local notifications
   NotificationService().init();
 
   // Load locale
   await EasyLocalization.ensureInitialized();
-  
-  // Lock orientation (https://stackoverflow.com/a/52720581/19371130)
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
+  if (Platform.isAndroid || Platform.isIOS) {
+    // Lock orientation (https://stackoverflow.com/a/52720581/19371130)
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
 
   // Hive adapters
   Hive
