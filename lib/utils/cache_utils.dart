@@ -5,6 +5,7 @@ import '../models/app_theme.dart';
 import '../models/private_message.dart';
 import '../models/profile.dart';
 import '../models/user.dart';
+import 'media_utils.dart';
 import 'singleton.dart';
 import 'utils.dart';
 
@@ -92,6 +93,8 @@ class CacheUtils {
     }
     Box biometryBox = await _openBiometryBox();
     await biometryBox.deleteFromDisk();
+    // Remove every locally stored media file.
+    await MediaUtils.clearMediaDir();
   }
 
   /// Opens box with theme
@@ -162,10 +165,48 @@ class CacheUtils {
   /// Delete user messages
   static Future<void> deletePrivateMessagesWithUser(int userId) async {
     Box messageBox = await _openPrivateMessagesBox();
+    // Delete on-disk media files for this conversation first.
+    await _deleteMediaFilesForUser(userId);
     await messageBox.delete(userId);
     Box userBox = await _openUserBox();
     await userBox.delete(userId);
     await deleteMessageConcept(userId);
+  }
+
+  /// Delete the encrypted-at-rest media files of all messages with [userId].
+  static Future<void> _deleteMediaFilesForUser(int userId) async {
+    final messages = await getPrivateMessages(userId);
+    for (final msg in messages) {
+      if (msg.localPath != null) {
+        await MediaUtils.deleteLocalFile(msg.localPath);
+      }
+    }
+  }
+
+  /// Update the local media state of a stored message (download progress).
+  static Future<void> updatePrivateMessageMedia(int userId, String mediaId,
+      {String? localPath, int? downloadStatus}) async {
+    Box box = await _openPrivateMessagesBox();
+    List<dynamic>? messages = box.get(userId);
+    if (messages == null) {
+      return;
+    }
+    bool changed = false;
+    for (final dynamic m in messages) {
+      final msg = m as PrivateMessage;
+      if (msg.mediaId == mediaId) {
+        if (localPath != null) {
+          msg.localPath = localPath;
+        }
+        if (downloadStatus != null) {
+          msg.downloadStatus = downloadStatus;
+        }
+        changed = true;
+      }
+    }
+    if (changed) {
+      await box.put(userId, messages);
+    }
   }
 
   /// Opens box with users
@@ -215,6 +256,8 @@ class CacheUtils {
     await userBox.clear();
     await messageBox.clear();
     await conceptBox.clear();
+    // Remove every locally stored media file.
+    await MediaUtils.clearMediaDir();
   }
 
   /// Opens box with message concepts

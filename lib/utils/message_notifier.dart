@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import '../utils/notification_service.dart';
 
 import '../models/private_message.dart';
 import '../models/user.dart';
 import 'cache_utils.dart';
+import 'media_utils.dart';
 import 'singleton.dart';
 import 'utils.dart';
 
@@ -16,6 +18,70 @@ class MessageNotifier extends ChangeNotifier {
   }
 
   MessageNotifier._internal();
+
+  /// In-memory map of media references awaiting (or having failed) download,
+  /// keyed by media id. The transport key is intentionally never persisted to
+  /// disk, so tap-to-retry only works within the current session.
+  final Map<String, MediaReference> _pendingMediaRefs = {};
+
+  /// Download, decrypt, store and confirm an incoming media attachment.
+  ///
+  /// The encrypted file is fetched over HTTP, decrypted with the transport key
+  /// from [reference], re-encrypted at rest with the app master key and the
+  /// owning message is updated. On success the server copy is confirmed (and
+  /// thus deleted); on failure the message is marked as failed for retry.
+  Future<void> downloadMediaMessage(
+      int conversationUserId, MediaReference reference) async {
+    _pendingMediaRefs[reference.mediaId] = reference;
+    try {
+      final blob = await Utils.callApi(
+        () => Singleton().mediaApi.downloadMedia(reference.mediaId),
+        rethrowErr: true,
+      );
+      if (blob == null) {
+        throw Exception('empty media download');
+      }
+      final plaintext =
+          await MediaUtils.decryptTransport(blob, reference.key);
+      final localPath = await MediaUtils.encryptAtRest(plaintext);
+      await CacheUtils.updatePrivateMessageMedia(
+        conversationUserId,
+        reference.mediaId,
+        localPath: localPath,
+        downloadStatus: MediaDownloadStatus.ready,
+      );
+      _pendingMediaRefs.remove(reference.mediaId);
+      notifyListeners();
+      // Confirm receipt so the server can delete its copy.
+      await Utils.callApi(
+          () => Singleton().mediaApi.confirmMediaDownload(reference.mediaId));
+    } catch (_) {
+      await CacheUtils.updatePrivateMessageMedia(
+        conversationUserId,
+        reference.mediaId,
+        downloadStatus: MediaDownloadStatus.failed,
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Retry a previously failed media download (current session only).
+  Future<void> retryMediaDownload(int conversationUserId, String mediaId) async {
+    final reference = _pendingMediaRefs[mediaId];
+    if (reference == null) {
+      return;
+    }
+    await CacheUtils.updatePrivateMessageMedia(
+      conversationUserId,
+      mediaId,
+      downloadStatus: MediaDownloadStatus.pending,
+    );
+    notifyListeners();
+    await downloadMediaMessage(conversationUserId, reference);
+  }
+
+  /// Whether a failed media download can be retried this session.
+  bool canRetryMedia(String mediaId) => _pendingMediaRefs.containsKey(mediaId);
 
   /// Add messages to cache
   Future<void> addMessages(int userId, List<PrivateMessage> messages) async {

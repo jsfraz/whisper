@@ -2,6 +2,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/private_message.dart';
+import '../utils/message_notifier.dart';
+import 'media_bubble.dart';
 
 // TODO show options on bottom on holding the widget (like in Messenger - copy etc)
 class ChatBubble extends StatefulWidget {
@@ -216,21 +218,37 @@ class _ChatBubbleState extends State<ChatBubble> {
                             ),
                           ),
                         */
-                        Container(
-                          decoration: BoxDecoration(
-                            color: bubbleBackground(),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          child: Text(
-                            widget.message.message,
-                            style: TextStyle(
-                              color: bubbleTextColor(),
+                        if (widget.message.isMedia)
+                          MediaBubble(
+                            message: widget.message,
+                            bubbleColor: bubbleBackground(),
+                            textColor: bubbleTextColor(),
+                            canRetry: widget.message.mediaId != null &&
+                                MessageNotifier()
+                                    .canRetryMedia(widget.message.mediaId!),
+                            onRetry: () {
+                              if (widget.message.mediaId != null) {
+                                MessageNotifier().retryMediaDownload(
+                                    widget.user.id, widget.message.mediaId!);
+                              }
+                            },
+                          )
+                        else
+                          Container(
+                            decoration: BoxDecoration(
+                              color: bubbleBackground(),
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            softWrap: true,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
+                            child: Text(
+                              widget.message.message,
+                              style: TextStyle(
+                                color: bubbleTextColor(),
+                              ),
+                              softWrap: true,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),

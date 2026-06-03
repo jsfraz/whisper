@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
 import '../models/user.dart';
 
@@ -49,9 +50,28 @@ class _ChatListItemState extends State<ChatListItem> {
     /// Return message with or without "me: " prefix
     String getTitle() {
       String meText = widget.lastMessage.isMe ? '${'meText'.tr()}: ' : '';
-      String msg = widget.lastMessage.message.length <= 12
-          ? widget.lastMessage.message
-          : '${widget.lastMessage.message.substring(0, 12)}...';
+      // Use preview text (caption, or a localized label for media).
+      String preview = widget.lastMessage.preview;
+      // Prefix media messages with a small icon hint.
+      if (widget.lastMessage.isMedia) {
+        switch (widget.lastMessage.mediaType) {
+          case MediaType.image:
+            preview = '🖼 $preview';
+            break;
+          case MediaType.gif:
+            preview = '🖼 $preview';
+            break;
+          case MediaType.video:
+            preview = '🎬 $preview';
+            break;
+          case MediaType.voice:
+            preview = '🎤 $preview';
+            break;
+          case null:
+            break;
+        }
+      }
+      String msg = preview.length <= 14 ? preview : '${preview.substring(0, 14)}...';
       return meText + msg;
     }
 
