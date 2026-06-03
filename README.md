@@ -157,3 +157,5 @@ After setting these secret keys, the workflow will automatically build the APK o
 - při odesílání souborů neumožnit odeslat fotky a videa, pouze všechny ostatní soubory
 - nastavit verzi na serveru pro kontrolu kompatibility s klientem (+ knihovny)
 - schopnost podle GitHub releasů zjistit aktuální verzi a upozornit uživatele na aktualizaci a stáhnout a nainstalovat ji (+ checksums)
+- pro nepodporované soubory pro náhled (PDF atd, zobrazovat ikonu přípony jako náhled
+- potvrzení odeslání přílohy po vybrání (pro možnost dopsat k ní text)
