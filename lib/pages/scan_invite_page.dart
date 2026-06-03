@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -18,33 +19,71 @@ class ScanInvitePage extends StatefulWidget {
 class _ScanInvitePageState extends State<ScanInvitePage> {
   final GlobalKey _qrKey = GlobalKey();
   QRViewController? _qrController;
+  StreamSubscription<Barcode>? _scanSubscription;
+  bool _isProcessingScan = false;
+  final Set<String> _shownToastForScan = {};
 
   /// On creation of QR view
   void _onQRViewCreated(QRViewController controller) {
     _qrController = controller;
-    controller.scannedDataStream.listen((scanData) {
-      // Try to decode invite
-      try {
-        Map<String, dynamic> inviteMap =
-            jsonDecode(scanData.code!) as Map<String, dynamic>;
-        InviteData invite = InviteData.fromJson(inviteMap);
-        // Check if invite expired
-        if (invite.validUntil.difference(DateTime.now()).isNegative) {
+    _scanSubscription?.cancel();
+    _scanSubscription = controller.scannedDataStream.listen(_onScan);
+  }
+
+  bool _showScanToastOnce(String scanCode, String toastKey) {
+    if (!_shownToastForScan.add('$toastKey:$scanCode')) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _onScan(Barcode scanData) async {
+    if (_isProcessingScan || !mounted) return;
+    final scanCode = scanData.code;
+    if (scanCode == null) return;
+
+    try {
+      final inviteMap = jsonDecode(scanCode) as Map<String, dynamic>;
+      final invite = InviteData.fromJson(inviteMap);
+      if (invite.validUntil.difference(DateTime.now()).isNegative) {
+        if (_showScanToastOnce(scanCode, 'inviteExpired')) {
           Fluttertoast.showToast(
             msg: 'inviteExpired'.tr(),
-            backgroundColor: Colors.red);
-        } else {
-          // Push registration page
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => RegisterPage(invite)));
-          return;
+            backgroundColor: Colors.red,
+          );
         }
-      } catch (e) {
-        Fluttertoast.showToast(
-            msg: 'invalidQr'.tr(),
-            backgroundColor: Colors.red);
+        return;
       }
-    });
+
+      _isProcessingScan = true;
+      await _qrController?.pauseCamera();
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => RegisterPage(invite)),
+      );
+    } catch (_) {
+      if (_showScanToastOnce(scanCode, 'invalidQr')) {
+        Fluttertoast.showToast(
+          msg: 'invalidQr'.tr(),
+          backgroundColor: Colors.red,
+        );
+      }
+    } finally {
+      if (_isProcessingScan) {
+        _isProcessingScan = false;
+        if (mounted) {
+          await _qrController?.resumeCamera();
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _scanSubscription?.cancel();
+    super.dispose();
   }
 
   @override
