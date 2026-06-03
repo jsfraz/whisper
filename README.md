@@ -140,3 +140,20 @@ These secret keys will be used during application build to generate the necessar
 4. Paste the base64 encoded content as the secret key value
 
 After setting these secret keys, the workflow will automatically build the APK on every push to the `main` branch and create a new GitHub Release with the version according to `pubspec.yaml`.
+
+## TODO
+
+- nelze ukončit nahrávání hlasové zprávy a odeslat ji, reimplementovat logiku
+- nastavit maximální velikost přílohy HTTP požadavku
+- při otevření přílohy možnost uložit dešifrovaně do zařízení
+- opravit hrozně pomalé načítání náhledů obrázků u příjemce (kolečko se točí donekonečna, po kliknutí ale náhled funguje)
+- při odesílání zprávy indikovat že se odesílá, nyní se neindikuje nic a uživatel může myslet že se zpráva vůbec neodeslala nebo se neodesílá vůbec nic (zpráva se zobrazí až po odeslání)
+- videa nemají náhled, jen šedivou barvu
+- opravit to, že po otevření chatu není vždy nascrollováno úplně dolů
+- výběr GIFů nedělat ze souborů, ale ve stylu Discordu (výběr zdroje Tenor a Giphy)
+- zarovnání hlasové zprávy, progressbar je moc nahoře
+- postupný loading zpráv pro optimalizaci rychlosti
+- možnost vybrat více fotek/souborů najednou a odeslat je jako album
+- při odesílání souborů neumožnit odeslat fotky a videa, pouze všechny ostatní soubory
+- nastavit verzi na serveru pro kontrolu kompatibility s klientem (+ knihovny)
+- schopnost podle GitHub releasů zjistit aktuální verzi a upozornit uživatele na aktualizaci a stáhnout a nainstalovat ji (+ checksums)
