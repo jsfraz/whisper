@@ -72,7 +72,7 @@ class NotificationService {
           // Sort messages
           userMessages.sort((a, b) => b.receivedAt.compareTo(a.receivedAt));
           return userMessages
-              .map((message) => '${user.username}: ${message.message}');
+              .map((message) => '${user.username}: ${message.preview}');
         })
         .toList()
         .reversed
@@ -130,7 +130,7 @@ class NotificationService {
     await _flutterLocalNotificationsPlugin.show(
       id: message.notificationId,
       title: user.username,
-      body: message.message,
+      body: message.preview,
       notificationDetails: platformChannelSpecifics,
     );
   }

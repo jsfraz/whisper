@@ -1,17 +1,23 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http/http.dart' show MultipartFile;
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
+import 'package:whisper_websocket_client_dart/models/media_reference.dart';
+import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import 'package:whisper_websocket_client_dart/models/new_private_message.dart';
 import 'package:whisper_websocket_client_dart/models/ws_message.dart';
 import '../models/private_message.dart';
 import '../models/user.dart';
 import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
+import '../utils/media_utils.dart';
 import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
@@ -40,6 +46,12 @@ class _ChatPageState extends State<ChatPage> {
   final ScrollController _scrollController = ScrollController();
   // Indicates whether messages are being load for the first time
   bool _firstLoad = true;
+  // Voice recording state
+  bool _isRecording = false;
+  bool _cancelRecording = false;
+  MediaRecorderController? _recorderController;
+  Duration _recordDuration = Duration.zero;
+  Timer? _recordTimer;
 
   @override
   void initState() {
@@ -122,6 +134,390 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  /// Send a media attachment: encrypt for transport, upload, embed an encrypted
+  /// reference in the message, store the file encrypted-at-rest and add an
+  /// optimistic bubble.
+  Future<void> _sendMedia(MediaType type, File file,
+      {String caption = '', int? durationMs}) async {
+    setState(() {
+      _isSending = true;
+    });
+    try {
+      final bytes = await file.readAsBytes();
+
+      // Probe metadata depending on the media type.
+      int? width;
+      int? height;
+      int? duration = durationMs;
+      if (type == MediaType.image || type == MediaType.gif) {
+        final probe = await MediaUtils.imageDimensions(bytes);
+        width = probe.width;
+        height = probe.height;
+      } else if (type == MediaType.video) {
+        final probe = await MediaUtils.videoMetadata(file.path);
+        width = probe.width;
+        height = probe.height;
+        duration ??= probe.durationMs;
+      }
+
+      await Utils.wsConnect();
+      if (!Singleton().wsClient.isConnected) {
+        await Fluttertoast.showToast(
+            msg: 'wsOffline'.tr(), backgroundColor: Colors.red);
+        return;
+      }
+
+      // Transport encryption with an ephemeral per-file key.
+      final transport = await MediaUtils.encryptForTransport(bytes);
+
+      // Upload the ciphertext over HTTP.
+      final uploadResponse = await Utils.callApi(
+        () => Singleton().mediaApi.uploadMedia(
+              widget.user.id,
+              MultipartFile.fromBytes('file', transport.blob,
+                  filename: 'media.bin'),
+            ),
+        rethrowErr: true,
+      );
+      if (uploadResponse == null || uploadResponse.id == null) {
+        await Fluttertoast.showToast(
+            msg: 'mediaUploadFailed'.tr(), backgroundColor: Colors.red);
+        return;
+      }
+      final mediaId = uploadResponse.id!;
+
+      // Build the encrypted reference and wrap it in the message envelope.
+      final reference = MediaReference(
+        mediaId,
+        transport.key,
+        type,
+        transport.blob.length,
+        width: width,
+        height: height,
+        durationMs: duration,
+      );
+      final envelope = MediaUtils.buildMediaEnvelope(reference, caption);
+
+      // E2E-encrypt the envelope for the recipient.
+      final data = await CryptoUtils.encryptMessageData(
+          envelope, bu.CryptoUtils.rsaPublicKeyFromPem(widget.user.publicKey));
+
+      // Send over the WebSocket.
+      final sentAt = Singleton().wsClient.sendMessage(WsMessage.privateMessage(
+          NewPrivateMessage(widget.user.id, data['encryptedData']!,
+              data['encryptedKey']!, data['nonce']!, data['mac']!)));
+
+      // Persist the recipient if needed.
+      if (widget.user.publicKey != '' &&
+          widget.user.username != '' &&
+          !widget.user.isInBox) {
+        CacheUtils.addUser(widget.user);
+      }
+
+      // Store the original media encrypted-at-rest for our own bubble.
+      final localPath = await MediaUtils.encryptAtRest(bytes);
+
+      // Optimistic local message.
+      await MessageNotifier().addMessages(widget.user.id, [
+        PrivateMessage(
+          Singleton().profile.user.id,
+          caption,
+          sentAt,
+          sentAt,
+          true,
+          mediaId: mediaId,
+          mediaTypeStr: type.name,
+          localPath: localPath,
+          mediaSize: bytes.length,
+          width: width,
+          height: height,
+          durationMs: duration,
+          downloadStatus: MediaDownloadStatus.ready,
+        )
+      ]);
+
+      // The caption (taken from the text field) was consumed -> clear it.
+      if (caption.isNotEmpty && _controllerMessage.text == caption) {
+        _controllerMessage.text = '';
+        await CacheUtils.deleteMessageConcept(widget.user.id);
+      }
+    } catch (e) {
+      await Fluttertoast.showToast(
+          msg: e.toString(), backgroundColor: Colors.red);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
+    }
+  }
+
+  /// Pick media using [picker], detect its type (unless [forcedType] is set)
+  /// and send it, using any typed text as the caption.
+  Future<void> _pickAndSend(
+      Future<File?> Function() picker, MediaType? forcedType) async {
+    try {
+      final file = await picker();
+      if (file == null) {
+        return;
+      }
+      final type = forcedType ?? MediaUtils.detectType(file.path);
+      final caption = _controllerMessage.text.trim();
+      await _sendMedia(type, file, caption: caption);
+    } catch (e) {
+      await Fluttertoast.showToast(
+          msg: e.toString(), backgroundColor: Colors.red);
+    }
+  }
+
+  /// Show the attachment options bottom sheet.
+  void _showAttachSheet() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: Text('attachCamera'.tr()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndSend(
+                      MediaUtils.pickImageFromCamera, MediaType.image);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.videocam),
+                title: Text('attachVideoCamera'.tr()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndSend(
+                      MediaUtils.pickVideoFromCamera, MediaType.video);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: Text('attachGallery'.tr()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndSend(MediaUtils.pickMediaFromGallery, null);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.gif_box),
+                title: Text('attachGif'.tr()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndSend(MediaUtils.pickGif, MediaType.gif);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.insert_drive_file),
+                title: Text('attachFile'.tr()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndSend(MediaUtils.pickFile, null);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Start recording a voice message (hold-to-record).
+  Future<void> _startRecording() async {
+    if (_isRecording || _isSending) {
+      return;
+    }
+    final controller = MediaRecorderController();
+    if (!await controller.hasPermission()) {
+      await controller.dispose();
+      await Fluttertoast.showToast(
+          msg: 'micPermissionDenied'.tr(), backgroundColor: Colors.red);
+      return;
+    }
+    try {
+      await controller.start();
+    } catch (e) {
+      await controller.dispose();
+      await Fluttertoast.showToast(
+          msg: e.toString(), backgroundColor: Colors.red);
+      return;
+    }
+    setState(() {
+      _recorderController = controller;
+      _isRecording = true;
+      _cancelRecording = false;
+      _recordDuration = Duration.zero;
+    });
+    _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _recordDuration += const Duration(seconds: 1);
+        });
+      }
+    });
+  }
+
+  /// Finish recording and send (unless the gesture was cancelled).
+  Future<void> _stopRecording() async {
+    _recordTimer?.cancel();
+    _recordTimer = null;
+    final controller = _recorderController;
+    _recorderController = null;
+    final cancelled = _cancelRecording;
+    setState(() {
+      _isRecording = false;
+    });
+    if (controller == null) {
+      return;
+    }
+    if (cancelled) {
+      await controller.cancel();
+      await controller.dispose();
+      return;
+    }
+    final recorded = await controller.stop();
+    await controller.dispose();
+    if (recorded == null) {
+      return;
+    }
+    // Ignore accidental taps that produce a near-empty recording.
+    if (recorded.durationMs < 800) {
+      await MediaUtils.deleteLocalFile(recorded.file.path);
+      await Fluttertoast.showToast(
+          msg: 'voiceTooShort'.tr(), backgroundColor: Colors.orange);
+      return;
+    }
+    await _sendMedia(MediaType.voice, recorded.file,
+        durationMs: recorded.durationMs);
+  }
+
+  String _formatRecordDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  /// Default message input bar (attach + text field + mic/send).
+  Widget _buildInputBar() {
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.add),
+          tooltip: 'attachButton'.tr(),
+          onPressed: _isSending ? null : _showAttachSheet,
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 5, left: 5),
+            child: TextField(
+              controller: _controllerMessage,
+              minLines: 1,
+              maxLines: 5,
+              textInputAction: TextInputAction.newline,
+              decoration: InputDecoration(
+                hintText: 'yourMessage'.tr(),
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(context).colorScheme.surfaceBright
+                    : Theme.of(context).colorScheme.surfaceDim,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
+                ),
+                suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _controllerMessage,
+                  builder: (context, value, _) {
+                    final hasText = value.text.trim().isNotEmpty;
+                    if (hasText) {
+                      return IconButton(
+                        onPressed: _isSending ? null : _sendMessage,
+                        icon: const Icon(Icons.send),
+                      );
+                    }
+                    // Hold-to-record voice message.
+                    return GestureDetector(
+                      onLongPressStart: (_) {
+                        if (!_isSending) {
+                          _startRecording();
+                        }
+                      },
+                      onLongPressMoveUpdate: (details) {
+                        final shouldCancel =
+                            details.localOffsetFromOrigin.dx < -80;
+                        if (shouldCancel != _cancelRecording) {
+                          setState(() {
+                            _cancelRecording = shouldCancel;
+                          });
+                        }
+                      },
+                      onLongPressEnd: (_) {
+                        if (_isRecording) {
+                          _stopRecording();
+                        }
+                      },
+                      child: IconButton(
+                        onPressed: _isSending
+                            ? null
+                            : () async {
+                                await Fluttertoast.showToast(
+                                    msg: 'holdToRecord'.tr());
+                              },
+                        icon: const Icon(Icons.mic),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Bar shown while recording a voice message.
+  Widget _buildRecordingBar() {
+    final color =
+        _cancelRecording ? Colors.red : Theme.of(context).colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Theme.of(context).colorScheme.surfaceBright
+            : Theme.of(context).colorScheme.surfaceDim,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.mic, color: color),
+          const SizedBox(width: 8),
+          Text(_formatRecordDuration(_recordDuration)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              _cancelRecording
+                  ? 'releaseToCancel'.tr()
+                  : 'slideToCancel'.tr(),
+              style: TextStyle(color: Colors.grey[600]),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Icon(
+            _cancelRecording ? Icons.delete : Icons.arrow_back,
+            color: color,
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Get ListView with content
   ListView _getContent(List<PrivateMessage> messages) {
     _firstLoad = false;
@@ -182,6 +578,8 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    _recordTimer?.cancel();
+    _recorderController?.dispose();
     _controllerMessage.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -295,35 +693,7 @@ class _ChatPageState extends State<ChatPage> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(right: 5, left: 5),
-                        // TODO certically expandable text field
-                        child: TextField(
-                          controller: _controllerMessage,
-                          decoration: InputDecoration(
-                            hintText: 'yourMessage'.tr(),
-                            filled: true,
-                            fillColor: Theme.of(context).brightness ==
-                                    Brightness.dark
-                                ? Theme.of(context).colorScheme.surfaceBright
-                                : Theme.of(context).colorScheme.surfaceDim,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(30),
-                              borderSide: BorderSide.none,
-                            ),
-                            suffixIcon: IconButton(
-                              onPressed: _isSending ? null : _sendMessage,
-                              icon: const Icon(Icons.send),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                child: _isRecording ? _buildRecordingBar() : _buildInputBar(),
               ),
             ),
           ],

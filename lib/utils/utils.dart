@@ -13,11 +13,13 @@ import '../utils/notification_service.dart';
 import '../pages/chat_page.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
+import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/private_message.dart';
 import 'package:whisper_websocket_client_dart/models/ws_response.dart';
 import 'package:whisper_websocket_client_dart/models/ws_response_type.dart';
 import 'cache_utils.dart';
 import 'crypto_utils.dart';
+import 'media_utils.dart';
 import 'message_notifier.dart';
 import 'singleton.dart';
 import '../models/private_message.dart' as pm;
@@ -148,6 +150,8 @@ class Utils {
         var messages = wsResponse.payload as List<PrivateMessage>;
         messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
         List<pm.PrivateMessage> decryptedMessages = [];
+        // Media references that still need to be downloaded after persisting.
+        List<MediaReference> pendingMediaRefs = [];
 
         // Parallel decrypt all messages
         try {
@@ -160,12 +164,35 @@ class Utils {
                   message.mac,
                   bu.CryptoUtils.rsaPrivateKeyFromPem(
                       Singleton().profile.privateKey));
-              return pm.PrivateMessage(
+              // Media message: decode the envelope and create a placeholder.
+              final envelope =
+                  MediaUtils.tryParseMediaEnvelope(decryptedMessage);
+              if (envelope != null) {
+                final ref = envelope.reference;
+                final mediaMsg = pm.PrivateMessage(
+                  message.senderId,
+                  envelope.caption,
+                  message.sentAt,
+                  DateTime.now(),
+                  false,
+                  mediaId: ref.mediaId,
+                  mediaTypeStr: ref.type.name,
+                  mediaSize: ref.size,
+                  width: ref.width,
+                  height: ref.height,
+                  durationMs: ref.durationMs,
+                  downloadStatus: pm.MediaDownloadStatus.pending,
+                );
+                return (mediaMsg, ref);
+              }
+              // Plain text message (legacy/unchanged path).
+              final textMsg = pm.PrivateMessage(
                   message.senderId,
                   utf8.decode(decryptedMessage),
                   message.sentAt,
                   DateTime.now(),
                   false);
+              return (textMsg, null);
             } catch (e) {
               // Log individual message decryption errors
               if (kDebugMode) {
@@ -179,7 +206,11 @@ class Utils {
           final results = await Future.wait(decryptionTasks);
 
           // Filter out failed decryptions (null values)
-          decryptedMessages = results.whereType<pm.PrivateMessage>().toList();
+          final valid =
+              results.whereType<(pm.PrivateMessage, MediaReference?)>().toList();
+          decryptedMessages = valid.map((e) => e.$1).toList();
+          pendingMediaRefs =
+              valid.map((e) => e.$2).whereType<MediaReference>().toList();
 
           // Show toast only if all messages failed to decrypt
           if (decryptedMessages.isEmpty && messages.isNotEmpty) {
@@ -191,8 +222,15 @@ class Utils {
               msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
         }
         if (decryptedMessages.isNotEmpty) {
+          final conversationUserId = decryptedMessages.first.senderId;
           await MessageNotifier()
-              .addMessages(decryptedMessages.first.senderId, decryptedMessages);
+              .addMessages(conversationUserId, decryptedMessages);
+
+          // Kick off media downloads now that placeholders are persisted.
+          for (final ref in pendingMediaRefs) {
+            // Fire-and-forget; updates the message + notifies on completion.
+            MessageNotifier().downloadMediaMessage(conversationUserId, ref);
+          }
 
           // Remove messages from notifications if user was not online when they were sent
           decryptedMessages.removeWhere((x) => !messages

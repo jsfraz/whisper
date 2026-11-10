@@ -66,5 +66,7 @@ class Singleton {
 
   FirebaseApi get firebaseApi => FirebaseApi(_api);
 
+  MediaApi get mediaApi => MediaApi(_api);
+
   bool get offlineMode => _offlineMode;
 }

@@ -41,6 +41,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Whisper needs camera access to capture photos and videos you send in chats.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Whisper needs microphone access to record voice messages.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Whisper needs photo library access to attach images and videos to your messages.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
