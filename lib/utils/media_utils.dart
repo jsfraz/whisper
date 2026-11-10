@@ -343,18 +343,18 @@ class MediaUtils {
 
   /// Pick a GIF file.
   static Future<File?> pickGif() async {
-    final result = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: const ['gif'],
     );
-    final path = result?.files.single.path;
+    final path = picked?.path;
     return path == null ? null : File(path);
   }
 
   /// Pick an arbitrary media (image/video) file.
   static Future<File?> pickFile() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.media);
-    final path = result?.files.single.path;
+    final picked = await FilePicker.pickFile(type: FileType.media);
+    final path = picked?.path;
     return path == null ? null : File(path);
   }
 }
