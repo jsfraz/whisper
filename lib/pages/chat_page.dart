@@ -173,18 +173,18 @@ class _ChatPageState extends State<ChatPage> {
       // Upload the ciphertext over HTTP.
       final uploadResponse = await Utils.callApi(
         () => Singleton().mediaApi.uploadMedia(
-              widget.user.id,
               MultipartFile.fromBytes('file', transport.blob,
                   filename: 'media.bin'),
+              widget.user.id,
             ),
         rethrowErr: true,
       );
-      if (uploadResponse == null || uploadResponse.id == null) {
+      if (uploadResponse == null) {
         await Fluttertoast.showToast(
             msg: 'mediaUploadFailed'.tr(), backgroundColor: Colors.red);
         return;
       }
-      final mediaId = uploadResponse.id!;
+      final mediaId = uploadResponse.id;
 
       // Build the encrypted reference and wrap it in the message envelope.
       final reference = MediaReference(
@@ -285,8 +285,7 @@ class _ChatPageState extends State<ChatPage> {
                 title: Text('attachCamera'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickAndSend(
-                      MediaUtils.pickImageFromCamera, MediaType.image);
+                  _pickAndSend(MediaUtils.pickImageFromCamera, MediaType.image);
                 },
               ),
               ListTile(
@@ -294,8 +293,7 @@ class _ChatPageState extends State<ChatPage> {
                 title: Text('attachVideoCamera'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickAndSend(
-                      MediaUtils.pickVideoFromCamera, MediaType.video);
+                  _pickAndSend(MediaUtils.pickVideoFromCamera, MediaType.video);
                 },
               ),
               ListTile(
@@ -502,9 +500,7 @@ class _ChatPageState extends State<ChatPage> {
           const SizedBox(width: 16),
           Expanded(
             child: Text(
-              _cancelRecording
-                  ? 'releaseToCancel'.tr()
-                  : 'slideToCancel'.tr(),
+              _cancelRecording ? 'releaseToCancel'.tr() : 'slideToCancel'.tr(),
               style: TextStyle(color: Colors.grey[600]),
               overflow: TextOverflow.ellipsis,
             ),

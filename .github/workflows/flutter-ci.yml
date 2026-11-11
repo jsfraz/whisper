@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Analyze and test
+    # Fork pull requests cannot read repository secrets, so analysis cannot run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create Firebase options
+        env:
+          FIREBASE_OPTIONS_DART_BASE64: ${{ secrets.FIREBASE_OPTIONS_DART_BASE64 }}
+        run: |
+          if [ -z "$FIREBASE_OPTIONS_DART_BASE64" ]; then
+            echo "FIREBASE_OPTIONS_DART_BASE64 secret is required for analysis"
+            exit 1
+          fi
+          echo "$FIREBASE_OPTIONS_DART_BASE64" | base64 -d > lib/firebase_options.dart
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Format (changed files)
+        run: |
+          BASE="origin/${{ github.base_ref || 'main' }}"
+          git fetch origin "${{ github.base_ref || 'main' }}" 2>/dev/null || true
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE"...HEAD -- '*.dart' | tr '\n' ' ')
+          if [ -z "$FILES" ]; then
+            echo "No changed Dart files."
+            exit 0
+          fi
+          dart format --output=none --set-exit-if-changed $FILES
+
+      - name: Analyze
+        # Infos are not fatal: the legacy UI has known lints. Errors and warnings block.
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

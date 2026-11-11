@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:whisper_openapi_client_dart/media_download.dart';
 import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import '../utils/notification_service.dart';
 
@@ -35,14 +36,13 @@ class MessageNotifier extends ChangeNotifier {
     _pendingMediaRefs[reference.mediaId] = reference;
     try {
       final blob = await Utils.callApi(
-        () => Singleton().mediaApi.downloadMedia(reference.mediaId),
+        () => Singleton().mediaApi.downloadMediaBytes(reference.mediaId),
         rethrowErr: true,
       );
       if (blob == null) {
         throw Exception('empty media download');
       }
-      final plaintext =
-          await MediaUtils.decryptTransport(blob, reference.key);
+      final plaintext = await MediaUtils.decryptTransport(blob, reference.key);
       final localPath = await MediaUtils.encryptAtRest(plaintext);
       await CacheUtils.updatePrivateMessageMedia(
         conversationUserId,
@@ -66,7 +66,8 @@ class MessageNotifier extends ChangeNotifier {
   }
 
   /// Retry a previously failed media download (current session only).
-  Future<void> retryMediaDownload(int conversationUserId, String mediaId) async {
+  Future<void> retryMediaDownload(
+      int conversationUserId, String mediaId) async {
     final reference = _pendingMediaRefs[mediaId];
     if (reference == null) {
       return;
@@ -88,8 +89,8 @@ class MessageNotifier extends ChangeNotifier {
     // Check if users exist
     for (var msg in messages) {
       if (!await CacheUtils.userExists(msg.senderId)) {
-        var user =
-            await Utils.callApi(() => Singleton().userApi.getUserById(msg.senderId));
+        var user = await Utils.callApi(
+            () => Singleton().userApi.getUserById(msg.senderId));
         if (user != null) {
           // Save user to cache
           await CacheUtils.addUser(User.fromModel(user));
@@ -103,8 +104,10 @@ class MessageNotifier extends ChangeNotifier {
 
   /// Get all messages by user ID
   Future<List<PrivateMessage>> getMessages(int userId) async {
-    var messages = await CacheUtils.getPrivateMessages(userId, markAsRead: true);
-    await NotificationService().removeNotificationsById(messages.map((x) => x.notificationId).toList());
+    var messages =
+        await CacheUtils.getPrivateMessages(userId, markAsRead: true);
+    await NotificationService().removeNotificationsById(
+        messages.map((x) => x.notificationId).toList());
     return messages;
   }
 
@@ -116,8 +119,8 @@ class MessageNotifier extends ChangeNotifier {
     for (var e in messages.entries) {
       // User does not exists in cache
       if (!e.key.isInBox) {
-        var user =
-            await Utils.callApi(() => Singleton().userApi.getUserById(e.key.id));
+        var user = await Utils.callApi(
+            () => Singleton().userApi.getUserById(e.key.id));
         if (user != null) {
           // Save user to cache
           await CacheUtils.addUser(User.fromModel(user));

@@ -117,18 +117,27 @@ flutterfire configure \
 
 Then select your Firebase project. This will generate the necessary `firebase.json` and `lib/firebase_options.dart` files.
 
-## Continuous Integration a Deployment (CI/CD)
+## Continuous Integration and Deployment (CI/CD)
 
-The application uses GitHub Actions to automatically build and release the APK file when pushing to the `main` branch. For this process to work correctly, the following secret keys must be set in the repository settings (Settings > Secrets and variables > Actions):
+Two GitHub Actions workflows run in this repository:
 
-- `FIREBASE_JSON_BASE64` - base64 encoded contents of the `firebase.json` file
-- `FIREBASE_OPTIONS_DART_BASE64` - base64 encoded contents of the `lib/firebase_options.dart` file (required)
-- `GOOGLE_SERVICES_JSON_BASE64` - base64 encoded contents of the `android/app/google-services.json` file
-<!--
-- `GOOGLE_SERVICE_INFO_PLIST_BASE64` - base64 encoded contents of the `ios/Runner/GoogleService-Info.plist` file
--->
+- `flutter-ci.yml` — on pull requests and on pushes to `main`: format check on changed files, `flutter analyze`, `flutter test`, secret scan.
+- `build_and_release.yml` — on pushes to `main`: builds the release APK and publishes a GitHub Release tagged `v<version>`, where the version comes from `pubspec.yaml`.
 
-These secret keys will be used during application build to generate the necessary Firebase configuration files, which are not included in the repository for security reasons. The base64 encoding ensures safe transmission and prevents issues with special characters.
+Required repository secrets (Settings > Secrets and variables > Actions):
+
+| Secret | Used by | Description |
+| --- | --- | --- |
+| `FIREBASE_OPTIONS_DART_BASE64` | `flutter-ci.yml`, `build_and_release.yml` | base64 of `lib/firebase_options.dart`. Required: analysis fails without it. |
+| `FIREBASE_JSON_BASE64` | `build_and_release.yml` | base64 of `firebase.json`. |
+| `GOOGLE_SERVICES_JSON_BASE64` | `build_and_release.yml` | base64 of `android/app/google-services.json`. |
+| `GOOGLE_SERVICE_INFO_PLIST_BASE64` | not wired yet | base64 of `ios/Runner/GoogleService-Info.plist`. Add it to the build before shipping iOS releases. |
+| `GITHUB_TOKEN` | both | Provided automatically by GitHub. Used by the secret scan. |
+
+Pull requests from forks cannot read repository secrets, so CI is skipped for them.
+
+These files are not included in the repository for security reasons. The base64 encoding ensures safe transmission and prevents issues with special characters.
+
 
 ### Procedure for setting up CI/CD
 
