@@ -9,6 +9,7 @@ and WebSocket (`whisper_websocket_client_dart`).
 - analyze: `flutter analyze --no-fatal-infos` (errors and warnings block, infos do not)
 - format: `dart format` on the files you touched
 - test: `flutter test`
+- e2e: `flutter test integration_test -d linux` (needs Linux desktop toolchain)
 - build: `flutter build apk --release` (requires `firebase_options.dart`, `google-services.json`, `firebase.json`)
 
 ## Hard rules

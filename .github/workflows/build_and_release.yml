@@ -6,7 +6,11 @@ on:
       - main
 
 jobs:
+  e2e:
+    uses: ./.github/workflows/flutter-e2e.yml
+
   build:
+    needs: e2e
     runs-on: ubuntu-latest
     permissions:
       contents: write

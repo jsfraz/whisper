@@ -1,0 +1,55 @@
+name: Flutter E2E
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Linux desktop integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v7
+        with:
+          path: whisper
+
+      - name: Checkout OpenAPI client
+        uses: actions/checkout@v7
+        with:
+          repository: jsfraz/whisper_openapi_client_dart
+          ref: ${{ github.ref_name }}
+          path: whisper_openapi_client_dart
+
+      - name: Checkout WebSocket client
+        uses: actions/checkout@v7
+        with:
+          repository: jsfraz/whisper_websocket_client_dart
+          ref: ${{ github.ref_name }}
+          path: whisper_websocket_client_dart
+
+      - name: Install Linux desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config xvfb \
+            libgtk-3-dev liblzma-dev libsecret-1-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        working-directory: whisper
+        run: |
+          flutter config --enable-linux-desktop
+          flutter pub get
+
+      - name: Run E2E
+        working-directory: whisper
+        run: xvfb-run -a flutter test integration_test -d linux
