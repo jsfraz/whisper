@@ -17,7 +17,6 @@ import '../models/private_message.dart';
 import '../models/user.dart';
 import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
-import '../utils/klipy_client.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
@@ -26,7 +25,6 @@ import '../utils/utils.dart';
 import '../widgets/chat_bubble.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'chat_info_page.dart';
-import 'gif_picker_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage(this.user, {super.key});
@@ -287,30 +285,6 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// Pick a GIF from KLIPY, download it and send it as a GIF message.
-  Future<void> _pickKlipyGif() async {
-    final gif = await Navigator.of(context).push<KlipyGif>(
-        MaterialPageRoute(builder: (context) => const GifPickerPage()));
-    if (gif == null || !mounted) {
-      return;
-    }
-    try {
-      final response = await http
-          .get(Uri.parse(gif.sendUrl))
-          .timeout(const Duration(seconds: 20));
-      if (response.statusCode != 200) {
-        throw Exception('KLIPY download failed: ${response.statusCode}');
-      }
-      final extension = gif.sendUrl.endsWith('.webp') ? 'webp' : 'gif';
-      final file =
-          await MediaUtils.writeTempBytes(response.bodyBytes, extension);
-      await _sendMedia(MediaType.gif, file);
-    } catch (e) {
-      await Fluttertoast.showToast(
-          msg: 'gifDownloadFailed'.tr(), backgroundColor: Colors.red);
-    }
-  }
-
   /// GIF/WebP inserted straight from the keyboard (Gboard image keyboard).
   Future<void> _onKeyboardContentInserted(
       KeyboardInsertedContent content) async {
@@ -356,14 +330,6 @@ class _ChatPageState extends State<ChatPage> {
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickAndSend(MediaUtils.pickMediaFromGallery, null);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.gif_box),
-                title: Text('attachGif'.tr()),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickKlipyGif();
                 },
               ),
               ListTile(
