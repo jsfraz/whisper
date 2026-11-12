@@ -52,6 +52,8 @@ class _ChatPageState extends State<ChatPage> {
   MediaRecorderController? _recorderController;
   Duration _recordDuration = Duration.zero;
   Timer? _recordTimer;
+  // Per-chat theme override, null means the global theme
+  Color? _chatThemeColor;
 
   @override
   void initState() {
@@ -60,6 +62,17 @@ class _ChatPageState extends State<ChatPage> {
     _loadMessages();
     // Load concept message
     getConceptMessage();
+    // Load per-chat theme
+    _loadChatTheme();
+  }
+
+  Future<void> _loadChatTheme() async {
+    Color? color = await CacheUtils.getChatTheme(widget.user.id);
+    if (mounted) {
+      setState(() {
+        _chatThemeColor = color;
+      });
+    }
   }
 
   Future<void> getConceptMessage() async {
@@ -596,103 +609,114 @@ class _ChatPageState extends State<ChatPage> {
           }
         }
       },
-      child: Scaffold(
-        extendBodyBehindAppBar: true,
-        appBar: PreferredSize(
-          preferredSize: Size(
-            double.infinity,
-            56.0,
-          ),
-          child: ClipRRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-              child: AppBar(
-                automaticallyImplyLeading: false,
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .surface
-                    .withValues(alpha: 0.2),
-                leading: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: widget.user.avatarColor,
-                      child: Text(
-                        widget.user.username.isNotEmpty
-                            ? widget.user.username[0].toUpperCase()
-                            : '?',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: widget.user.avatarTextColor,
+      child: Theme(
+        data: _chatThemeColor == null
+            ? Theme.of(context)
+            : ThemeData.from(
+                colorScheme: ColorScheme.fromSeed(
+                    seedColor: _chatThemeColor!,
+                    brightness: Theme.of(context).brightness),
+                useMaterial3: Singleton().appTheme.useMaterial3),
+        child: Scaffold(
+          extendBodyBehindAppBar: true,
+          appBar: PreferredSize(
+            preferredSize: Size(
+              double.infinity,
+              56.0,
+            ),
+            child: ClipRRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: AppBar(
+                  automaticallyImplyLeading: false,
+                  backgroundColor: Theme.of(context)
+                      .colorScheme
+                      .surface
+                      .withValues(alpha: 0.2),
+                  leading: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: widget.user.avatarColor,
+                        child: Text(
+                          widget.user.username.isNotEmpty
+                              ? widget.user.username[0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: widget.user.avatarTextColor,
+                          ),
                         ),
                       ),
+                    ],
+                  ),
+                  leadingWidth: 96, // Increase width to accommodate both icons
+                  // Title
+                  title: Text(widget.user.username),
+                  // Action buttons
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.info),
+                      tooltip: 'infoButton'.tr(),
+                      onPressed: () async {
+                        // Push info page
+                        await Navigator.of(context).push(PageTransition(
+                            duration: const Duration(milliseconds: 300),
+                            reverseDuration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                            type: PageTransitionType.rightToLeftJoined,
+                            child: ChatInfoPage(widget.user.id),
+                            childCurrent: widget));
+                        // The theme may have changed while the info page was open
+                        await _loadChatTheme();
+                      },
                     ),
                   ],
                 ),
-                leadingWidth: 96, // Increase width to accommodate both icons
-                // Title
-                title: Text(widget.user.username),
-                // Action buttons
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.info),
-                    tooltip: 'infoButton'.tr(),
-                    onPressed: () {
-                      // Push info page
-                      Navigator.of(context).push(PageTransition(
-                          duration: const Duration(milliseconds: 300),
-                          reverseDuration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          type: PageTransitionType.rightToLeftJoined,
-                          child: ChatInfoPage(widget.user.id),
-                          childCurrent: widget));
-                    },
-                  ),
-                ],
               ),
             ),
           ),
-        ),
-        body: Column(
-          children: [
-            // Messages and avatar list
-            Expanded(
-              child: FutureBuilder<List<PrivateMessage>>(
-                  future: notifier.getMessages(widget.user.id),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        _firstLoad) {
-                      return Center(
-                        child: Transform.scale(
-                          scale: 1.5,
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-                    // Set data
-                    if (snapshot.hasData) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _scrollController
-                            .jumpTo(_scrollController.position.maxScrollExtent);
-                      });
-                      _messages = snapshot.data!;
-                    }
-                    // Return messages
-                    return _getContent(_messages);
-                  }),
-            ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: _isRecording ? _buildRecordingBar() : _buildInputBar(),
+          body: Column(
+            children: [
+              // Messages and avatar list
+              Expanded(
+                child: FutureBuilder<List<PrivateMessage>>(
+                    future: notifier.getMessages(widget.user.id),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          _firstLoad) {
+                        return Center(
+                          child: Transform.scale(
+                            scale: 1.5,
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      // Set data
+                      if (snapshot.hasData) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _scrollController.jumpTo(
+                              _scrollController.position.maxScrollExtent);
+                        });
+                        _messages = snapshot.data!;
+                      }
+                      // Return messages
+                      return _getContent(_messages);
+                    }),
               ),
-            ),
-          ],
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: _isRecording ? _buildRecordingBar() : _buildInputBar(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -49,6 +49,8 @@
     "enterUsername": "Your victim's username",
     "settingsPage": "Settings",
     "themeSettings": "Theme",
+    "chatTheme": "Chat theme",
+    "useGlobalTheme": "Use global theme",
     "notificationSettings": "Notifications",
     "biometrySettings": "Fingerprint authentication",
     "wikiLink": "Wiki",

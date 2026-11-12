@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 import 'package:bcrypt/bcrypt.dart';
 import 'package:hive/hive.dart';
 import '../utils/biometric_auth.dart';
@@ -5,6 +7,7 @@ import '../models/app_theme.dart';
 import '../models/private_message.dart';
 import '../models/profile.dart';
 import '../models/user.dart';
+import 'color_utils.dart';
 import 'media_utils.dart';
 import 'singleton.dart';
 import 'utils.dart';
@@ -17,6 +20,7 @@ class CacheUtils {
   static const _userKey = 'user';
   static const _messageConceptKey = 'messageConcept';
   static const _biometry = 'biometry';
+  static const _chatThemeKeyPrefix = 'chatTheme:';
 
   /// Opens box with password hash
   static Future<Box> _openPasswordHashBox() async {
@@ -112,6 +116,25 @@ class CacheUtils {
   static Future<void> setTheme(AppTheme theme) async {
     Box box = await _openThemeBox();
     await box.put(_themeKey, theme);
+  }
+
+  /// Returns per-chat theme color, null means the global theme is used
+  static Future<Color?> getChatTheme(int userId) async {
+    Box box = await _openThemeBox();
+    String? hex = box.get('$_chatThemeKeyPrefix$userId');
+    return hex == null ? null : ColorUtils.colorFromHex(hex);
+  }
+
+  /// Sets per-chat theme color
+  static Future<void> setChatTheme(int userId, Color color) async {
+    Box box = await _openThemeBox();
+    await box.put('$_chatThemeKeyPrefix$userId', ColorUtils.colorToHex(color));
+  }
+
+  /// Clears per-chat theme color, the chat falls back to the global theme
+  static Future<void> clearChatTheme(int userId) async {
+    Box box = await _openThemeBox();
+    await box.delete('$_chatThemeKeyPrefix$userId');
   }
 
   /// Opens box with biometry
