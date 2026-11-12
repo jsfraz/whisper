@@ -114,5 +114,7 @@
     "passwordMismatch": "Hesla se neshodují",
     "wrongCurrentPassword": "Současné heslo není správné",
     "passwordChanged": "Heslo změněno",
-    "passwordChangeFailed": "Heslo se nepodařilo změnit"
+    "passwordChangeFailed": "Heslo se nepodařilo změnit",
+    "biometricsDisabledAfterMigration": "Biometrika byla vypnuta. Odemkni heslem a znovu ji zapni v nastavení.",
+    "passwordMigrationFailed": "Lokální data se nepodařilo otevřít. Heslo neodpovídá uloženým datům."
 }

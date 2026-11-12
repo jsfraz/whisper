@@ -114,5 +114,7 @@
     "passwordMismatch": "Passwords do not match",
     "wrongCurrentPassword": "Current password is incorrect",
     "passwordChanged": "Password changed",
-    "passwordChangeFailed": "Password could not be changed"
+    "passwordChangeFailed": "Password could not be changed",
+    "biometricsDisabledAfterMigration": "Biometrics were turned off. Unlock with your password and enable them again in settings.",
+    "passwordMigrationFailed": "Local data could not be opened. The password does not match the stored data."
 }

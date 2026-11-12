@@ -159,8 +159,9 @@ void main() {
     expect(await CacheUtils.isCorrectPassword(password), isTrue);
     expect(await CacheUtils.isCorrectPassword('wrong password'), isFalse);
 
-    final first = await CryptoUtils.pbkdf2(password);
-    final second = await CryptoUtils.pbkdf2(password);
+    final salt = CryptoUtils.generateSalt();
+    final first = await CryptoUtils.pbkdf2(password, salt);
+    final second = await CryptoUtils.pbkdf2(password, salt);
     expect(first, second);
   });
 }

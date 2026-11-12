@@ -113,8 +113,36 @@ class _PasswordPageState extends State<PasswordPage> {
       if (password) {
         await Fluttertoast.showToast(
             msg: 'passwordPlsWait'.tr(), backgroundColor: Colors.grey);
+        // Installs created before random salts re-encrypt their data once here.
+        bool migrated = false;
+        try {
+          migrated =
+              await CacheUtils.migrateSalt(_controllerLocalPassword.text);
+        } catch (e) {
+          debugPrint('salt migration failed: $e');
+        }
+        if (migrated && await CacheUtils.isBiometryEnabled()) {
+          // The stored biometric key was derived with the old salt, so it can
+          // no longer open the re-encrypted boxes.
+          await BiometricAuth.clearEncryptionKey();
+          await CacheUtils.setBiometryEnabled(false);
+          await Fluttertoast.showToast(
+              msg: 'biometricsDisabledAfterMigration'.tr(),
+              backgroundColor: Colors.orange);
+        }
+        final List<int>? salt = await CacheUtils.getSalt();
+        if (salt == null && !migrated) {
+          await Fluttertoast.showToast(
+              msg: 'passwordMigrationFailed'.tr(), backgroundColor: Colors.red);
+          setState(() {
+            _isButtonDisabled = false;
+          });
+          return;
+        }
         // Derive key from password
-        List<int> key = await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
+        List<int> key = migrated
+            ? List<int>.from(Singleton().boxCollectionKey)
+            : await CryptoUtils.pbkdf2(_controllerLocalPassword.text, salt!);
         // Add key to singleton
         Singleton().boxCollectionKey = key;
         // Add profile to singleton
@@ -221,7 +249,8 @@ class _PasswordPageState extends State<PasswordPage> {
                     padding: const EdgeInsets.only(top: 20),
                     child: IconButton(
                       icon: const Icon(Icons.fingerprint, size: 40),
-                      onPressed: _isButtonDisabled ? null : _authenticateWithBiometric,
+                      onPressed:
+                          _isButtonDisabled ? null : _authenticateWithBiometric,
                     ),
                   ),
                 ),

@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show Color;
 
 import 'package:bcrypt/bcrypt.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive/hive.dart';
 import '../utils/biometric_auth.dart';
 import '../models/app_theme.dart';
@@ -22,6 +24,8 @@ class CacheUtils {
   static const _userKey = 'user';
   static const _messageConceptKey = 'messageConcept';
   static const _biometry = 'biometry';
+  static const String _saltStorageKey = 'whisper_pbkdf2_salt';
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static const _chatThemeKeyPrefix = 'chatTheme:';
 
   /// Opens box with password hash
@@ -45,6 +49,22 @@ class CacheUtils {
   static Future<bool> isCorrectPassword(String password) async {
     String? hash = await getPasswordHash();
     return BCrypt.checkpw(password, hash!);
+  }
+
+  /// Returns the PBKDF2 salt, or null for installs created before salts became
+  /// random (those still derive it from the password).
+  static Future<List<int>?> getSalt() async {
+    final String? stored = await _secureStorage.read(key: _saltStorageKey);
+    if (stored == null || stored.isEmpty) {
+      return null;
+    }
+    return base64.decode(stored);
+  }
+
+  /// Stores the PBKDF2 salt.
+  static Future<void> setSalt(List<int> salt) async {
+    await _secureStorage.write(
+        key: _saltStorageKey, value: base64.encode(salt));
   }
 
   /// Opens encrypted box
@@ -88,6 +108,7 @@ class CacheUtils {
     await passwordBox.deleteFromDisk();
     Box themeBox = await _openThemeBox();
     await themeBox.deleteFromDisk();
+    await _secureStorage.delete(key: _saltStorageKey);
     Box privateMessagesBox = await _openPrivateMessagesBox();
     await privateMessagesBox.deleteFromDisk();
     Box userBox = await _openUserBox();
@@ -131,7 +152,37 @@ class CacheUtils {
       return false;
     }
     final List<int> oldKey = List<int>.from(Singleton().boxCollectionKey);
-    final List<int> newKey = await CryptoUtils.pbkdf2(newPassword);
+    final List<int> salt = CryptoUtils.generateSalt();
+    final List<int> newKey = await CryptoUtils.pbkdf2(newPassword, salt);
+    await _rekeyData(oldKey, newKey);
+    await setSalt(salt);
+    await setPasswordHash(newPassword);
+    return true;
+  }
+
+  /// One-time migration from the legacy `md5(password)` salt to a random one.
+  /// Returns true when the data was re-encrypted; false when there is nothing
+  /// to migrate.
+  static Future<bool> migrateSalt(String password) async {
+    if (await getSalt() != null) {
+      return false;
+    }
+    if (!await isCorrectPassword(password)) {
+      return false;
+    }
+    final List<int> oldKey = await CryptoUtils.legacyPbkdf2(password);
+    final List<int> salt = CryptoUtils.generateSalt();
+    final List<int> newKey = await CryptoUtils.pbkdf2(password, salt);
+    Singleton().boxCollectionKey = oldKey;
+    await _rekeyData(oldKey, newKey);
+    await setSalt(salt);
+    return true;
+  }
+
+  /// Re-encrypts the profile box and every at-rest media file from [oldKey] to
+  /// [newKey]. Media is staged first and swapped in only after the profile is
+  /// written; the profile box is backed up, so a failure keeps [oldKey] valid.
+  static Future<void> _rekeyData(List<int> oldKey, List<int> newKey) async {
     final Profile loaded = await getProfile();
     // A fresh instance: the loaded one is still attached to the box we are
     // about to replace, and Hive refuses to store it in a second box.
@@ -156,7 +207,6 @@ class CacheUtils {
       }
       Singleton().boxCollectionKey = newKey;
       await setProfile(profile);
-      await setPasswordHash(newPassword);
     } catch (e) {
       // Roll back to the old key and the old profile box.
       await Hive.close();
@@ -174,7 +224,6 @@ class CacheUtils {
       await backup.delete();
     }
     await MediaUtils.commitRekey(staged);
-    return true;
   }
 
   /// Returns per-chat theme color, null means the global theme is used

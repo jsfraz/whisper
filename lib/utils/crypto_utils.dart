@@ -21,24 +21,38 @@ class CryptoUtils {
   static Future<AsymmetricKeyPair<PublicKey, PrivateKey>>
       getRSAKeyPair() async {
     final secureRandom = FortunaRandom();
+    // Seed from the platform CSPRNG: a constant seed would make every keypair
+    // predictable and identical across installs.
     secureRandom.seed(KeyParameter(
-      Uint8List.fromList(List.generate(32, (i) => i)),
+      Uint8List.fromList(
+          List.generate(32, (_) => Random.secure().nextInt(256))),
     )); // Seed with random bytes
 
     return await compute(_getRSAKeyPair, secureRandom);
   }
 
   /// PBKDF2 password derivation (https://pub.dev/documentation/cryptography/latest/cryptography/Pbkdf2-class.html)
-  static Future<List<int>> pbkdf2(String password) async {
+  static Future<List<int>> pbkdf2(String password, List<int> salt) async {
     final pbkdf2 = cryptography.Pbkdf2(
       macAlgorithm: cryptography.Hmac.sha256(),
       iterations: 310000,
       bits: 256,
     );
-    List<int> salt = md5.convert(utf8.encode(password)).bytes;    // TODO Secure salt?
     final key =
         await pbkdf2.deriveKeyFromPassword(password: password, nonce: salt);
     return await key.extractBytes();
+  }
+
+  /// Legacy derivation with the old `md5(password)` salt. Only used to open
+  /// data created before salts became random, then migrated away from.
+  static Future<List<int>> legacyPbkdf2(String password) {
+    return pbkdf2(password, md5.convert(utf8.encode(password)).bytes);
+  }
+
+  /// Random 32-byte PBKDF2 salt.
+  static List<int> generateSalt() {
+    final random = Random.secure();
+    return List<int>.generate(32, (_) => random.nextInt(256));
   }
 
   /// Encrypt by RSA public key asynchronously.
@@ -103,10 +117,11 @@ class CryptoUtils {
     // Generate a random nonce (initialization vector)
     final secureRandom = FortunaRandom();
     secureRandom.seed(KeyParameter(
-      Uint8List.fromList(List.generate(32, (i) => Random.secure().nextInt(256))),
+      Uint8List.fromList(
+          List.generate(32, (i) => Random.secure().nextInt(256))),
     ));
-    final nonce = Uint8List.fromList(
-        List.generate(12, (_) => secureRandom.nextUint8()));
+    final nonce =
+        Uint8List.fromList(List.generate(12, (_) => secureRandom.nextUint8()));
 
     // Encrypt data using AES-GCM
     final secretBox = await aesAlgorithm.encrypt(

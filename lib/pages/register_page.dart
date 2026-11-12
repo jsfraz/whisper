@@ -132,11 +132,14 @@ class _RegisterPageState extends State<RegisterPage> {
               true);
           // Add profile to singleton
           Singleton().profile = profile;
+          // A random salt must exist before anything is encrypted with the key
+          final List<int> salt = CryptoUtils.generateSalt();
+          await CacheUtils.setSalt(salt);
           // Save password hash to cache
           CacheUtils.setPasswordHash(_controllerLocalPassword.text);
-          // Generování klíče z hesla a uložení do singletonu
+          // Derive the key from the password and store it in the singleton
           List<int> key =
-              await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
+              await CryptoUtils.pbkdf2(_controllerLocalPassword.text, salt);
           Singleton().boxCollectionKey = key;
 
           // Save profile to cache
