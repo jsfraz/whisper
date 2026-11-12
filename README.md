@@ -14,6 +14,47 @@ Also see [Wiki](https://github.com/jsfraz/whisper/wiki)!
 
 You can download the app [here in the releases](https://github.com/jsfraz/whisper/releases).
 
+## AI / MCP tooling
+
+This project is developed with [OpenCode](https://opencode.ai). MCP servers are configured
+globally in `~/.config/opencode/opencode.json` — there is no MCP config in this repository.
+
+| Server | What it gives the agent |
+|---|---|
+| `dart` (official Dart & Flutter MCP server) | analyzer diagnostics, symbol resolution, tests, `pub`, hot reload/restart, DTD connection to a running app, widget inspector |
+| `flutter-mcp-toolkit` | screenshots, semantic snapshot, tap/type, recent logs — UI verification against a running debug build |
+| `context7` | library documentation lookup |
+
+Pins: `dart mcp-server` comes with Dart 3.13.7; `flutter-mcp-toolkit` **v7.0.1** is the
+linux-x64 release binary in `~/.local/bin` (sha256 verified against `checksums.txt`);
+`mcp_toolkit` is pinned to **7.0.1** in `pubspec.yaml`. Releases 7.0.2 and 7.1.0 ship no
+binaries yet, so upgrade the server and the package together.
+
+```jsonc
+"dart": {
+  "type": "local",
+  "command": ["dart", "mcp-server", "--enable", "all", "--disable", "create_project,dart_fix"]
+},
+"flutter-mcp-toolkit": {
+  "type": "local",
+  "command": ["flutter-mcp-toolkit-server", "--resources", "--images", "--save-images",
+              "--no-dynamics", "--scan-ports", "8181"]
+}
+```
+
+Verify with `opencode mcp list` (both `connected`); restart the session after config changes.
+For a runtime session: `flutter run -d linux --device-vmservice-port=8181`, then discover the app
+with `fmt_discover_debug_apps` and pass its `targetId`/`uri` to the toolkit tools.
+
+Known limitations (Linux desktop, verified):
+- Pixel capture is app-owned and off: `fmt_get_screenshots` / `fmt_capture_ui_snapshot` /
+  `fmt_hot_reload_and_capture` return `visual_capture_unsupported` unless the app wires the
+  optional permission bridge (`initializeFlutterPermissionToolkit`). Semantic snapshot, tap/type,
+  logs and `fmt_hot_reload_flutter` work regardless.
+- `fmt_evaluate_dart_expression` is denied in the OpenCode `permissions` config; the toolkit has
+  no server flag for it, so the deny rule is the only enforcement.
+- The toolkit only runs in debug builds and must never be used with a real account.
+
 ## Dependencies
 
 - [basic_utils](https://pub.dev/packages/basic_utils)

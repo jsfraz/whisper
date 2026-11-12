@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
+import 'package:mcp_toolkit/mcp_toolkit.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import '../utils/message_notifier.dart';
@@ -24,6 +26,18 @@ import 'utils/utils.dart';
 void main() async {
   // Initialize Flutter widgets
   WidgetsFlutterBinding.ensureInitialized();
+
+  // MCP toolkit exposes app internals over the debug VM service. Debug only;
+  // never use it with a real account (see AGENTS.md).
+  if (kDebugMode) {
+    try {
+      MCPToolkitBinding.instance
+        ..initialize()
+        ..initializeFlutterToolkit();
+    } catch (e) {
+      debugPrint('MCP toolkit init failed: $e');
+    }
+  }
 
   if (Platform.isAndroid || Platform.isIOS) {
     await Firebase.initializeApp(

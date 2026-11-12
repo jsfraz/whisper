@@ -33,6 +33,7 @@ dependencies:
   just_audio: ^0.10.5
   jwt_decoder: ^2.0.1
   local_auth: ^3.0.1
+  mcp_toolkit: 7.0.1
   mime: ^2.0.0
   mobile_scanner: ^7.0.0
   page_transition: ^2.2.1

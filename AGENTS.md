@@ -12,6 +12,24 @@ and WebSocket (`whisper_websocket_client_dart`).
 - e2e: `flutter test integration_test -d linux` (needs Linux desktop toolchain)
 - build: `flutter build apk --release` (requires `firebase_options.dart`, `google-services.json`, `firebase.json`)
 
+## AI / MCP tooling
+
+OpenCode has two Flutter MCP servers wired globally (config in `~/.config/opencode/opencode.json`,
+not in this repository). Use them for the fast loop, but the shell gates below still define done.
+
+| Server | Role |
+|---|---|
+| `dart` | `analyze_files`, symbol resolution, `run_tests`, `pub`, hot reload/restart, DTD connection, widget inspector |
+| `flutter-mcp-toolkit` | screenshots, semantic snapshot, tap/type, recent logs — UI verification of a running debug build |
+
+1. At session start register roots: `whisper`, `../whisper_openapi_client_dart`, `../whisper_websocket_client_dart`.
+2. MCP-driven runs use a fixed port so the toolkit can attach: `flutter run -d linux --device-vmservice-port=8181`. One running instance only.
+3. UI work: `fmt_semantic_snapshot` → `ref` → `fmt_tap_widget`/`fmt_enter_text`, then hot reload after every widget change. Pixel capture is unsupported on Linux desktop (needs the app permission bridge), so use `fmt_hot_reload_flutter`, not `fmt_hot_reload_and_capture`.
+4. Never call `fmt_evaluate_dart_expression`; it is denied in the OpenCode `permissions` config and there is no server-side flag for it.
+5. Toolkit and debug builds only with test data — never with a real account.
+6. `pub add`/`pub remove` and any `pubspec.yaml` change need explicit confirmation. `dart_fix` is disabled on purpose: it would rewrite the generated clients.
+7. `flutter analyze --no-fatal-infos` from the shell remains the definition-of-done gate; MCP analysis does not replace it.
+
 ## Hard rules
 
 1. Never commit secrets, keys, `.env*`, `firebase_options.dart`, `google-services.json` or `firebase.json`.
