@@ -10,20 +10,17 @@ plugins {
 
 android {
     namespace = "cz.josefraz.whisper"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_local_notifications 23 requires compiling against API 37.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
     // ndkVersion = "27.0.12077973"
 
     compileOptions {
         // Flag to enable support for the new language APIs
         isCoreLibraryDesugaringEnabled = true
-        // Sets Java compatibility to Java 8
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8.toString()
+        // Sets Java compatibility to Java 11
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     defaultConfig {
@@ -49,6 +46,12 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             resValue("string", "app_name", "Whisper")
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
 }
 
