@@ -116,5 +116,17 @@
     "passwordChanged": "Heslo změněno",
     "passwordChangeFailed": "Heslo se nepodařilo změnit",
     "biometricsDisabledAfterMigration": "Biometrika byla vypnuta. Odemkni heslem a znovu ji zapni v nastavení.",
-    "passwordMigrationFailed": "Lokální data se nepodařilo otevřít. Heslo neodpovídá uloženým datům."
+    "passwordMigrationFailed": "Lokální data se nepodařilo otevřít. Heslo neodpovídá uloženým datům.",
+    "copyMessage": "Kopírovat",
+    "forwardMessage": "Přeposlat",
+    "saveAttachment": "Uložit přílohu",
+    "deleteMessageForMe": "Smazat pro mě",
+    "deleteMessageConfirm": "Smazat zprávu",
+    "deleteMessageConfirmText": "Zpráva se smaže jen z tohoto zařízení. Druhá strana si ji nechá.",
+    "copiedText": "Zkopírováno",
+    "attachmentSaved": "Příloha uložena",
+    "attachmentSaveFailed": "Uložení přílohy se nepovedlo",
+    "forwardTo": "Přeposlat komu",
+    "forwarded": "Přeposláno",
+    "noChatsToForward": "Zatím žádné chaty, vyhledej uživatele"
 }

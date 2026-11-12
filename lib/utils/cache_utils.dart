@@ -293,6 +293,23 @@ class CacheUtils {
         : messages.map((e) => e as PrivateMessage).toList();
   }
 
+  /// Delete a single message locally (and its media file). Nothing is sent to
+  /// the server, so the other side keeps the message.
+  static Future<void> deletePrivateMessage(
+      int userId, PrivateMessage message) async {
+    Box box = await _openPrivateMessagesBox();
+    List<dynamic>? messages = box.get(userId);
+    if (messages == null) {
+      return;
+    }
+    messages.removeWhere((m) =>
+        m is PrivateMessage &&
+        m.senderId == message.senderId &&
+        m.sentAt == message.sentAt);
+    await box.put(userId, messages);
+    await MediaUtils.deleteLocalFile(message.localPath);
+  }
+
   /// Delete user messages
   static Future<void> deletePrivateMessagesWithUser(int userId) async {
     Box messageBox = await _openPrivateMessagesBox();

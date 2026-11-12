@@ -7,18 +7,20 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
+import '../models/private_message.dart';
 import '../utils/media_utils.dart';
+import '../utils/message_actions.dart';
 
 /// Fullscreen viewer for an image/gif or video stored encrypted-at-rest.
 class MediaViewerPage extends StatefulWidget {
-  final String localPath;
-  final MediaType type;
-  final String? caption;
+  final PrivateMessage message;
+
+  /// The other side of the conversation (needed by the delete action).
+  final int conversationUserId;
 
   const MediaViewerPage({
-    required this.localPath,
-    required this.type,
-    this.caption,
+    required this.message,
+    required this.conversationUserId,
     super.key,
   });
 
@@ -34,7 +36,9 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
   bool _loading = true;
   bool _error = false;
 
-  bool get _isVideo => widget.type == MediaType.video;
+  MediaType get _type => widget.message.mediaType ?? MediaType.image;
+
+  bool get _isVideo => _type == MediaType.video;
 
   @override
   void initState() {
@@ -44,9 +48,13 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
 
   Future<void> _load() async {
     try {
+      final localPath = widget.message.localPath;
+      if (localPath == null) {
+        throw Exception('no local media');
+      }
       if (_isVideo) {
         _tempFile = await MediaUtils.materializeTempFile(
-            widget.localPath, MediaUtils.extensionForType(widget.type));
+            localPath, MediaUtils.extensionForType(_type));
         final controller = VideoPlayerController.file(_tempFile!);
         await controller.initialize();
         _videoController = controller;
@@ -57,7 +65,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
           allowFullScreen: true,
         );
       } else {
-        _imageBytes = await MediaUtils.decryptAtRest(widget.localPath);
+        _imageBytes = await MediaUtils.decryptAtRest(localPath);
       }
       if (mounted) {
         setState(() {
@@ -82,32 +90,62 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
     super.dispose();
   }
 
+  /// Overflow menu of the viewer: the same actions as the bubble sheet, except
+  /// copy (the caption is already visible).
+  PopupMenuButton<String> _buildActions() {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert),
+      onSelected: (value) {
+        switch (value) {
+          case 'save':
+            MessageActions.save(widget.message);
+            break;
+          case 'forward':
+            MessageActions.forward(context, widget.message);
+            break;
+          case 'delete':
+            MessageActions.delete(
+                context, widget.message, widget.conversationUserId,
+                onDeleted: () => Navigator.pop(context));
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        if (MessageActions.canSave(widget.message))
+          PopupMenuItem(value: 'save', child: Text('saveAttachment'.tr())),
+        PopupMenuItem(value: 'forward', child: Text('forwardMessage'.tr())),
+        PopupMenuItem(value: 'delete', child: Text('deleteMessageForMe'.tr())),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final caption = widget.message.message;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [_buildActions()],
       ),
       body: Center(
         child: _buildBody(),
       ),
-      bottomNavigationBar:
-          (widget.caption != null && widget.caption!.isNotEmpty)
-              ? Container(
-                  color: Colors.black,
-                  padding: const EdgeInsets.all(16),
-                  child: SafeArea(
-                    top: false,
-                    child: Text(
-                      widget.caption!,
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                )
-              : null,
+      bottomNavigationBar: caption.isNotEmpty
+          ? Container(
+              color: Colors.black,
+              padding: const EdgeInsets.all(16),
+              child: SafeArea(
+                top: false,
+                child: Text(
+                  caption,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            )
+          : null,
     );
   }
 

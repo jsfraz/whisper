@@ -2,10 +2,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/private_message.dart';
+import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
 import 'media_bubble.dart';
 
-// TODO show options on bottom on holding the widget (like in Messenger - copy etc)
+// Long-press opens the message actions sheet (copy, forward, save, delete).
 class ChatBubble extends StatefulWidget {
   final PrivateMessage? previousMessage;
   final PrivateMessage message;
@@ -56,7 +57,9 @@ class _ChatBubbleState extends State<ChatBubble> {
           ? widget.previousMessage!.sentAt
           : widget.previousMessage!.receivedAt;
 
-      final currentTime = widget.message.isMe ? widget.message.sentAt : widget.message.receivedAt;
+      final currentTime = widget.message.isMe
+          ? widget.message.sentAt
+          : widget.message.receivedAt;
 
       final difference = currentTime.difference(previousTime).inMinutes;
       return difference >= 10;
@@ -119,8 +122,9 @@ class _ChatBubbleState extends State<ChatBubble> {
         top: isFromSameUser() ? 4 : 16,
       ),
       child: Column(
-        crossAxisAlignment:
-            widget.message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: widget.message.isMe
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
@@ -131,11 +135,13 @@ class _ChatBubbleState extends State<ChatBubble> {
                 children: [
                   if (_showTooltip && !shouldShowTime())
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: Center(
                         child: Text(
-                          formatDate(
-                              widget.message.isMe ? widget.message.sentAt : widget.message.receivedAt),
+                          formatDate(widget.message.isMe
+                              ? widget.message.sentAt
+                              : widget.message.receivedAt),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
@@ -145,11 +151,13 @@ class _ChatBubbleState extends State<ChatBubble> {
                     ),
                   if (shouldShowTime())
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: Center(
                         child: Text(
-                          formatDate(
-                              widget.message.isMe ? widget.message.sentAt : widget.message.receivedAt),
+                          formatDate(widget.message.isMe
+                              ? widget.message.sentAt
+                              : widget.message.receivedAt),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
@@ -167,9 +175,12 @@ class _ChatBubbleState extends State<ChatBubble> {
                 _showTooltip = !_showTooltip;
               });
             },
+            onLongPress: () => MessageActions.showSheet(
+                context, widget.message, widget.user.id),
             child: Align(
-              alignment:
-                  widget.message.isMe ? Alignment.centerRight : Alignment.centerLeft,
+              alignment: widget.message.isMe
+                  ? Alignment.centerRight
+                  : Alignment.centerLeft,
               child: Row(
                 mainAxisAlignment: widget.message.isMe
                     ? MainAxisAlignment.end
@@ -221,6 +232,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                         if (widget.message.isMedia)
                           MediaBubble(
                             message: widget.message,
+                            conversationUserId: widget.user.id,
                             bubbleColor: bubbleBackground(),
                             textColor: bubbleTextColor(),
                             canRetry: widget.message.mediaId != null &&

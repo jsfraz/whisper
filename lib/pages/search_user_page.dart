@@ -7,7 +7,10 @@ import '../widgets/user_list_item.dart';
 import 'chat_page.dart';
 
 class SearchUserPage extends StatefulWidget {
-  const SearchUserPage({super.key});
+  const SearchUserPage({this.onUserSelected, super.key});
+
+  /// When set, a tapped user is passed here instead of opening the chat.
+  final void Function(User)? onUserSelected;
 
   @override
   State<SearchUserPage> createState() => _SearchUserPageState();
@@ -113,6 +116,11 @@ class _SearchUserPageState extends State<SearchUserPage> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: UserListItem(_users[index], () async {
+                          final onUserSelected = widget.onUserSelected;
+                          if (onUserSelected != null) {
+                            onUserSelected(_users[index]);
+                            return;
+                          }
                           Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(

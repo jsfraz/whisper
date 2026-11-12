@@ -19,6 +19,7 @@ class MediaBubble extends StatefulWidget {
   final Color textColor;
   final VoidCallback onRetry;
   final bool canRetry;
+  final int conversationUserId;
 
   const MediaBubble({
     required this.message,
@@ -26,6 +27,7 @@ class MediaBubble extends StatefulWidget {
     required this.textColor,
     required this.onRetry,
     required this.canRetry,
+    required this.conversationUserId,
     super.key,
   });
 
@@ -96,9 +98,8 @@ class _MediaBubbleState extends State<MediaBubble> {
         type: PageTransitionType.fade,
         duration: const Duration(milliseconds: 200),
         child: MediaViewerPage(
-          localPath: path,
-          type: type,
-          caption: widget.message.message,
+          message: widget.message,
+          conversationUserId: widget.conversationUserId,
         ),
       ),
     );
@@ -162,8 +163,7 @@ class _MediaBubbleState extends State<MediaBubble> {
               color: widget.bubbleColor,
               borderRadius: BorderRadius.circular(16),
             ),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             child: Text(
               widget.message.message,
               style: TextStyle(color: widget.textColor),
@@ -263,16 +263,14 @@ class _MediaBubbleState extends State<MediaBubble> {
               shape: BoxShape.circle,
             ),
             padding: const EdgeInsets.all(8),
-            child:
-                const Icon(Icons.play_arrow, color: Colors.white, size: 36),
+            child: const Icon(Icons.play_arrow, color: Colors.white, size: 36),
           ),
           if (widget.message.durationMs != null)
             Positioned(
               right: 8,
               bottom: 8,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(8),

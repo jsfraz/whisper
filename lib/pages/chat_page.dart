@@ -1,29 +1,20 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:http/http.dart' as http;
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
-import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
-import 'package:whisper_websocket_client_dart/models/new_private_message.dart';
-import 'package:whisper_websocket_client_dart/models/ws_message.dart';
 import '../models/private_message.dart';
 import '../models/user.dart';
 import '../utils/cache_utils.dart';
-import '../utils/crypto_utils.dart';
+import '../utils/chat_sender.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_notifier.dart';
-import '../utils/singleton.dart';
 import '../utils/theme_utils.dart';
-import '../utils/utils.dart';
 import '../widgets/chat_bubble.dart';
-import 'package:basic_utils/basic_utils.dart' as bu;
 import 'chat_info_page.dart';
 
 class ChatPage extends StatefulWidget {
@@ -91,61 +82,23 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Send message
   Future<void> _sendMessage() async {
-    debugPrint(_controllerMessage.text.length.toString());
-    if (_controllerMessage.text.isEmpty) {
+    final text = _controllerMessage.text;
+    if (text.isEmpty) {
       return;
     }
     setState(() {
       _isSending = true;
     });
-    await Utils.wsConnect();
-    // Send message
-    if (Singleton().wsClient.isConnected) {
-      // Encrypt message content
-      Map<String, Uint8List> data;
-      try {
-        data = await CryptoUtils.encryptMessageData(
-            utf8.encode(_controllerMessage.text),
-            bu.CryptoUtils.rsaPublicKeyFromPem(widget.user.publicKey));
-      } catch (e) {
-        await Fluttertoast.showToast(
-            msg: e.toString(), backgroundColor: Colors.red);
-        setState(() {
-          _isSending = false;
-        });
-        return;
-      }
-      DateTime sentAt;
-      try {
-        sentAt = Singleton().wsClient.sendMessage(WsMessage.privateMessage(
-            NewPrivateMessage(widget.user.id, data['encryptedData']!,
-                data['encryptedKey']!, data['nonce']!, data['mac']!)));
-        // Save user to cache
-        if (widget.user.publicKey != '' &&
-            widget.user.username != '' &&
-            !widget.user.isInBox) {
-          CacheUtils.addUser(widget.user);
-        }
-        // Add message to cache
-        await MessageNotifier().addMessages(widget.user.id, [
-          PrivateMessage(Singleton().profile.user.id, _controllerMessage.text,
-              sentAt, sentAt, true)
-        ]);
-        // Reset text
-        _controllerMessage.text = '';
-        // Delete concept
-        await CacheUtils.deleteMessageConcept(widget.user.id);
-      } catch (e) {
-        await Fluttertoast.showToast(
-            msg: e.toString(), backgroundColor: Colors.red);
-      }
-    } else {
-      await Fluttertoast.showToast(
-          msg: 'wsOffline'.tr(), backgroundColor: Colors.red);
+    if (await ChatSender.sendText(widget.user, text)) {
+      _controllerMessage.text = '';
+      // Delete concept
+      await CacheUtils.deleteMessageConcept(widget.user.id);
     }
-    setState(() {
-      _isSending = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isSending = false;
+      });
+    }
   }
 
   /// Send a media attachment: encrypt for transport, upload, embed an encrypted
@@ -174,84 +127,11 @@ class _ChatPageState extends State<ChatPage> {
         duration ??= probe.durationMs;
       }
 
-      await Utils.wsConnect();
-      if (!Singleton().wsClient.isConnected) {
-        await Fluttertoast.showToast(
-            msg: 'wsOffline'.tr(), backgroundColor: Colors.red);
-        return;
-      }
-
-      // Transport encryption with an ephemeral per-file key.
-      final transport = await MediaUtils.encryptForTransport(bytes);
-
-      // Upload the ciphertext over HTTP.
-      final uploadResponse = await Utils.callApi(
-        () => Singleton().mediaApi.uploadMedia(
-              http.MultipartFile.fromBytes('file', transport.blob,
-                  filename: 'media.bin'),
-              widget.user.id,
-            ),
-        rethrowErr: true,
-      );
-      if (uploadResponse == null) {
-        await Fluttertoast.showToast(
-            msg: 'mediaUploadFailed'.tr(), backgroundColor: Colors.red);
-        return;
-      }
-      final mediaId = uploadResponse.id;
-
-      // Build the encrypted reference and wrap it in the message envelope.
-      final reference = MediaReference(
-        mediaId,
-        transport.key,
-        type,
-        transport.blob.length,
-        width: width,
-        height: height,
-        durationMs: duration,
-      );
-      final envelope = MediaUtils.buildMediaEnvelope(reference, caption);
-
-      // E2E-encrypt the envelope for the recipient.
-      final data = await CryptoUtils.encryptMessageData(
-          envelope, bu.CryptoUtils.rsaPublicKeyFromPem(widget.user.publicKey));
-
-      // Send over the WebSocket.
-      final sentAt = Singleton().wsClient.sendMessage(WsMessage.privateMessage(
-          NewPrivateMessage(widget.user.id, data['encryptedData']!,
-              data['encryptedKey']!, data['nonce']!, data['mac']!)));
-
-      // Persist the recipient if needed.
-      if (widget.user.publicKey != '' &&
-          widget.user.username != '' &&
-          !widget.user.isInBox) {
-        CacheUtils.addUser(widget.user);
-      }
-
-      // Store the original media encrypted-at-rest for our own bubble.
-      final localPath = await MediaUtils.encryptAtRest(bytes);
-
-      // Optimistic local message.
-      await MessageNotifier().addMessages(widget.user.id, [
-        PrivateMessage(
-          Singleton().profile.user.id,
-          caption,
-          sentAt,
-          sentAt,
-          true,
-          mediaId: mediaId,
-          mediaTypeStr: type.name,
-          localPath: localPath,
-          mediaSize: bytes.length,
-          width: width,
-          height: height,
-          durationMs: duration,
-          downloadStatus: MediaDownloadStatus.ready,
-        )
-      ]);
+      final sent = await ChatSender.sendMedia(widget.user, type, bytes,
+          caption: caption, width: width, height: height, durationMs: duration);
 
       // The caption (taken from the text field) was consumed -> clear it.
-      if (caption.isNotEmpty && _controllerMessage.text == caption) {
+      if (sent && caption.isNotEmpty && _controllerMessage.text == caption) {
         _controllerMessage.text = '';
         await CacheUtils.deleteMessageConcept(widget.user.id);
       }

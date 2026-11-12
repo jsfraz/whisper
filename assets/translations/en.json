@@ -116,5 +116,17 @@
     "passwordChanged": "Password changed",
     "passwordChangeFailed": "Password could not be changed",
     "biometricsDisabledAfterMigration": "Biometrics were turned off. Unlock with your password and enable them again in settings.",
-    "passwordMigrationFailed": "Local data could not be opened. The password does not match the stored data."
+    "passwordMigrationFailed": "Local data could not be opened. The password does not match the stored data.",
+    "copyMessage": "Copy",
+    "forwardMessage": "Forward",
+    "saveAttachment": "Save attachment",
+    "deleteMessageForMe": "Delete for me",
+    "deleteMessageConfirm": "Delete message",
+    "deleteMessageConfirmText": "The message will be deleted only from this device. The other side keeps it.",
+    "copiedText": "Copied",
+    "attachmentSaved": "Attachment saved",
+    "attachmentSaveFailed": "Saving the attachment failed",
+    "forwardTo": "Forward to",
+    "forwarded": "Forwarded",
+    "noChatsToForward": "No chats yet, search for a user"
 }

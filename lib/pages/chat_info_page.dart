@@ -96,9 +96,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
         type: PageTransitionType.fade,
         duration: const Duration(milliseconds: 200),
         child: MediaViewerPage(
-          localPath: path,
-          type: type,
-          caption: message.message,
+          message: message,
+          conversationUserId: widget.userId,
         ),
       ),
     );
