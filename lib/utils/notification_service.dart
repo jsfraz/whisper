@@ -13,7 +13,7 @@ class NotificationService {
   /// Init notification settings
   Future<void> init() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('app_icon');
+        AndroidInitializationSettings('ic_stat_whisper');
     const LinuxInitializationSettings initializationSettingsLinux =
         LinuxInitializationSettings(
             defaultActionName: 'whisper_message'); // TODO other options
