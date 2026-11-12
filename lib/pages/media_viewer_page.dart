@@ -129,7 +129,9 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
       return InteractiveViewer(
         minScale: 0.5,
         maxScale: 4,
-        child: Image.memory(_imageBytes!, fit: BoxFit.contain),
+        child: SizedBox.expand(
+          child: Image.memory(_imageBytes!, fit: BoxFit.contain),
+        ),
       );
     }
     return Text('mediaError'.tr(), style: const TextStyle(color: Colors.white));
