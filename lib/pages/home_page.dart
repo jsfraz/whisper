@@ -13,6 +13,7 @@ import '../widgets/chat_list_item.dart';
 import '../models/private_message.dart';
 import '../utils/cache_utils.dart';
 import '../utils/message_notifier.dart';
+import '../utils/notification_service.dart';
 import 'search_user_page.dart';
 import 'settings_page.dart';
 import '../utils/dialog_utils.dart';
@@ -50,6 +51,10 @@ class _HomePageState extends State<HomePage> {
     }
     // Get all conversations with their last messages
     _getConversations();
+    // Open the chat a notification tap pointed at (after unlocking)
+    _openPendingChat();
+    // Taps arriving while Home is alive open the chat right away
+    NotificationService.onChatSelected = _openChat;
     // Start checking WebSocket connection
     _webSocketManager.startConnectionCheck();
 
@@ -78,6 +83,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    if (NotificationService.onChatSelected == _openChat) {
+      NotificationService.onChatSelected = null;
+    }
     super.dispose();
     // Stop checking WebSocket connection
     _webSocketManager.stopConnectionCheck();
@@ -193,6 +201,38 @@ class _HomePageState extends State<HomePage> {
         });
       }
     }
+  }
+
+  /// Open the chat of [userId] on top of Home.
+  Future<void> _openChat(int userId) async {
+    final user = await CacheUtils.getUserById(userId);
+    if (user == null || !mounted) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).push(PageTransition(
+          duration: const Duration(milliseconds: 300),
+          reverseDuration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          type: PageTransitionType.bottomToTopJoined,
+          child: ChatPage(user),
+          childCurrent: widget));
+    });
+  }
+
+  /// Open the chat a notification tap pointed at. This also covers a locked
+  /// app: the tap is remembered and the chat opens after the password page
+  /// replaced itself with HomePage.
+  Future<void> _openPendingChat() async {
+    final userId = Singleton().pendingChatUserId;
+    if (userId == null) {
+      return;
+    }
+    Singleton().pendingChatUserId = null;
+    await _openChat(userId);
   }
 
   /// Shows new invite dialog.

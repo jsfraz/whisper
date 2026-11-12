@@ -1,22 +1,38 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:sprintf/sprintf.dart';
 import '../utils/cache_utils.dart';
 import '../models/user.dart';
 import '../models/private_message.dart';
+import 'singleton.dart';
 
 // https://www.scaler.com/topics/flutter-local-notification/
 class NotificationService {
+  /// Set by HomePage while it is alive, so a tap on a single message
+  /// notification can open the chat immediately instead of being queued.
+  static void Function(int userId)? onChatSelected;
+
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
   /// Init notification settings
   Future<void> init() async {
+    // Local notifications are only set up for the platforms that have their
+    // settings below. iOS/macOS need the Darwin settings tracked in the
+    // "Android / iOS permissions" backlog item.
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.linux) {
+      return;
+    }
+
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('ic_stat_whisper');
-    const LinuxInitializationSettings initializationSettingsLinux =
+    final LinuxInitializationSettings initializationSettingsLinux =
         LinuxInitializationSettings(
-            defaultActionName: 'whisper_message'); // TODO other options
+      defaultActionName: 'whisper_message',
+      defaultIcon: ThemeLinuxIcon('mail-unread'),
+    );
 
     final InitializationSettings initializationSettings =
         InitializationSettings(
@@ -24,7 +40,18 @@ class NotificationService {
             linux: initializationSettingsLinux);
 
     await _flutterLocalNotificationsPlugin.initialize(
-        settings: initializationSettings);
+        settings: initializationSettings,
+        onDidReceiveNotificationResponse: _onNotificationTap);
+
+    // Tapping a notification while the app was closed launches it through here
+    // (Android only, the Linux implementation does not support it).
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final launchDetails = await _flutterLocalNotificationsPlugin
+          .getNotificationAppLaunchDetails();
+      if (launchDetails?.didNotificationLaunchApp ?? false) {
+        _setPendingChat(launchDetails!.notificationResponse?.payload);
+      }
+    }
 
     // FCM posts notifications into this channel, so it must exist before a push arrives
     await _flutterLocalNotificationsPlugin
@@ -37,6 +64,26 @@ class NotificationService {
           importance: Importance.max,
           sound: const RawResourceAndroidNotificationSound('notification'),
         ));
+  }
+
+  /// Remember the chat a notification points at. The app may still be locked,
+  /// so HomePage opens it once it is on screen (i.e. after unlocking).
+  void _onNotificationTap(NotificationResponse response) =>
+      _setPendingChat(response.payload);
+
+  /// The payload of a single message notification is the sender id; grouped
+  /// notifications carry none and just open HomePage.
+  void _setPendingChat(String? payload) {
+    final userId = int.tryParse(payload ?? '');
+    if (userId == null) {
+      return;
+    }
+    final onChatSelected = NotificationService.onChatSelected;
+    if (onChatSelected != null) {
+      onChatSelected(userId);
+      return;
+    }
+    Singleton().pendingChatUserId = userId;
   }
 
   /// Show notifications.
@@ -136,6 +183,8 @@ class NotificationService {
       enableVibration: true,
       playSound: true,
       sound: RawResourceAndroidNotificationSound('notification'),
+      // Message previews are long, don't let Android truncate them
+      styleInformation: BigTextStyleInformation(message.preview),
     );
     NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
@@ -144,6 +193,7 @@ class NotificationService {
       title: user.username,
       body: message.preview,
       notificationDetails: platformChannelSpecifics,
+      payload: message.senderId.toString(),
     );
   }
 

@@ -45,11 +45,15 @@ void main() async {
     );
   }
 
-  // Local notifications
-  NotificationService().init();
-
-  // Load locale
+  // Load locale (the notification service needs it for the channel texts)
   await EasyLocalization.ensureInitialized();
+
+  // Local notifications. A failure here must not block the app.
+  try {
+    await NotificationService().init();
+  } catch (e) {
+    debugPrint('Notification init failed: $e');
+  }
 
   if (Platform.isAndroid || Platform.isIOS) {
     // Lock orientation (https://stackoverflow.com/a/52720581/19371130)

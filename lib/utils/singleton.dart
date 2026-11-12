@@ -23,6 +23,8 @@ class Singleton {
   late WsClient wsClient;
   // Current route
   late Route currentRoute;
+  // Chat a notification tap asked for, opened by HomePage once it is shown
+  int? pendingChatUserId;
   // Offline mode
   bool _offlineMode = false;
 
