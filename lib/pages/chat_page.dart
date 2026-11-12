@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:http/http.dart' show MultipartFile;
+import 'package:http/http.dart' as http;
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
 import 'package:whisper_websocket_client_dart/models/media_reference.dart';
@@ -17,6 +17,7 @@ import '../models/private_message.dart';
 import '../models/user.dart';
 import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
+import '../utils/klipy_client.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
@@ -25,6 +26,7 @@ import '../utils/utils.dart';
 import '../widgets/chat_bubble.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'chat_info_page.dart';
+import 'gif_picker_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage(this.user, {super.key});
@@ -187,7 +189,7 @@ class _ChatPageState extends State<ChatPage> {
       // Upload the ciphertext over HTTP.
       final uploadResponse = await Utils.callApi(
         () => Singleton().mediaApi.uploadMedia(
-              MultipartFile.fromBytes('file', transport.blob,
+              http.MultipartFile.fromBytes('file', transport.blob,
                   filename: 'media.bin'),
               widget.user.id,
             ),
@@ -285,6 +287,44 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  /// Pick a GIF from KLIPY, download it and send it as a GIF message.
+  Future<void> _pickKlipyGif() async {
+    final gif = await Navigator.of(context).push<KlipyGif>(
+        MaterialPageRoute(builder: (context) => const GifPickerPage()));
+    if (gif == null || !mounted) {
+      return;
+    }
+    try {
+      final response = await http
+          .get(Uri.parse(gif.sendUrl))
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) {
+        throw Exception('KLIPY download failed: ${response.statusCode}');
+      }
+      final extension = gif.sendUrl.endsWith('.webp') ? 'webp' : 'gif';
+      final file =
+          await MediaUtils.writeTempBytes(response.bodyBytes, extension);
+      await _sendMedia(MediaType.gif, file);
+    } catch (e) {
+      await Fluttertoast.showToast(
+          msg: 'gifDownloadFailed'.tr(), backgroundColor: Colors.red);
+    }
+  }
+
+  /// GIF/WebP inserted straight from the keyboard (Gboard image keyboard).
+  Future<void> _onKeyboardContentInserted(
+      KeyboardInsertedContent content) async {
+    final bytes = content.data;
+    if (bytes == null || bytes.isEmpty) {
+      await Fluttertoast.showToast(
+          msg: 'gifFromKeyboardFailed'.tr(), backgroundColor: Colors.red);
+      return;
+    }
+    final extension = content.mimeType == 'image/webp' ? 'webp' : 'gif';
+    final file = await MediaUtils.writeTempBytes(bytes, extension);
+    await _sendMedia(MediaType.gif, file);
+  }
+
   /// Show the attachment options bottom sheet.
   void _showAttachSheet() {
     showModalBottomSheet(
@@ -323,7 +363,7 @@ class _ChatPageState extends State<ChatPage> {
                 title: Text('attachGif'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickAndSend(MediaUtils.pickGif, MediaType.gif);
+                  _pickKlipyGif();
                 },
               ),
               ListTile(
@@ -433,6 +473,10 @@ class _ChatPageState extends State<ChatPage> {
               minLines: 1,
               maxLines: 5,
               textInputAction: TextInputAction.newline,
+              contentInsertionConfiguration: ContentInsertionConfiguration(
+                allowedMimeTypes: const ['image/gif', 'image/webp'],
+                onContentInserted: _onKeyboardContentInserted,
+              ),
               decoration: InputDecoration(
                 hintText: 'yourMessage'.tr(),
                 filled: true,

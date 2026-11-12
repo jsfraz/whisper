@@ -106,7 +106,8 @@ class MediaUtils {
   // ---------------------------------------------------------------------------
 
   /// Encrypt [bytes] with a fresh random key for upload.
-  static Future<TransportEncryption> encryptForTransport(Uint8List bytes) async {
+  static Future<TransportEncryption> encryptForTransport(
+      Uint8List bytes) async {
     final algorithm = cryptography.AesGcm.with256bits();
     final secretKey = await algorithm.newSecretKey();
     final keyBytes = Uint8List.fromList(await secretKey.extractBytes());
@@ -160,6 +161,15 @@ class MediaUtils {
     final dir = '${await Utils.getCacheDir()}/media';
     await Directory(dir).create(recursive: true);
     return dir;
+  }
+
+  /// Writes plaintext bytes to a temporary file, e.g. for keyboard-inserted
+  /// or downloaded GIFs that then go through the media pipeline.
+  static Future<File> writeTempBytes(Uint8List bytes, String extension) async {
+    final dir = await mediaDir();
+    final file = File('$dir/send_${_uuid.v4()}.$extension');
+    await file.writeAsBytes(bytes, flush: true);
+    return file;
   }
 
   /// Delete a single (encrypted) media file, ignoring errors.
@@ -286,7 +296,8 @@ class MediaUtils {
 
   /// Build the plaintext (pre-encryption) bytes for a media message: a JSON
   /// envelope wrapping the [reference] and optional [caption].
-  static Uint8List buildMediaEnvelope(MediaReference reference, String caption) {
+  static Uint8List buildMediaEnvelope(
+      MediaReference reference, String caption) {
     final map = <String, dynamic>{
       'whisperMsg': envelopeVersion,
       'kind': 'media',
@@ -330,8 +341,7 @@ class MediaUtils {
   /// Capture a video with the camera.
   static Future<File?> pickVideoFromCamera() async {
     final picked = await _imagePicker.pickVideo(
-        source: ImageSource.camera,
-        maxDuration: const Duration(minutes: 1));
+        source: ImageSource.camera, maxDuration: const Duration(minutes: 1));
     return picked == null ? null : File(picked.path);
   }
 
@@ -339,16 +349,6 @@ class MediaUtils {
   static Future<File?> pickMediaFromGallery() async {
     final picked = await _imagePicker.pickMedia();
     return picked == null ? null : File(picked.path);
-  }
-
-  /// Pick a GIF file.
-  static Future<File?> pickGif() async {
-    final picked = await FilePicker.pickFile(
-      type: FileType.custom,
-      allowedExtensions: const ['gif'],
-    );
-    final path = picked?.path;
-    return path == null ? null : File(path);
   }
 
   /// Pick an arbitrary media (image/video) file.
@@ -389,8 +389,9 @@ class MediaRecorderController {
   /// Stop recording and return the resulting file and its duration.
   Future<RecordedVoice?> stop() async {
     final path = await _recorder.stop();
-    final durationMs =
-        _startedAt == null ? 0 : DateTime.now().difference(_startedAt!).inMilliseconds;
+    final durationMs = _startedAt == null
+        ? 0
+        : DateTime.now().difference(_startedAt!).inMilliseconds;
     if (path == null) {
       return null;
     }
