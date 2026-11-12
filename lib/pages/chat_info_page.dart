@@ -4,6 +4,7 @@ import '../utils/cache_utils.dart';
 import '../utils/message_notifier.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/singleton.dart';
+import '../utils/theme_utils.dart';
 import 'home_page.dart';
 
 class ChatInfoPage extends StatefulWidget {
@@ -53,60 +54,101 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('chatInfoPage'.tr()),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Chat theme
-            TextButton(
-              onPressed: _pickChatTheme,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.palette,
-                    size: 24,
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(left: 5),
-                    child: Text(
-                      'chatTheme'.tr(),
-                    ),
-                  ),
-                  if (_chatThemeColor != null)
-                    Padding(
-                      padding: EdgeInsets.only(left: 10),
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: _chatThemeColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  SizedBox(
-                    width: 24,
-                  ),
-                ],
-              ),
-            ),
-            // Drop the override
-            if (_chatThemeColor != null)
+    return Theme(
+      data: ThemeUtils.chatTheme(context, _chatThemeColor),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('chatInfoPage'.tr()),
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Chat theme
               TextButton(
-                onPressed: _clearChatTheme,
+                onPressed: _pickChatTheme,
                 child: Row(
                   children: [
                     Icon(
-                      Icons.restart_alt,
+                      Icons.palette,
                       size: 24,
                     ),
                     Padding(
                       padding: EdgeInsets.only(left: 5),
                       child: Text(
-                        'useGlobalTheme'.tr(),
+                        'chatTheme'.tr(),
+                      ),
+                    ),
+                    if (_chatThemeColor != null)
+                      Padding(
+                        padding: EdgeInsets.only(left: 10),
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: _chatThemeColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    SizedBox(
+                      width: 24,
+                    ),
+                  ],
+                ),
+              ),
+              // Drop the override
+              if (_chatThemeColor != null)
+                TextButton(
+                  onPressed: _clearChatTheme,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.restart_alt,
+                        size: 24,
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(left: 5),
+                        child: Text(
+                          'useGlobalTheme'.tr(),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 24,
+                      ),
+                    ],
+                  ),
+                ),
+
+              // TODO Media
+
+              // Delete chat
+              TextButton(
+                onPressed: () async {
+                  await DialogUtils.yesNoDialog(
+                      context,
+                      'deleteChatConfirm'.tr(),
+                      'deleteChatConfirmText'.tr(), () async {
+                    MessageNotifier().deleteChat(widget.userId);
+                    // Redirect to home page and clear navigation stack
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (context) => const HomePage()),
+                      (route) => false,
+                    );
+                  });
+                },
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.delete_forever,
+                      size: 24,
+                      color: Colors.red,
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(left: 5),
+                      child: Text(
+                        'deleteChat'.tr(),
+                        style: TextStyle(color: Colors.red),
                       ),
                     ),
                     SizedBox(
@@ -115,44 +157,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                   ],
                 ),
               ),
-
-            // TODO Media
-
-            // Delete chat
-            TextButton(
-              onPressed: () async {
-                await DialogUtils.yesNoDialog(context, 'deleteChatConfirm'.tr(),
-                    'deleteChatConfirmText'.tr(), () async {
-                  MessageNotifier().deleteChat(widget.userId);
-                  // Redirect to home page and clear navigation stack
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const HomePage()),
-                    (route) => false,
-                  );
-                });
-              },
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.delete_forever,
-                    size: 24,
-                    color: Colors.red,
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(left: 5),
-                    child: Text(
-                      'deleteChat'.tr(),
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 24,
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

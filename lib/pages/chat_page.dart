@@ -20,6 +20,7 @@ import '../utils/crypto_utils.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
+import '../utils/theme_utils.dart';
 import '../utils/utils.dart';
 import '../widgets/chat_bubble.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
@@ -610,13 +611,7 @@ class _ChatPageState extends State<ChatPage> {
         }
       },
       child: Theme(
-        data: _chatThemeColor == null
-            ? Theme.of(context)
-            : ThemeData.from(
-                colorScheme: ColorScheme.fromSeed(
-                    seedColor: _chatThemeColor!,
-                    brightness: Theme.of(context).brightness),
-                useMaterial3: Singleton().appTheme.useMaterial3),
+        data: ThemeUtils.chatTheme(context, _chatThemeColor),
         child: Scaffold(
           extendBodyBehindAppBar: true,
           appBar: PreferredSize(
