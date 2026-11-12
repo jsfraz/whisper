@@ -25,6 +25,18 @@ class NotificationService {
 
     await _flutterLocalNotificationsPlugin.initialize(
         settings: initializationSettings);
+
+    // FCM posts notifications into this channel, so it must exist before a push arrives
+    await _flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(AndroidNotificationChannel(
+          'whisper_firebase_messages',
+          'Whisper',
+          description: 'notificationChannelDesc'.tr(),
+          importance: Importance.max,
+          sound: const RawResourceAndroidNotificationSound('notification'),
+        ));
   }
 
   /// Show notifications.
