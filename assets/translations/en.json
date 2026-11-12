@@ -105,5 +105,6 @@
     "mediaPhoto": "Photo",
     "mediaGif": "GIF",
     "mediaVideo": "Video",
+    "mediaTitle": "Media",
     "mediaVoice": "Voice message"
 }
