@@ -106,5 +106,13 @@
     "mediaGif": "GIF",
     "mediaVideo": "Video",
     "mediaTitle": "Media",
-    "mediaVoice": "Voice message"
+    "mediaVoice": "Voice message",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "passwordMismatch": "Passwords do not match",
+    "wrongCurrentPassword": "Current password is incorrect",
+    "passwordChanged": "Password changed",
+    "passwordChangeFailed": "Password could not be changed"
 }

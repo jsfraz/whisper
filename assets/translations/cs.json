@@ -106,5 +106,13 @@
     "mediaGif": "GIF",
     "mediaVideo": "Video",
     "mediaTitle": "Média",
-    "mediaVoice": "Hlasová zpráva"
+    "mediaVoice": "Hlasová zpráva",
+    "changePassword": "Změnit heslo",
+    "currentPassword": "Současné heslo",
+    "newPassword": "Nové heslo",
+    "confirmPassword": "Potvrďte nové heslo",
+    "passwordMismatch": "Hesla se neshodují",
+    "wrongCurrentPassword": "Současné heslo není správné",
+    "passwordChanged": "Heslo změněno",
+    "passwordChangeFailed": "Heslo se nepodařilo změnit"
 }

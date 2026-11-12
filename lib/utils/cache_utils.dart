@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' show Color;
 
 import 'package:bcrypt/bcrypt.dart';
@@ -8,6 +9,7 @@ import '../models/private_message.dart';
 import '../models/profile.dart';
 import '../models/user.dart';
 import 'color_utils.dart';
+import 'crypto_utils.dart';
 import 'media_utils.dart';
 import 'singleton.dart';
 import 'utils.dart';
@@ -116,6 +118,63 @@ class CacheUtils {
   static Future<void> setTheme(AppTheme theme) async {
     Box box = await _openThemeBox();
     await box.put(_themeKey, theme);
+  }
+
+  /// Changes the local password (app lock + at-rest encryption key).
+  ///
+  /// Returns false when [currentPassword] is wrong. Media files are staged
+  /// under the new key first and only swapped in after the profile box has been
+  /// rewritten, so a failure leaves the old password valid and the data intact.
+  static Future<bool> changePassword(
+      String currentPassword, String newPassword) async {
+    if (!await isCorrectPassword(currentPassword)) {
+      return false;
+    }
+    final List<int> oldKey = List<int>.from(Singleton().boxCollectionKey);
+    final List<int> newKey = await CryptoUtils.pbkdf2(newPassword);
+    final Profile loaded = await getProfile();
+    // A fresh instance: the loaded one is still attached to the box we are
+    // about to replace, and Hive refuses to store it in a second box.
+    final Profile profile = Profile(
+        loaded.url,
+        loaded.user,
+        loaded.publicKey,
+        loaded.privateKey,
+        loaded.accessToken,
+        loaded.refreshToken,
+        loaded.enableNotifications);
+    // Hive stores the collection as `<cacheDir>_encrypted/_encrypted_<box>.hive`.
+    final File boxFile = File(
+        '${await Utils.getCacheDir()}_encrypted/_encrypted_$_profileKey.hive');
+    final File backup = File('${boxFile.path}.bak');
+
+    final List<String> staged = await MediaUtils.stageRekey(oldKey, newKey);
+    try {
+      await Hive.close();
+      if (await boxFile.exists()) {
+        await boxFile.rename(backup.path);
+      }
+      Singleton().boxCollectionKey = newKey;
+      await setProfile(profile);
+      await setPasswordHash(newPassword);
+    } catch (e) {
+      // Roll back to the old key and the old profile box.
+      await Hive.close();
+      Singleton().boxCollectionKey = oldKey;
+      if (await boxFile.exists()) {
+        await boxFile.delete();
+      }
+      if (await backup.exists()) {
+        await backup.rename(boxFile.path);
+      }
+      await MediaUtils.discardRekey(staged);
+      rethrow;
+    }
+    if (await backup.exists()) {
+      await backup.delete();
+    }
+    await MediaUtils.commitRekey(staged);
+    return true;
   }
 
   /// Returns per-chat theme color, null means the global theme is used

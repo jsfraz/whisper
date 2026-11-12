@@ -142,6 +142,68 @@ class MediaUtils {
     return compute(_gcmDecrypt, _GcmArgs(blob, key));
   }
 
+  /// Encrypt bytes with an explicit AES-GCM key (no singleton lookup).
+  static Future<Uint8List> encryptWith(Uint8List bytes, List<int> key) {
+    return compute(_gcmEncrypt, _GcmArgs(bytes, Uint8List.fromList(key)));
+  }
+
+  /// Decrypt a blob with an explicit AES-GCM key (no singleton lookup).
+  static Future<Uint8List> decryptWith(Uint8List blob, List<int> key) {
+    return compute(_gcmDecrypt, _GcmArgs(blob, Uint8List.fromList(key)));
+  }
+
+  /// Phase 1 of a password change: decrypts every at-rest media file with
+  /// [oldKey] and writes `<file>.new` encrypted with [newKey]. Originals stay
+  /// untouched until [commitRekey], so an interrupted change loses nothing.
+  static Future<List<String>> stageRekey(
+      List<int> oldKey, List<int> newKey) async {
+    final dir = Directory(await mediaDir());
+    final staged = <String>[];
+    try {
+      await for (final entity in dir.list()) {
+        if (entity is! File || entity.path.endsWith('.new')) {
+          continue;
+        }
+        final blob = await entity.readAsBytes();
+        final Uint8List plain;
+        try {
+          plain = await decryptWith(blob, oldKey);
+        } catch (e) {
+          // A file that does not decrypt with the current key is already
+          // unreadable; leave it alone instead of failing the whole change.
+          debugPrint('rekey skipped ${entity.path}: $e');
+          continue;
+        }
+        final encrypted = await encryptWith(plain, newKey);
+        final target = '${entity.path}.new';
+        await File(target).writeAsBytes(encrypted, flush: true);
+        staged.add(target);
+      }
+    } catch (e) {
+      await discardRekey(staged);
+      rethrow;
+    }
+    return staged;
+  }
+
+  /// Phase 2: replaces the originals with the staged files.
+  static Future<void> commitRekey(List<String> staged) async {
+    for (final path in staged) {
+      await File(path).rename(path.substring(0, path.length - '.new'.length));
+    }
+  }
+
+  /// Drops staged files after a failed key change.
+  static Future<void> discardRekey(List<String> staged) async {
+    for (final path in staged) {
+      try {
+        await File(path).delete();
+      } catch (_) {
+        // Staged files are disposable.
+      }
+    }
+  }
+
   /// Decrypt an at-rest file into a temporary plaintext file (for the platform
   /// video/audio players). The caller is responsible for deleting it on dispose.
   static Future<File> materializeTempFile(String path, String extension) async {
@@ -164,10 +226,11 @@ class MediaUtils {
   }
 
   /// Writes plaintext bytes to a temporary file, e.g. for keyboard-inserted
-  /// or downloaded GIFs that then go through the media pipeline.
+  /// GIFs that then go through the media pipeline. Never into [mediaDir],
+  /// which must only hold encrypted files.
   static Future<File> writeTempBytes(Uint8List bytes, String extension) async {
-    final dir = await mediaDir();
-    final file = File('$dir/send_${_uuid.v4()}.$extension');
+    final tmpDir = await getTemporaryDirectory();
+    final file = File('${tmpDir.path}/whisper_send_${_uuid.v4()}.$extension');
     await file.writeAsBytes(bytes, flush: true);
     return file;
   }
