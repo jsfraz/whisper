@@ -119,10 +119,11 @@ class _HomePageState extends State<HomePage> {
         () => Singleton().firebaseApi.setFirebaseToken(
             setFirebaseTokenInput: SetFirebaseTokenInput(token: fid)),
         useSecurity: true,
-      ).timeout(
-        Duration(seconds: 10),
-        onTimeout: () => null,
-      );
+      ).timeout(Duration(seconds: 10));
+      // Sent; the retry loop only covers values that never made it
+      if (_pendingFid == fid) {
+        _pendingFid = null;
+      }
     } catch (e) {
       // Error occurred, keep FID pending
       _pendingFid = fid;
