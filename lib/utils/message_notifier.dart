@@ -64,6 +64,8 @@ class MessageNotifier extends ChangeNotifier {
         reference.mediaId,
         localPath: localPath,
         downloadStatus: MediaDownloadStatus.ready,
+        // The reference carries the encrypted size; show the real one.
+        mediaSize: plaintext.length,
       );
       _pendingMediaRefs.remove(reference.mediaId);
       notifyListeners();

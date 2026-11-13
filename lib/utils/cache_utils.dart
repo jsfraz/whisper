@@ -332,8 +332,9 @@ class CacheUtils {
   }
 
   /// Update the local media state of a stored message (download progress).
+  /// [mediaSize] replaces the reference's encrypted size with the real one.
   static Future<void> updatePrivateMessageMedia(int userId, String mediaId,
-      {String? localPath, int? downloadStatus}) async {
+      {String? localPath, int? downloadStatus, int? mediaSize}) async {
     Box box = await _openPrivateMessagesBox();
     List<dynamic>? messages = box.get(userId);
     if (messages == null) {
@@ -348,6 +349,9 @@ class CacheUtils {
         }
         if (downloadStatus != null) {
           msg.downloadStatus = downloadStatus;
+        }
+        if (mediaSize != null) {
+          msg.mediaSize = mediaSize;
         }
         changed = true;
       }
