@@ -315,14 +315,18 @@ class _MediaBubbleState extends State<MediaBubble> {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.35),
-                shape: BoxShape.circle,
+            // Center gives the badge its intrinsic size; without it the
+            // StackFit.expand stack stretches the circle over the whole bubble.
+            Center(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(3),
+                child:
+                    const Icon(Icons.play_arrow, color: Colors.white, size: 18),
               ),
-              padding: const EdgeInsets.all(3),
-              child:
-                  const Icon(Icons.play_arrow, color: Colors.white, size: 18),
             ),
             if (widget.message.durationMs != null)
               Positioned(
