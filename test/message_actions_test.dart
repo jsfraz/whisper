@@ -18,7 +18,7 @@ void main() {
     // Swapped between the two steps; the app is built once so the localization
     // asset is loaded only once.
     var message =
-        PrivateMessage(2, 'hello', DateTime(2026), DateTime(2026), true);
+        PrivateMessage('2', 'hello', DateTime(2026), DateTime(2026), true);
 
     await tester.pumpWidget(EasyLocalization(
       path: 'assets/translations',
@@ -33,7 +33,7 @@ void main() {
             return Scaffold(
               body: Center(
                 child: ElevatedButton(
-                  onPressed: () => MessageActions.showSheet(inner, message, 5),
+                  onPressed: () => MessageActions.showSheet(inner, message, '5'),
                   child: const Text('open'),
                 ),
               ),
@@ -57,7 +57,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Attachment on disk without a caption: save, forward, delete, no copy.
-    message = PrivateMessage(2, '', DateTime(2026), DateTime(2026), true,
+    message = PrivateMessage('2', '', DateTime(2026), DateTime(2026), true,
         localPath: '/tmp/whisper_media_test', mediaTypeStr: 'image');
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();

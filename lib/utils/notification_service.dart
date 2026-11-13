@@ -11,7 +11,7 @@ import 'singleton.dart';
 class NotificationService {
   /// Set by HomePage while it is alive, so a tap on a single message
   /// notification can open the chat immediately instead of being queued.
-  static void Function(int userId)? onChatSelected;
+  static void Function(String userId)? onChatSelected;
 
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -74,8 +74,8 @@ class NotificationService {
   /// The payload of a single message notification is the sender id; grouped
   /// notifications carry none and just open HomePage.
   void _setPendingChat(String? payload) {
-    final userId = int.tryParse(payload ?? '');
-    if (userId == null) {
+    final userId = payload ?? '';
+    if (userId.isEmpty) {
       return;
     }
     final onChatSelected = NotificationService.onChatSelected;
@@ -88,7 +88,7 @@ class NotificationService {
 
   /// Show notifications.
   Future<void> showMessagesNotification(List<PrivateMessage> messages) async {
-    final Map<int, List<PrivateMessage>> groupedMessagesById = {};
+    final Map<String, List<PrivateMessage>> groupedMessagesById = {};
     for (var message in messages) {
       if (!groupedMessagesById.containsKey(message.senderId)) {
         groupedMessagesById[message.senderId] = [];

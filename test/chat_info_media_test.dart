@@ -4,7 +4,7 @@ import 'package:whisper/utils/message_notifier.dart';
 
 PrivateMessage message(String? type, String? path, DateTime sentAt,
     {int? downloadStatus}) {
-  return PrivateMessage(1, '', sentAt, sentAt, false,
+  return PrivateMessage('1', '', sentAt, sentAt, false,
       mediaTypeStr: type,
       localPath: path,
       downloadStatus: downloadStatus ?? MediaDownloadStatus.ready);

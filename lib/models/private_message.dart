@@ -21,7 +21,7 @@ class MediaDownloadStatus {
 @HiveType(typeId: 3)
 class PrivateMessage extends HiveObject {
   @HiveField(0)
-  int senderId;
+  String senderId;
   @HiveField(1)
   String message;
   @HiveField(2)

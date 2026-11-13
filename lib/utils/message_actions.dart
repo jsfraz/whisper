@@ -28,7 +28,7 @@ class MessageActions {
   /// Bubble long-press sheet with all actions that apply to [message].
   /// [conversationUserId] is the other side of the conversation.
   static Future<void> showSheet(
-      BuildContext context, PrivateMessage message, int conversationUserId,
+      BuildContext context, PrivateMessage message, String conversationUserId,
       {VoidCallback? onDeleted}) {
     return showModalBottomSheet(
       context: context,
@@ -119,7 +119,7 @@ class MessageActions {
 
   /// Delete the message only on this device, after a confirmation.
   static void delete(
-      BuildContext context, PrivateMessage message, int conversationUserId,
+      BuildContext context, PrivateMessage message, String conversationUserId,
       {VoidCallback? onDeleted}) {
     DialogUtils.yesNoDialog(
         context, 'deleteMessageConfirm'.tr(), 'deleteMessageConfirmText'.tr(),

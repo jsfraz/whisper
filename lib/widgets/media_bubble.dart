@@ -19,7 +19,7 @@ class MediaBubble extends StatefulWidget {
   final Color textColor;
   final VoidCallback onRetry;
   final bool canRetry;
-  final int conversationUserId;
+  final String conversationUserId;
 
   const MediaBubble({
     required this.message,

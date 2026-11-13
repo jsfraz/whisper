@@ -12,7 +12,7 @@ import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
 PrivateMessage media(String type, String? path, DateTime sentAt,
     {String? fileName, int size = 1024}) {
-  return PrivateMessage(1, '', sentAt, sentAt, false,
+  return PrivateMessage('1', '', sentAt, sentAt, false,
       mediaTypeStr: type,
       localPath: path,
       mediaSize: size,
@@ -82,16 +82,16 @@ void main() {
     final message =
         media('file', null, DateTime(2026, 11, 13), fileName: 'a.pdf');
     message.mediaId = 'media-1';
-    await CacheUtils.addPrivateMessages(7, [message]);
-    final stored = await CacheUtils.getPrivateMessages(7);
+    await CacheUtils.addPrivateMessages('7', [message]);
+    final stored = await CacheUtils.getPrivateMessages('7');
 
     expect(stored.single.fileName, 'a.pdf');
     expect(stored.single.mediaTypeStr, 'file');
 
     // A finished download replaces the encrypted size with the real one
-    await CacheUtils.updatePrivateMessageMedia(7, stored.single.mediaId!,
+    await CacheUtils.updatePrivateMessageMedia('7', stored.single.mediaId!,
         downloadStatus: MediaDownloadStatus.ready, mediaSize: 4096);
-    final updated = await CacheUtils.getPrivateMessages(7);
+    final updated = await CacheUtils.getPrivateMessages('7');
     expect(updated.single.mediaSize, 4096);
 
     await Hive.close();
@@ -111,7 +111,7 @@ void main() {
           textColor: Colors.white,
           onRetry: () {},
           canRetry: false,
-          conversationUserId: 1,
+          conversationUserId: '1',
         ),
       ),
     ));

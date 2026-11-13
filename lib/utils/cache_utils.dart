@@ -227,20 +227,20 @@ class CacheUtils {
   }
 
   /// Returns per-chat theme color, null means the global theme is used
-  static Future<Color?> getChatTheme(int userId) async {
+  static Future<Color?> getChatTheme(String userId) async {
     Box box = await _openThemeBox();
     String? hex = box.get('$_chatThemeKeyPrefix$userId');
     return hex == null ? null : ColorUtils.colorFromHex(hex);
   }
 
   /// Sets per-chat theme color
-  static Future<void> setChatTheme(int userId, Color color) async {
+  static Future<void> setChatTheme(String userId, Color color) async {
     Box box = await _openThemeBox();
     await box.put('$_chatThemeKeyPrefix$userId', ColorUtils.colorToHex(color));
   }
 
   /// Clears per-chat theme color, the chat falls back to the global theme
-  static Future<void> clearChatTheme(int userId) async {
+  static Future<void> clearChatTheme(String userId) async {
     Box box = await _openThemeBox();
     await box.delete('$_chatThemeKeyPrefix$userId');
   }
@@ -269,7 +269,7 @@ class CacheUtils {
 
   /// Add user message to cache
   static Future<void> addPrivateMessages(
-      int userId, List<PrivateMessage> messages) async {
+      String userId, List<PrivateMessage> messages) async {
     Box box = await _openPrivateMessagesBox();
     List<PrivateMessage> chatMessages = await getPrivateMessages(userId);
     chatMessages.addAll(messages);
@@ -277,7 +277,7 @@ class CacheUtils {
   }
 
   /// Get user messages and mark them as read
-  static Future<List<PrivateMessage>> getPrivateMessages(int userId,
+  static Future<List<PrivateMessage>> getPrivateMessages(String userId,
       {bool markAsRead = false}) async {
     Box box = await _openPrivateMessagesBox();
     List<dynamic>? messages = box.get(userId);
@@ -296,7 +296,7 @@ class CacheUtils {
   /// Delete a single message locally (and its media file). Nothing is sent to
   /// the server, so the other side keeps the message.
   static Future<void> deletePrivateMessage(
-      int userId, PrivateMessage message) async {
+      String userId, PrivateMessage message) async {
     Box box = await _openPrivateMessagesBox();
     List<dynamic>? messages = box.get(userId);
     if (messages == null) {
@@ -311,7 +311,7 @@ class CacheUtils {
   }
 
   /// Delete user messages
-  static Future<void> deletePrivateMessagesWithUser(int userId) async {
+  static Future<void> deletePrivateMessagesWithUser(String userId) async {
     Box messageBox = await _openPrivateMessagesBox();
     // Delete on-disk media files for this conversation first.
     await _deleteMediaFilesForUser(userId);
@@ -322,7 +322,7 @@ class CacheUtils {
   }
 
   /// Delete the encrypted-at-rest media files of all messages with [userId].
-  static Future<void> _deleteMediaFilesForUser(int userId) async {
+  static Future<void> _deleteMediaFilesForUser(String userId) async {
     final messages = await getPrivateMessages(userId);
     for (final msg in messages) {
       if (msg.localPath != null) {
@@ -333,7 +333,7 @@ class CacheUtils {
 
   /// Update the local media state of a stored message (download progress).
   /// [mediaSize] replaces the reference's encrypted size with the real one.
-  static Future<void> updatePrivateMessageMedia(int userId, String mediaId,
+  static Future<void> updatePrivateMessageMedia(String userId, String mediaId,
       {String? localPath, int? downloadStatus, int? mediaSize}) async {
     Box box = await _openPrivateMessagesBox();
     List<dynamic>? messages = box.get(userId);
@@ -367,13 +367,13 @@ class CacheUtils {
   }
 
   /// Gets user by ID
-  static Future<User?> getUserById(int userId) async {
+  static Future<User?> getUserById(String userId) async {
     Box box = await _openUserBox();
     return box.get(userId);
   }
 
   // Check if user with ID exists
-  static Future<bool> userExists(int userId) async {
+  static Future<bool> userExists(String userId) async {
     Box box = await _openUserBox();
     return box.containsKey(userId);
   }
@@ -389,9 +389,9 @@ class CacheUtils {
     Box box = await _openPrivateMessagesBox();
     Map<User, PrivateMessage> conversations = {};
     for (var entry in box.toMap().entries) {
-      User? user = await getUserById(entry.key as int);
+      User? user = await getUserById(entry.key as String);
       List<dynamic> messages = entry.value;
-      conversations[user ?? User(entry.key as int, '', '', false)] =
+      conversations[user ?? User(entry.key as String, '', '', false)] =
           messages.last as PrivateMessage;
     }
     // Sort conversations by last message date
@@ -418,20 +418,20 @@ class CacheUtils {
   }
 
   /// Sets message concept for user
-  static Future<void> setMessageConcept(int userId, String message) async {
+  static Future<void> setMessageConcept(String userId, String message) async {
     Box box = await _openMessageConceptBox();
     await box.put(userId, message);
   }
 
   /// Return message concept for user
-  static Future<String?> getMessageConcept(int userId) async {
+  static Future<String?> getMessageConcept(String userId) async {
     Box box = await _openMessageConceptBox();
     String? value = await box.get(userId);
     return value;
   }
 
   /// Delete message concept if it exists
-  static Future<void> deleteMessageConcept(int userId) async {
+  static Future<void> deleteMessageConcept(String userId) async {
     Box box = await _openMessageConceptBox();
     await box.delete(userId);
   }

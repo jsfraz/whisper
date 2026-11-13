@@ -20,10 +20,10 @@ void main() {
     await Hive.openBox('privateMessages');
     await Hive.box('privateMessages').clear();
     keep = PrivateMessage(
-        2, 'keep me', DateTime(2026, 1, 1), DateTime(2026, 1, 1), true);
+        '2', 'keep me', DateTime(2026, 1, 1), DateTime(2026, 1, 1), true);
     drop = PrivateMessage(
-        1, 'drop me', DateTime(2026, 1, 2), DateTime(2026, 1, 2), true);
-    await CacheUtils.addPrivateMessages(1, [keep, drop]);
+        '1', 'drop me', DateTime(2026, 1, 2), DateTime(2026, 1, 2), true);
+    await CacheUtils.addPrivateMessages('1', [keep, drop]);
   });
 
   tearDownAll(() async {
@@ -32,12 +32,12 @@ void main() {
   });
 
   test('deletePrivateMessage removes only the matching message', () async {
-    await CacheUtils.deletePrivateMessage(1, drop);
+    await CacheUtils.deletePrivateMessage('1', drop);
 
-    final messages = await CacheUtils.getPrivateMessages(1);
+    final messages = await CacheUtils.getPrivateMessages('1');
     expect(messages.length, 1);
     expect(messages.single.message, 'keep me');
     // The other conversation is untouched
-    expect(await CacheUtils.getPrivateMessages(2), isEmpty);
+    expect(await CacheUtils.getPrivateMessages('2'), isEmpty);
   });
 }

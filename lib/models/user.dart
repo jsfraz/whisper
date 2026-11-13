@@ -15,7 +15,7 @@ class User extends HiveObject {
   }
 
   @HiveField(0)
-  int id;
+  String id;
   @HiveField(1)
   String username;
   @HiveField(2)

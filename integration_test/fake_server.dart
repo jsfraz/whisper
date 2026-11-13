@@ -12,10 +12,10 @@ class FakeServer {
   FakeServer._(this._server);
 
   final HttpServer _server;
-  final Map<String, int> _wsTokens = {};
-  final Map<int, WebSocket> _sockets = {};
+  final Map<String, String> _wsTokens = {};
+  final Map<String, WebSocket> _sockets = {};
   final Map<String, Uint8List> _media = {};
-  final Map<String, int> _mediaReceivers = {};
+  final Map<String, String> _mediaReceivers = {};
   int _nextUserId = 1;
   int _nextMediaId = 1;
 
@@ -47,7 +47,7 @@ class FakeServer {
       if (path == '/api/auth/register') {
         final body = await _readJson(request);
         _json(request.response, {
-          'id': _nextUserId++,
+          'id': 'user-${_nextUserId++}',
           'username': body['username'],
           'publicKey': body['publicKey'],
           'admin': false,
@@ -95,13 +95,13 @@ class FakeServer {
       return;
     }
     Uint8List? file;
-    var receiverId = 0;
+    var receiverId = '';
     await for (final part in MimeMultipartTransformer(boundary).bind(request)) {
       final disposition = part.headers['content-disposition'] ?? '';
       final bytes = await part
           .fold<List<int>>(<int>[], (buffer, chunk) => buffer..addAll(chunk));
       if (disposition.contains('name="receiverId"')) {
-        receiverId = int.parse(utf8.decode(bytes));
+        receiverId = utf8.decode(bytes);
       } else if (disposition.contains('name="file"') &&
           disposition.contains('filename=')) {
         file = Uint8List.fromList(bytes);
@@ -147,7 +147,7 @@ class FakeServer {
         return;
       }
       final payload = message['payload'] as Map<String, dynamic>;
-      final receiverId = payload['receiverId'] as int;
+      final receiverId = payload['receiverId'] as String;
       final response = jsonEncode({
         'type': 'messages',
         'payload': [
@@ -174,10 +174,10 @@ class FakeServer {
     return jsonDecode(body) as Map<String, dynamic>;
   }
 
-  int _userId(HttpRequest request) {
+  String _userId(HttpRequest request) {
     final header = request.headers.value(HttpHeaders.authorizationHeader) ?? '';
     final token = header.replaceFirst('Bearer ', '');
-    return int.tryParse(token.replaceFirst('access-', '')) ?? 0;
+    return token.replaceFirst('access-', '');
   }
 
   void _json(HttpResponse response, Object body) {

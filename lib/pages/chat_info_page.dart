@@ -15,7 +15,7 @@ import 'media_viewer_page.dart';
 
 class ChatInfoPage extends StatefulWidget {
   const ChatInfoPage(this.userId, {super.key});
-  final int userId;
+  final String userId;
 
   @override
   State<ChatInfoPage> createState() => _ChatInfoPageState();

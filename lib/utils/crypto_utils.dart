@@ -89,7 +89,7 @@ class CryptoUtils {
 
   /// Generates JWT token valid for 5 seconds asynchronously.
   static Future<String> generateRsaJwt(
-      int userId, RSAPrivateKey privateKey) async {
+      String userId, RSAPrivateKey privateKey) async {
     return await compute(
         _generateRsaJwt, {'userId': userId, 'privateKey': privateKey});
   }

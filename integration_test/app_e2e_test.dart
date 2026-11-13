@@ -64,13 +64,13 @@ void main() {
 
     expect(user, isNotNull);
     expect(user!.username, 'e2euser');
-    expect(user.id, greaterThan(0));
+    expect(user.id, isNotEmpty);
   });
 
   testWidgets('login with RSA JWT and refresh', (tester) async {
     final apiClient = client(null);
     final jwt = await CryptoUtils.generateRsaJwt(
-        1, keys.privateKey as bu.RSAPrivateKey);
+        '1', keys.privateKey as bu.RSAPrivateKey);
     final auth = await AuthenticationApi(apiClient).authUser(
       authUserInput: AuthUserInput(token: jwt),
     );
@@ -103,7 +103,7 @@ void main() {
         Uint8List.fromList(utf8.encode('hello over websocket')),
         keys.publicKey as RSAPublicKey);
     sender.sendMessage(WsMessage.privateMessage(NewPrivateMessage(
-      1,
+      '1',
       encrypted['encryptedData']!,
       encrypted['encryptedKey']!,
       encrypted['nonce']!,
@@ -112,7 +112,7 @@ void main() {
 
     final response = await received.future.timeout(const Duration(seconds: 5));
     final message = (response.payload as List<PrivateMessage>).single;
-    expect(message.senderId, 2);
+    expect(message.senderId, '2');
 
     final plaintext = await CryptoUtils.decryptMessageData(
       message.content,
@@ -134,7 +134,7 @@ void main() {
     final upload = await MediaApi(client('access-1')).uploadMedia(
       http.MultipartFile.fromBytes('file', encrypted.blob,
           filename: 'blob.bin'),
-      2,
+      '2',
     );
     expect(upload!.id, isNotEmpty);
 

@@ -15,7 +15,7 @@ void main() async {
   test('generate JWT token', () async {
     var keyPair = await CryptoUtils.getRSAKeyPair();
     final token = await CryptoUtils.generateRsaJwt(
-        1, keyPair.privateKey as bu.RSAPrivateKey);
+        '1', keyPair.privateKey as bu.RSAPrivateKey);
     debugPrint(token);
   });
 }

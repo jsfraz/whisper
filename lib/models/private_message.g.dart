@@ -17,7 +17,7 @@ class PrivateMessageAdapter extends TypeAdapter<PrivateMessage> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return PrivateMessage(
-      fields[0] as int,
+      fields[0] as String,
       fields[1] as String,
       fields[2] as DateTime,
       fields[3] as DateTime,

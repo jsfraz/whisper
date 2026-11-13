@@ -47,7 +47,7 @@ class MessageNotifier extends ChangeNotifier {
   /// owning message is updated. On success the server copy is confirmed (and
   /// thus deleted); on failure the message is marked as failed for retry.
   Future<void> downloadMediaMessage(
-      int conversationUserId, MediaReference reference) async {
+      String conversationUserId, MediaReference reference) async {
     _pendingMediaRefs[reference.mediaId] = reference;
     try {
       final blob = await Utils.callApi(
@@ -84,7 +84,7 @@ class MessageNotifier extends ChangeNotifier {
 
   /// Retry a previously failed media download (current session only).
   Future<void> retryMediaDownload(
-      int conversationUserId, String mediaId) async {
+      String conversationUserId, String mediaId) async {
     final reference = _pendingMediaRefs[mediaId];
     if (reference == null) {
       return;
@@ -102,7 +102,7 @@ class MessageNotifier extends ChangeNotifier {
   bool canRetryMedia(String mediaId) => _pendingMediaRefs.containsKey(mediaId);
 
   /// Add messages to cache
-  Future<void> addMessages(int userId, List<PrivateMessage> messages) async {
+  Future<void> addMessages(String userId, List<PrivateMessage> messages) async {
     // Check if users exist
     for (var msg in messages) {
       if (!await CacheUtils.userExists(msg.senderId)) {
@@ -120,7 +120,7 @@ class MessageNotifier extends ChangeNotifier {
   }
 
   /// Get all messages by user ID
-  Future<List<PrivateMessage>> getMessages(int userId) async {
+  Future<List<PrivateMessage>> getMessages(String userId) async {
     var messages =
         await CacheUtils.getPrivateMessages(userId, markAsRead: true);
     await NotificationService().removeNotificationsById(
@@ -163,7 +163,7 @@ class MessageNotifier extends ChangeNotifier {
   }
 
   /// Delete chat by user ID
-  Future<void> deleteChat(int userId) async {
+  Future<void> deleteChat(String userId) async {
     await CacheUtils.deletePrivateMessagesWithUser(userId);
     notifyListeners();
   }

@@ -20,7 +20,7 @@ class MediaViewerPage extends StatefulWidget {
 
   /// The other side of the conversation: the source of the other attachments
   /// and what the delete action needs.
-  final int conversationUserId;
+  final String conversationUserId;
 
   const MediaViewerPage({
     required this.message,

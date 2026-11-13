@@ -34,7 +34,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final WebSocketManager _webSocketManager = WebSocketManager();
   List<User> _serverUsers = [];
-  List<int> _selectedUsers = [];
+  List<String> _selectedUsers = [];
   int _currentPageIndex = 0;
   List<ModelsInvite> _serverInvites = [];
   Map<User, PrivateMessage> _chats = {};
@@ -204,7 +204,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// Open the chat of [userId] on top of Home.
-  Future<void> _openChat(int userId) async {
+  Future<void> _openChat(String userId) async {
     final user = await CacheUtils.getUserById(userId);
     if (user == null || !mounted) {
       return;
