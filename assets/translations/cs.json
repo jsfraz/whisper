@@ -130,5 +130,14 @@
     "forwarded": "Přeposláno",
     "noChatsToForward": "Zatím žádné chaty, vyhledej uživatele",
     "mediaFile": "Soubor",
-    "fileTooLarge": "Soubor je příliš velký, maximum je"
+    "fileTooLarge": "Soubor je příliš velký, maximum je",
+    "send": "Odeslat",
+    "cancel": "Zrušit",
+    "sendAttachment": "Odeslat přílohu",
+    "sendAlbum": "Odeslat album",
+    "addCaption": "Přidat popisek",
+    "fileTypeNotAllowed": "Fotky a videa posílej přes Galerii nebo Fotoaparát",
+    "mediaAlbum": "Album",
+    "messageSending": "Odesílá se",
+    "messageSendFailed": "Odeslání se nezdařilo"
 }

@@ -261,6 +261,29 @@ class _ChatBubbleState extends State<ChatBubble> {
                               softWrap: true,
                             ),
                           ),
+                        // Outgoing messages show a clock while they are being
+                        // sent and an error when the send failed.
+                        if (widget.message.isMe &&
+                            widget.message.sendStatus != SendStatus.sent)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Tooltip(
+                              message: widget.message.sendStatus ==
+                                      SendStatus.failed
+                                  ? 'messageSendFailed'.tr()
+                                  : 'messageSending'.tr(),
+                              child: Icon(
+                                widget.message.sendStatus == SendStatus.failed
+                                    ? Icons.error_outline
+                                    : Icons.schedule,
+                                size: 13,
+                                color: widget.message.sendStatus ==
+                                        SendStatus.failed
+                                    ? Colors.red
+                                    : Colors.grey,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),

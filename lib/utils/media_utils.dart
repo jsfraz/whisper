@@ -99,8 +99,11 @@ class MediaUtils {
   static const Uuid _uuid = Uuid();
   static final ImagePicker _imagePicker = ImagePicker();
 
-  /// Version marker used by the media message envelope.
+  /// Version marker used by a single-media message envelope.
   static const int envelopeVersion = 1;
+
+  /// Version marker used by an album envelope (media is a list of references).
+  static const int envelopeVersionAlbum = 2;
 
   // ---------------------------------------------------------------------------
   // Transport encryption
@@ -311,6 +314,14 @@ class MediaUtils {
   /// Largest upload the server accepts (mirrors MEDIA_MAX_UPLOAD_SIZE).
   static const int maxUploadBytes = 25 * 1024 * 1024;
 
+  /// AES-GCM overhead added to every uploaded file (nonce + mac).
+  static const int transportOverheadBytes = _nonceLength + _macLength;
+
+  /// Whether a plaintext file of [plaintextBytes] fits the server limit once
+  /// it is encrypted for transport.
+  static bool uploadFits(int plaintextBytes) =>
+      plaintextBytes + transportOverheadBytes <= maxUploadBytes;
+
   /// Last path segment of [path], i.e. the file name with its extension.
   static String baseName(String path) => path.split(RegExp(r'[\\/]')).last;
 
@@ -446,19 +457,43 @@ class MediaUtils {
     return Uint8List.fromList(utf8.encode(jsonEncode(map)));
   }
 
-  /// Try to parse decrypted [plaintext] as a media envelope. Returns null when
-  /// the bytes are not a media envelope (i.e. a plain text message).
+  /// Build the plaintext (pre-encryption) bytes for an album message: a JSON
+  /// envelope wrapping [references] and an optional [caption].
+  static Uint8List buildAlbumEnvelope(
+      List<MediaReference> references, String caption) {
+    final map = <String, dynamic>{
+      'whisperMsg': envelopeVersionAlbum,
+      'kind': 'media',
+      'caption': caption,
+      'media': references.map((reference) => reference.toJson()).toList(),
+    };
+    return Uint8List.fromList(utf8.encode(jsonEncode(map)));
+  }
+
+  /// Try to parse decrypted [plaintext] as a media envelope (single or album).
+  /// Returns null when the bytes are not a media envelope (i.e. plain text).
   static ParsedMediaEnvelope? tryParseMediaEnvelope(Uint8List plaintext) {
     try {
       final decoded = jsonDecode(utf8.decode(plaintext));
-      if (decoded is Map &&
-          decoded['whisperMsg'] == envelopeVersion &&
-          decoded['kind'] == 'media' &&
-          decoded['media'] is Map) {
-        final reference = MediaReference.fromJson(
-            Map<String, dynamic>.from(decoded['media'] as Map));
+      if (decoded is Map && decoded['kind'] == 'media') {
         final caption = (decoded['caption'] as String?) ?? '';
-        return ParsedMediaEnvelope(reference, caption);
+        if (decoded['whisperMsg'] == envelopeVersion &&
+            decoded['media'] is Map) {
+          final reference = MediaReference.fromJson(
+              Map<String, dynamic>.from(decoded['media'] as Map));
+          return ParsedMediaEnvelope([reference], caption);
+        }
+        if (decoded['whisperMsg'] == envelopeVersionAlbum &&
+            decoded['media'] is List) {
+          final references = (decoded['media'] as List)
+              .whereType<Map>()
+              .map((item) =>
+                  MediaReference.fromJson(Map<String, dynamic>.from(item)))
+              .toList();
+          if (references.isNotEmpty) {
+            return ParsedMediaEnvelope(references, caption);
+          }
+        }
       }
     } catch (_) {
       // Not JSON / not a media envelope -> treat as plain text.
@@ -496,14 +531,39 @@ class MediaUtils {
     final path = picked?.path;
     return path == null ? null : File(path);
   }
+
+  /// Pick several images/videos from the gallery at once (album).
+  static Future<List<File>> pickMultipleMediaFromGallery() async {
+    final picked = await _imagePicker.pickMultipleMedia();
+    return picked.map((x) => File(x.path)).toList();
+  }
+
+  /// Pick several arbitrary files at once (album).
+  static Future<List<File>> pickMultipleFiles() async {
+    final picked = await FilePicker.pickFiles(type: FileType.any);
+    return picked
+        .map((file) => file.path)
+        .whereType<String>()
+        .map((path) => File(path))
+        .toList();
+  }
+
+  /// Whether [file] is a photo, gif or video (the "File" attachment must not
+  /// send those; the gallery and camera entries are for them).
+  static bool isVisualMedia(File file) {
+    final type = detectType(file.path);
+    return type == MediaType.image ||
+        type == MediaType.gif ||
+        type == MediaType.video;
+  }
 }
 
-/// Parsed media envelope: a [MediaReference] plus its caption.
+/// Parsed media envelope: one or more [MediaReference]s plus the caption.
 class ParsedMediaEnvelope {
-  final MediaReference reference;
+  final List<MediaReference> references;
   final String caption;
 
-  const ParsedMediaEnvelope(this.reference, this.caption);
+  const ParsedMediaEnvelope(this.references, this.caption);
 }
 
 /// Thin wrapper around the [AudioRecorder] for hold-to-record voice messages.

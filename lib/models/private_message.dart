@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:hive/hive.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
@@ -16,6 +18,84 @@ class MediaDownloadStatus {
 
   /// Download or decryption failed; can be retried.
   static const int failed = 2;
+}
+
+/// Outbound send state, shown as an icon in the bubble.
+class SendStatus {
+  /// Written to the cache, not yet handed to the WebSocket.
+  static const int sending = 0;
+
+  /// Handed to the WebSocket (there is no delivery receipt).
+  static const int sent = 1;
+
+  /// The send failed; the message stays local with a failed marker.
+  static const int failed = 2;
+}
+
+/// One attachment of an album message. Albums are stored as a JSON list on
+/// [PrivateMessage.albumJson], so a new attachment type does not need a Hive
+/// schema for every field.
+class AlbumItem {
+  AlbumItem({
+    required this.mediaId,
+    required this.type,
+    required this.size,
+    this.width,
+    this.height,
+    this.durationMs,
+    this.fileName,
+    this.localPath,
+    this.status = MediaDownloadStatus.ready,
+  });
+
+  String mediaId;
+
+  /// [MediaType.name] of this item.
+  String type;
+  int size;
+  int? width;
+  int? height;
+  int? durationMs;
+  String? fileName;
+
+  /// Encrypted-at-rest file on this device, null until downloaded/sent.
+  String? localPath;
+  int status;
+
+  MediaType? get mediaType {
+    try {
+      return MediaType.values.byName(type);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool get isReady =>
+      status == MediaDownloadStatus.ready && localPath != null;
+
+  Map<String, dynamic> toJson() => {
+        'mediaId': mediaId,
+        'type': type,
+        'size': size,
+        if (width != null) 'width': width,
+        if (height != null) 'height': height,
+        if (durationMs != null) 'durationMs': durationMs,
+        if (fileName != null) 'fileName': fileName,
+        if (localPath != null) 'localPath': localPath,
+        'status': status,
+      };
+
+  static AlbumItem fromJson(Map<String, dynamic> json) => AlbumItem(
+        mediaId: json['mediaId'] as String,
+        type: json['type'] as String,
+        size: (json['size'] as num).toInt(),
+        width: (json['width'] as num?)?.toInt(),
+        height: (json['height'] as num?)?.toInt(),
+        durationMs: (json['durationMs'] as num?)?.toInt(),
+        fileName: json['fileName'] as String?,
+        localPath: json['localPath'] as String?,
+        status: (json['status'] as num?)?.toInt() ?? MediaDownloadStatus.ready,
+      );
 }
 
 @HiveType(typeId: 3)
@@ -38,7 +118,7 @@ class PrivateMessage extends HiveObject {
   @HiveField(5)
   String? mediaId;
 
-  /// [MediaType.name] of the attachment, or null for text messages.
+  /// [MediaType.name] of the attachment, or null for text messages and albums.
   @HiveField(6)
   String? mediaTypeStr;
 
@@ -70,6 +150,15 @@ class PrivateMessage extends HiveObject {
   @HiveField(13)
   String? fileName;
 
+  /// Send state, see [SendStatus]. Old records default to sent.
+  @HiveField(14, defaultValue: SendStatus.sent)
+  int sendStatus;
+
+  /// JSON list of [AlbumItem]s when this message carries more than one
+  /// attachment. Null for text and single-media messages.
+  @HiveField(15)
+  String? albumJson;
+
   PrivateMessage(
     this.senderId,
     this.message,
@@ -85,18 +174,62 @@ class PrivateMessage extends HiveObject {
     this.durationMs,
     this.downloadStatus = MediaDownloadStatus.ready,
     this.fileName,
+    this.sendStatus = SendStatus.sent,
+    this.albumJson,
   });
 
   bool get isMe => senderId == Singleton().profile.user.id;
 
   int get notificationId => receivedAt.microsecondsSinceEpoch % 0x7FFFFFFF;
 
-  /// Whether this message carries a media attachment.
-  bool get isMedia => mediaTypeStr != null;
+  /// Whether this message carries a media attachment (single or album).
+  bool get isMedia => mediaTypeStr != null || isAlbum;
 
-  /// The decoded [MediaType] of the attachment, or null for text messages.
+  /// Whether this message is an album (more than one attachment).
+  bool get isAlbum => albumJson != null;
+
+  /// Decoded album items, empty for non-album messages.
+  List<AlbumItem> get album {
+    final raw = albumJson;
+    if (raw == null) {
+      return const [];
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map>()
+            .map((item) => AlbumItem.fromJson(Map<String, dynamic>.from(item)))
+            .toList();
+      }
+    } catch (_) {
+      // Corrupted entry: behave like a message without attachments.
+    }
+    return const [];
+  }
+
+  /// Replaces the album items and serializes them back into [albumJson].
+  void setAlbum(List<AlbumItem> items) {
+    albumJson = jsonEncode(items.map((item) => item.toJson()).toList());
+  }
+
+  /// Local (encrypted-at-rest) files of this message, for deletion.
+  List<String> get localPaths {
+    final paths = <String>[];
+    if (localPath != null) {
+      paths.add(localPath!);
+    }
+    for (final item in album) {
+      if (item.localPath != null) {
+        paths.add(item.localPath!);
+      }
+    }
+    return paths;
+  }
+
+  /// The decoded [MediaType] of the attachment, or null for text and albums.
   MediaType? get mediaType {
-    if (mediaTypeStr == null) {
+    if (albumJson != null || mediaTypeStr == null) {
       return null;
     }
     try {
@@ -111,6 +244,9 @@ class PrivateMessage extends HiveObject {
   String get preview {
     if (!isMedia || message.isNotEmpty) {
       return message;
+    }
+    if (isAlbum) {
+      return '${'mediaAlbum'.tr()} (${album.length})';
     }
     switch (mediaType) {
       case MediaType.image:

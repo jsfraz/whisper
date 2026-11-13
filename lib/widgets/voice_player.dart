@@ -140,36 +140,39 @@ class _VoicePlayerState extends State<VoicePlayer> {
                     : total.inMilliseconds.toDouble();
                 final value =
                     position.inMilliseconds.clamp(0, max.toInt()).toDouble();
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
+                // Slider and the time label sit on one line, so the track is
+                // vertically centred in the row instead of being pushed up by
+                // a stacked label.
+                return Row(
                   children: [
-                    SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 2,
-                        thumbShape:
-                            const RoundSliderThumbShape(enabledThumbRadius: 6),
-                        overlayShape:
-                            const RoundSliderOverlayShape(overlayRadius: 12),
-                        activeTrackColor: widget.color,
-                        thumbColor: widget.color,
-                        inactiveTrackColor: widget.color.withValues(alpha: 0.3),
-                      ),
-                      child: Slider(
-                        min: 0,
-                        max: max,
-                        value: value,
-                        onChanged: _loading
-                            ? null
-                            : (v) =>
-                                _player.seek(Duration(milliseconds: v.toInt())),
+                    Expanded(
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 2,
+                          thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 6),
+                          overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 12),
+                          activeTrackColor: widget.color,
+                          thumbColor: widget.color,
+                          inactiveTrackColor:
+                              widget.color.withValues(alpha: 0.3),
+                        ),
+                        child: Slider(
+                          min: 0,
+                          max: max,
+                          value: value,
+                          onChanged: _loading
+                              ? null
+                              : (v) => _player
+                                  .seek(Duration(milliseconds: v.toInt())),
+                        ),
                       ),
                     ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        _format(position.inMilliseconds > 0 ? position : total),
-                        style: TextStyle(fontSize: 11, color: widget.color),
-                      ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _format(position.inMilliseconds > 0 ? position : total),
+                      style: TextStyle(fontSize: 11, color: widget.color),
                     ),
                   ],
                 );

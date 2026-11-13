@@ -281,12 +281,19 @@ class CacheUtils {
       {bool markAsRead = false}) async {
     Box box = await _openPrivateMessagesBox();
     List<dynamic>? messages = box.get(userId);
-    // Mark as read
+    // Mark as read, but only write when something actually changed: this runs
+    // on every chat rebuild.
     if (markAsRead && messages != null) {
+      var changed = false;
       for (PrivateMessage msg in messages) {
-        msg.read = true;
+        if (!msg.read) {
+          msg.read = true;
+          changed = true;
+        }
       }
-      await box.put(userId, messages);
+      if (changed) {
+        await box.put(userId, messages);
+      }
     }
     return messages == null
         ? []
@@ -307,7 +314,9 @@ class CacheUtils {
         m.senderId == message.senderId &&
         m.sentAt == message.sentAt);
     await box.put(userId, messages);
-    await MediaUtils.deleteLocalFile(message.localPath);
+    for (final path in message.localPaths) {
+      await MediaUtils.deleteLocalFile(path);
+    }
   }
 
   /// Delete user messages
@@ -325,8 +334,8 @@ class CacheUtils {
   static Future<void> _deleteMediaFilesForUser(String userId) async {
     final messages = await getPrivateMessages(userId);
     for (final msg in messages) {
-      if (msg.localPath != null) {
-        await MediaUtils.deleteLocalFile(msg.localPath);
+      for (final path in msg.localPaths) {
+        await MediaUtils.deleteLocalFile(path);
       }
     }
   }
@@ -355,9 +364,67 @@ class CacheUtils {
         }
         changed = true;
       }
+      // Album attachment: update the matching item.
+      if (msg.isAlbum) {
+        final items = msg.album;
+        var itemChanged = false;
+        for (final item in items) {
+          if (item.mediaId != mediaId) {
+            continue;
+          }
+          if (localPath != null) {
+            item.localPath = localPath;
+          }
+          if (downloadStatus != null) {
+            item.status = downloadStatus;
+          }
+          if (mediaSize != null) {
+            item.size = mediaSize;
+          }
+          itemChanged = true;
+        }
+        if (itemChanged) {
+          msg.setAlbum(items);
+          // The message-level flag follows the album, so the bubble can show a
+          // single state for "still downloading" vs "done".
+          if (downloadStatus != null) {
+            final allReady = items
+                .every((item) => item.status == MediaDownloadStatus.ready);
+            final anyFailed = items
+                .any((item) => item.status == MediaDownloadStatus.failed);
+            msg.downloadStatus = allReady
+                ? MediaDownloadStatus.ready
+                : (anyFailed
+                    ? MediaDownloadStatus.failed
+                    : MediaDownloadStatus.pending);
+          }
+          changed = true;
+        }
+      }
     }
     if (changed) {
       await box.put(userId, messages);
+    }
+  }
+
+  /// Apply [update] to the stored copy of [message] and persist the list.
+  /// The message is matched by sender and timestamp, the same identity the
+  /// delete path uses.
+  static Future<void> updateStoredMessage(String userId,
+      PrivateMessage message, void Function(PrivateMessage stored) update) async {
+    Box box = await _openPrivateMessagesBox();
+    List<dynamic>? messages = box.get(userId);
+    if (messages == null) {
+      return;
+    }
+    for (final dynamic m in messages) {
+      final stored = m as PrivateMessage;
+      if (stored.senderId == message.senderId &&
+          stored.sentAt == message.sentAt) {
+        update(stored);
+        await box.put(userId, messages);
+        return;
+      }
     }
   }
 

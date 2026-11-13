@@ -150,8 +150,8 @@ class Utils {
         var messages = wsResponse.payload as List<PrivateMessage>;
         messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
         List<pm.PrivateMessage> decryptedMessages = [];
-        // Media references that still need to be downloaded after persisting.
-        List<MediaReference> pendingMediaRefs = [];
+        // Media references of each conversation that still need a download.
+        final pendingMediaRefs = <String, List<MediaReference>>{};
 
         // Parallel decrypt all messages
         try {
@@ -168,7 +168,31 @@ class Utils {
               final envelope =
                   MediaUtils.tryParseMediaEnvelope(decryptedMessage);
               if (envelope != null) {
-                final ref = envelope.reference;
+                if (envelope.references.length > 1) {
+                  // Album: one bubble, one download per attachment.
+                  final albumMsg = pm.PrivateMessage(
+                    message.senderId,
+                    envelope.caption,
+                    message.sentAt,
+                    DateTime.now(),
+                    false,
+                    downloadStatus: pm.MediaDownloadStatus.pending,
+                  );
+                  albumMsg.setAlbum(envelope.references
+                      .map((ref) => pm.AlbumItem(
+                            mediaId: ref.mediaId,
+                            type: ref.type.name,
+                            size: ref.size,
+                            width: ref.width,
+                            height: ref.height,
+                            durationMs: ref.durationMs,
+                            fileName: ref.fileName,
+                            status: pm.MediaDownloadStatus.pending,
+                          ))
+                      .toList());
+                  return (albumMsg, envelope.references);
+                }
+                final ref = envelope.references.single;
                 final mediaMsg = pm.PrivateMessage(
                   message.senderId,
                   envelope.caption,
@@ -184,7 +208,7 @@ class Utils {
                   fileName: ref.fileName,
                   downloadStatus: pm.MediaDownloadStatus.pending,
                 );
-                return (mediaMsg, ref);
+                return (mediaMsg, [ref]);
               }
               // Plain text message (legacy/unchanged path).
               final textMsg = pm.PrivateMessage(
@@ -193,7 +217,7 @@ class Utils {
                   message.sentAt,
                   DateTime.now(),
                   false);
-              return (textMsg, null);
+              return (textMsg, const <MediaReference>[]);
             } catch (e) {
               // Log individual message decryption errors
               if (kDebugMode) {
@@ -208,11 +232,16 @@ class Utils {
 
           // Filter out failed decryptions (null values)
           final valid = results
-              .whereType<(pm.PrivateMessage, MediaReference?)>()
+              .whereType<(pm.PrivateMessage, List<MediaReference>)>()
               .toList();
           decryptedMessages = valid.map((e) => e.$1).toList();
-          pendingMediaRefs =
-              valid.map((e) => e.$2).whereType<MediaReference>().toList();
+          for (final (message, refs) in valid) {
+            if (refs.isNotEmpty) {
+              pendingMediaRefs
+                  .putIfAbsent(message.senderId, () => [])
+                  .addAll(refs);
+            }
+          }
 
           // Show toast only if all messages failed to decrypt
           if (decryptedMessages.isEmpty && messages.isNotEmpty) {
@@ -224,14 +253,19 @@ class Utils {
               msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
         }
         if (decryptedMessages.isNotEmpty) {
-          final conversationUserId = decryptedMessages.first.senderId;
-          await MessageNotifier()
-              .addMessages(conversationUserId, decryptedMessages);
-
-          // Kick off media downloads now that placeholders are persisted.
-          for (final ref in pendingMediaRefs) {
-            // Fire-and-forget; updates the message + notifies on completion.
-            MessageNotifier().downloadMediaMessage(conversationUserId, ref);
+          // A batch can hold messages from several senders: store each
+          // conversation under its own key.
+          final bySender = <String, List<pm.PrivateMessage>>{};
+          for (final message in decryptedMessages) {
+            bySender.putIfAbsent(message.senderId, () => []).add(message);
+          }
+          for (final entry in bySender.entries) {
+            await MessageNotifier().addMessages(entry.key, entry.value);
+            // Kick off media downloads now that placeholders are persisted.
+            for (final ref in pendingMediaRefs[entry.key] ?? const []) {
+              // Fire-and-forget; updates the message + notifies on completion.
+              MessageNotifier().downloadMediaMessage(entry.key, ref);
+            }
           }
 
           // Remove messages from notifications if user was not online when they were sent

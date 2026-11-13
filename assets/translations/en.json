@@ -130,5 +130,14 @@
     "forwarded": "Forwarded",
     "noChatsToForward": "No chats yet, search for a user",
     "mediaFile": "File",
-    "fileTooLarge": "File is too large, the maximum is"
+    "fileTooLarge": "File is too large, the maximum is",
+    "send": "Send",
+    "cancel": "Cancel",
+    "sendAttachment": "Send attachment",
+    "sendAlbum": "Send album",
+    "addCaption": "Add a caption",
+    "fileTypeNotAllowed": "Photos and videos go through Gallery or Camera",
+    "mediaAlbum": "Album",
+    "messageSending": "Sending",
+    "messageSendFailed": "Sending failed"
 }

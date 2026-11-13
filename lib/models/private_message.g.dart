@@ -31,13 +31,15 @@ class PrivateMessageAdapter extends TypeAdapter<PrivateMessage> {
       durationMs: fields[11] as int?,
       downloadStatus: fields[12] == null ? 1 : fields[12] as int,
       fileName: fields[13] as String?,
+      sendStatus: fields[14] == null ? 1 : fields[14] as int,
+      albumJson: fields[15] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, PrivateMessage obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.senderId)
       ..writeByte(1)
@@ -65,7 +67,11 @@ class PrivateMessageAdapter extends TypeAdapter<PrivateMessage> {
       ..writeByte(12)
       ..write(obj.downloadStatus)
       ..writeByte(13)
-      ..write(obj.fileName);
+      ..write(obj.fileName)
+      ..writeByte(14)
+      ..write(obj.sendStatus)
+      ..writeByte(15)
+      ..write(obj.albumJson);
   }
 
   @override

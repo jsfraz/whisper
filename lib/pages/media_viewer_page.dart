@@ -22,9 +22,13 @@ class MediaViewerPage extends StatefulWidget {
   /// and what the delete action needs.
   final String conversationUserId;
 
+  /// Index of the tapped attachment when [message] is an album.
+  final int albumIndex;
+
   const MediaViewerPage({
     required this.message,
     required this.conversationUserId,
+    this.albumIndex = 0,
     super.key,
   });
 
@@ -48,12 +52,32 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
   /// The viewer pages through the same attachments the gallery shows, starting
   /// at the one that was tapped.
   Future<void> _loadMedia() async {
+    if (widget.message.isAlbum) {
+      // Album attachments are pages of their own; keep the album order so the
+      // tapped tile maps to the same index.
+      final media = MessageNotifier.albumMedia(widget.message);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _media = media.isEmpty ? [widget.message] : media;
+        _index = widget.albumIndex.clamp(0, _media.length - 1);
+        _controller = PageController(initialPage: _index);
+      });
+      return;
+    }
     final messages =
         await CacheUtils.getPrivateMessages(widget.conversationUserId);
     final media = MessageNotifier.viewableMedia(messages);
-    final index = media.indexWhere((m) =>
-        m.senderId == widget.message.senderId &&
-        m.sentAt == widget.message.sentAt);
+    var index = -1;
+    if (widget.message.mediaId != null) {
+      index = media.indexWhere((m) => m.mediaId == widget.message.mediaId);
+    }
+    if (index < 0) {
+      index = media.indexWhere((m) =>
+          m.senderId == widget.message.senderId &&
+          m.sentAt == widget.message.sentAt);
+    }
     if (!mounted) {
       return;
     }

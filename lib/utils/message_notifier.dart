@@ -22,17 +22,55 @@ class MessageNotifier extends ChangeNotifier {
   MessageNotifier._internal();
 
   /// The media messages of a conversation that the viewer can open, newest
-  /// first: a local file, a known type, fully downloaded, not voice.
+  /// first: a local file, a known type, fully downloaded, not voice. Album
+  /// items are expanded into one entry per attachment.
   static List<PrivateMessage> viewableMedia(List<PrivateMessage> messages) {
-    final media = messages
-        .where((m) =>
-            m.localPath != null &&
-            m.mediaType != null &&
-            m.mediaType != MediaType.voice &&
-            m.downloadStatus == MediaDownloadStatus.ready)
-        .toList();
+    final media = <PrivateMessage>[];
+    for (final message in messages) {
+      if (message.isAlbum) {
+        for (final item in albumMedia(message)) {
+          if (item.localPath != null &&
+              item.mediaType != null &&
+              item.mediaType != MediaType.voice &&
+              item.downloadStatus == MediaDownloadStatus.ready) {
+            media.add(item);
+          }
+        }
+        continue;
+      }
+      if (message.localPath != null &&
+          message.mediaType != null &&
+          message.mediaType != MediaType.voice &&
+          message.downloadStatus == MediaDownloadStatus.ready) {
+        media.add(message);
+      }
+    }
     media.sort((a, b) => b.sentAt.compareTo(a.sentAt));
     return media;
+  }
+
+  /// One [PrivateMessage] per album attachment, in album order, so the viewer
+  /// and the gallery can treat them like single media messages.
+  static List<PrivateMessage> albumMedia(PrivateMessage message) {
+    return [
+      for (final item in message.album)
+        PrivateMessage(
+          message.senderId,
+          message.message,
+          message.sentAt,
+          message.receivedAt,
+          message.read,
+          mediaId: item.mediaId,
+          mediaTypeStr: item.type,
+          localPath: item.localPath,
+          mediaSize: item.size,
+          width: item.width,
+          height: item.height,
+          durationMs: item.durationMs,
+          fileName: item.fileName,
+          downloadStatus: item.status,
+        )
+    ];
   }
 
   /// In-memory map of media references awaiting (or having failed) download,
