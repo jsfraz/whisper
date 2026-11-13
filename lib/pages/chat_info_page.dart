@@ -17,21 +17,6 @@ class ChatInfoPage extends StatefulWidget {
   const ChatInfoPage(this.userId, {super.key});
   final int userId;
 
-  /// Media messages with a local file that the viewer can open, newest first.
-  /// Voice messages and attachments that are still downloading are left out.
-  @visibleForTesting
-  static List<PrivateMessage> sharedMedia(List<PrivateMessage> messages) {
-    final media = messages
-        .where((m) =>
-            m.localPath != null &&
-            m.mediaType != null &&
-            m.mediaType != MediaType.voice &&
-            m.downloadStatus == MediaDownloadStatus.ready)
-        .toList();
-    media.sort((a, b) => b.sentAt.compareTo(a.sentAt));
-    return media;
-  }
-
   @override
   State<ChatInfoPage> createState() => _ChatInfoPageState();
 }
@@ -61,7 +46,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
         await CacheUtils.getPrivateMessages(widget.userId);
     if (mounted) {
       setState(() {
-        _media = ChatInfoPage.sharedMedia(messages);
+        _media = MessageNotifier.viewableMedia(messages);
       });
     }
   }

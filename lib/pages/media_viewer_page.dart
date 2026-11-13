@@ -8,14 +8,18 @@ import 'package:video_player/video_player.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
 import '../models/private_message.dart';
+import '../utils/cache_utils.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
+import '../utils/message_notifier.dart';
 
-/// Fullscreen viewer for an image/gif or video stored encrypted-at-rest.
+/// Fullscreen viewer for the media of one conversation, stored
+/// encrypted-at-rest. Swiping moves between the attachments.
 class MediaViewerPage extends StatefulWidget {
   final PrivateMessage message;
 
-  /// The other side of the conversation (needed by the delete action).
+  /// The other side of the conversation: the source of the other attachments
+  /// and what the delete action needs.
   final int conversationUserId;
 
   const MediaViewerPage({
@@ -29,6 +33,138 @@ class MediaViewerPage extends StatefulWidget {
 }
 
 class _MediaViewerPageState extends State<MediaViewerPage> {
+  List<PrivateMessage> _media = [];
+  PageController? _controller;
+  int _index = 0;
+
+  PrivateMessage get _current => _media[_index];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMedia();
+  }
+
+  /// The viewer pages through the same attachments the gallery shows, starting
+  /// at the one that was tapped.
+  Future<void> _loadMedia() async {
+    final messages =
+        await CacheUtils.getPrivateMessages(widget.conversationUserId);
+    final media = MessageNotifier.viewableMedia(messages);
+    final index = media.indexWhere((m) =>
+        m.senderId == widget.message.senderId &&
+        m.sentAt == widget.message.sentAt);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _media = media.isEmpty ? [widget.message] : media;
+      _index = index < 0 ? 0 : index;
+      _controller = PageController(initialPage: _index);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  /// Overflow menu of the viewer: the same actions as the bubble sheet, except
+  /// copy (the caption is already visible).
+  PopupMenuButton<String> _buildActions() {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert),
+      onSelected: (value) {
+        switch (value) {
+          case 'save':
+            MessageActions.save(_current);
+            break;
+          case 'forward':
+            MessageActions.forward(context, _current);
+            break;
+          case 'delete':
+            MessageActions.delete(context, _current, widget.conversationUserId,
+                onDeleted: () => Navigator.pop(context));
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        if (MessageActions.canSave(_current))
+          _menuItem('save', MessageActions.saveIcon, 'saveAttachment'.tr()),
+        _menuItem('forward', MessageActions.forwardIcon, 'forwardMessage'.tr()),
+        _menuItem(
+            'delete', MessageActions.deleteIcon, 'deleteMessageForMe'.tr()),
+      ],
+    );
+  }
+
+  /// Menu row with the same icon the bubble sheet uses for this action.
+  PopupMenuItem<String> _menuItem(String value, IconData icon, String label) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon),
+          const SizedBox(width: 12),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    final caption = controller == null ? '' : _current.message;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: controller == null ? null : [_buildActions()],
+      ),
+      body: controller == null
+          ? const Center(child: CircularProgressIndicator())
+          : PageView.builder(
+              controller: controller,
+              itemCount: _media.length,
+              onPageChanged: (index) => setState(() {
+                _index = index;
+              }),
+              itemBuilder: (context, index) => Center(
+                child: _MediaPage(_media[index]),
+              ),
+            ),
+      bottomNavigationBar: caption.isNotEmpty
+          ? Container(
+              color: Colors.black,
+              padding: const EdgeInsets.all(16),
+              child: SafeArea(
+                top: false,
+                child: Text(
+                  caption,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+/// One attachment of the viewer: decodes its own file and releases it again
+/// when the page is swiped away.
+class _MediaPage extends StatefulWidget {
+  const _MediaPage(this.message);
+  final PrivateMessage message;
+
+  @override
+  State<_MediaPage> createState() => _MediaPageState();
+}
+
+class _MediaPageState extends State<_MediaPage> {
   Uint8List? _imageBytes;
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
@@ -90,81 +226,8 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
     super.dispose();
   }
 
-  /// Overflow menu of the viewer: the same actions as the bubble sheet, except
-  /// copy (the caption is already visible).
-  PopupMenuButton<String> _buildActions() {
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert),
-      onSelected: (value) {
-        switch (value) {
-          case 'save':
-            MessageActions.save(widget.message);
-            break;
-          case 'forward':
-            MessageActions.forward(context, widget.message);
-            break;
-          case 'delete':
-            MessageActions.delete(
-                context, widget.message, widget.conversationUserId,
-                onDeleted: () => Navigator.pop(context));
-            break;
-        }
-      },
-      itemBuilder: (context) => [
-        if (MessageActions.canSave(widget.message))
-          _menuItem('save', MessageActions.saveIcon, 'saveAttachment'.tr()),
-        _menuItem('forward', MessageActions.forwardIcon, 'forwardMessage'.tr()),
-        _menuItem(
-            'delete', MessageActions.deleteIcon, 'deleteMessageForMe'.tr()),
-      ],
-    );
-  }
-
-  /// Menu row with the same icon the bubble sheet uses for this action.
-  PopupMenuItem<String> _menuItem(String value, IconData icon, String label) {
-    return PopupMenuItem(
-      value: value,
-      child: Row(
-        children: [
-          Icon(icon),
-          const SizedBox(width: 12),
-          Text(label),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final caption = widget.message.message;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [_buildActions()],
-      ),
-      body: Center(
-        child: _buildBody(),
-      ),
-      bottomNavigationBar: caption.isNotEmpty
-          ? Container(
-              color: Colors.black,
-              padding: const EdgeInsets.all(16),
-              child: SafeArea(
-                top: false,
-                child: Text(
-                  caption,
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            )
-          : null,
-    );
-  }
-
-  Widget _buildBody() {
     if (_loading) {
       return const CircularProgressIndicator();
     }

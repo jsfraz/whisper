@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:whisper_openapi_client_dart/media_download.dart';
 import 'package:whisper_websocket_client_dart/models/media_reference.dart';
+import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import '../utils/notification_service.dart';
 
 import '../models/private_message.dart';
@@ -19,6 +20,20 @@ class MessageNotifier extends ChangeNotifier {
   }
 
   MessageNotifier._internal();
+
+  /// The media messages of a conversation that the viewer can open, newest
+  /// first: a local file, a known type, fully downloaded, not voice.
+  static List<PrivateMessage> viewableMedia(List<PrivateMessage> messages) {
+    final media = messages
+        .where((m) =>
+            m.localPath != null &&
+            m.mediaType != null &&
+            m.mediaType != MediaType.voice &&
+            m.downloadStatus == MediaDownloadStatus.ready)
+        .toList();
+    media.sort((a, b) => b.sentAt.compareTo(a.sentAt));
+    return media;
+  }
 
   /// In-memory map of media references awaiting (or having failed) download,
   /// keyed by media id. The transport key is intentionally never persisted to

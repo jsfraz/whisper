@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whisper/models/private_message.dart';
-import 'package:whisper/pages/chat_info_page.dart';
+import 'package:whisper/utils/message_notifier.dart';
 
 PrivateMessage message(String? type, String? path, DateTime sentAt,
     {int? downloadStatus}) {
@@ -13,7 +13,7 @@ PrivateMessage message(String? type, String? path, DateTime sentAt,
 void main() {
   test('shared media keeps only ready, viewable media with a local file', () {
     final now = DateTime(2026, 11, 12, 12);
-    final media = ChatInfoPage.sharedMedia([
+    final media = MessageNotifier.viewableMedia([
       message('image', '/tmp/a.jpg', now),
       message('video', '/tmp/b.mp4', now.subtract(const Duration(minutes: 1))),
       // Voice messages are not part of the overview
