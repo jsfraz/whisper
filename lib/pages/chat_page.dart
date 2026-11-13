@@ -80,6 +80,19 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {});
   }
 
+  /// Open the chat info page (avatar and name in the header, info button).
+  Future<void> _openChatInfo() async {
+    await Navigator.of(context).push(PageTransition(
+        duration: const Duration(milliseconds: 300),
+        reverseDuration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        type: PageTransitionType.rightToLeftJoined,
+        child: ChatInfoPage(widget.user.id),
+        childCurrent: widget));
+    // The theme may have changed while the info page was open
+    await _loadChatTheme();
+  }
+
   /// Send message
   Future<void> _sendMessage() async {
     final text = _controllerMessage.text;
@@ -524,16 +537,19 @@ class _ChatPageState extends State<ChatPage> {
                         icon: const Icon(Icons.arrow_back),
                         onPressed: () => Navigator.pop(context),
                       ),
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: widget.user.avatarColor,
-                        child: Text(
-                          widget.user.username.isNotEmpty
-                              ? widget.user.username[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: widget.user.avatarTextColor,
+                      GestureDetector(
+                        onTap: _openChatInfo,
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: widget.user.avatarColor,
+                          child: Text(
+                            widget.user.username.isNotEmpty
+                                ? widget.user.username[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: widget.user.avatarTextColor,
+                            ),
                           ),
                         ),
                       ),
@@ -541,24 +557,17 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                   leadingWidth: 96, // Increase width to accommodate both icons
                   // Title
-                  title: Text(widget.user.username),
+                  title: GestureDetector(
+                    onTap: _openChatInfo,
+                    behavior: HitTestBehavior.opaque,
+                    child: Text(widget.user.username),
+                  ),
                   // Action buttons
                   actions: [
                     IconButton(
                       icon: const Icon(Icons.info),
                       tooltip: 'infoButton'.tr(),
-                      onPressed: () async {
-                        // Push info page
-                        await Navigator.of(context).push(PageTransition(
-                            duration: const Duration(milliseconds: 300),
-                            reverseDuration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                            type: PageTransitionType.rightToLeftJoined,
-                            child: ChatInfoPage(widget.user.id),
-                            childCurrent: widget));
-                        // The theme may have changed while the info page was open
-                        await _loadChatTheme();
-                      },
+                      onPressed: _openChatInfo,
                     ),
                   ],
                 ),
