@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:whisper/models/private_message.dart';
 import 'package:whisper/utils/cache_utils.dart';
 import 'package:whisper/utils/media_utils.dart';
 import 'package:whisper/utils/message_notifier.dart';
+import 'package:whisper/widgets/media_bubble.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
 PrivateMessage media(String type, String? path, DateTime sentAt,
@@ -84,5 +86,29 @@ void main() {
 
     await Hive.close();
     dir.deleteSync(recursive: true);
+  });
+
+  testWidgets('the document bubble shows the name and the size',
+      (tester) async {
+    final message = media('file', '/tmp/invoice.pdf', DateTime(2026, 11, 13),
+        fileName: 'invoice.pdf', size: 2048);
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: MediaBubble(
+          message: message,
+          bubbleColor: Colors.blue,
+          textColor: Colors.white,
+          onRetry: () {},
+          canRetry: false,
+          conversationUserId: 1,
+        ),
+      ),
+    ));
+    await tester.pump();
+
+    expect(find.text('invoice.pdf'), findsOneWidget);
+    expect(find.text('2.0 KB'), findsOneWidget);
+    expect(find.byIcon(Icons.insert_drive_file), findsOneWidget);
   });
 }
