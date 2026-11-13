@@ -307,7 +307,8 @@ class _MediaBubbleState extends State<MediaBubble> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.insert_drive_file, color: widget.textColor, size: 32),
+            Icon(MediaUtils.iconForFileName(widget.message.fileName),
+                color: widget.textColor, size: 32),
             const SizedBox(width: 8),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 180),

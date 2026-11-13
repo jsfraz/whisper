@@ -309,7 +309,7 @@ class _MediaTileState extends State<_MediaTile> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.insert_drive_file, size: 24),
+        Icon(MediaUtils.iconForFileName(widget.message.fileName), size: 24),
         if (extension.isNotEmpty)
           Text(
             extension.toUpperCase(),

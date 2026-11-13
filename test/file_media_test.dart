@@ -41,12 +41,15 @@ void main() {
     expect(MediaUtils.baseName('no-slash.txt'), 'no-slash.txt');
   });
 
-  test('text previews are limited to text extensions', () {
-    expect(MediaUtils.isTextFile('notes.txt'), isTrue);
-    expect(MediaUtils.isTextFile('DATA.CSV'), isTrue);
-    expect(MediaUtils.isTextFile('invoice.pdf'), isFalse);
-    expect(MediaUtils.isTextFile('README'), isFalse);
-    expect(MediaUtils.isTextFile(null), isFalse);
+  test('documents get an icon per type', () {
+    expect(MediaUtils.iconForFileName('invoice.pdf'), Icons.picture_as_pdf);
+    expect(MediaUtils.iconForFileName('report.docx'), Icons.description);
+    expect(MediaUtils.iconForFileName('budget.xlsx'), Icons.table_chart);
+    expect(MediaUtils.iconForFileName('slides.pptx'), Icons.slideshow);
+    expect(MediaUtils.iconForFileName('pack.zip'), Icons.folder_zip);
+    expect(MediaUtils.iconForFileName('notes.txt'), Icons.article);
+    expect(MediaUtils.iconForFileName('blob'), Icons.insert_drive_file);
+    expect(MediaUtils.iconForFileName(null), Icons.insert_drive_file);
   });
 
   test('sizes are formatted for the bubble', () {
@@ -116,6 +119,6 @@ void main() {
 
     expect(find.text('invoice.pdf'), findsOneWidget);
     expect(find.text('2.0 KB'), findsOneWidget);
-    expect(find.byIcon(Icons.insert_drive_file), findsOneWidget);
+    expect(find.byIcon(Icons.picture_as_pdf), findsOneWidget);
   });
 }

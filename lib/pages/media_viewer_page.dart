@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -173,9 +172,6 @@ class _MediaPageState extends State<_MediaPage> {
   bool _loading = true;
   bool _error = false;
 
-  /// Decrypted text preview of a text file, null when there is none.
-  String? _text;
-
   MediaType get _type => widget.message.mediaType ?? MediaType.image;
 
   bool get _isVideo => _type == MediaType.video;
@@ -195,13 +191,7 @@ class _MediaPageState extends State<_MediaPage> {
         throw Exception('no local media');
       }
       if (_isFile) {
-        // Only text files get a preview, everything else just shows its name.
-        final size = widget.message.mediaSize ?? 0;
-        if (MediaUtils.isTextFile(widget.message.fileName) &&
-            size <= MediaUtils.maxTextPreviewBytes) {
-          final bytes = await MediaUtils.decryptAtRest(localPath);
-          _text = utf8.decode(bytes, allowMalformed: true);
-        }
+        // A file shows its icon and metadata, never its content.
       } else if (_isVideo) {
         _tempFile = await MediaUtils.materializeTempFile(
             localPath, MediaUtils.extensionForType(_type));
@@ -270,17 +260,17 @@ class _MediaPageState extends State<_MediaPage> {
     return Text('mediaError'.tr(), style: const TextStyle(color: Colors.white));
   }
 
-  /// File page: name, size, save button and a text preview when we have one.
+  /// File page: icon, name, size and a save button.
   Widget _filePage() {
     final message = widget.message;
     final name = message.fileName ?? 'mediaFile'.tr();
-    final text = _text;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.insert_drive_file, color: Colors.white, size: 64),
+          Icon(MediaUtils.iconForFileName(message.fileName),
+              color: Colors.white, size: 64),
           const SizedBox(height: 12),
           Text(
             name,
@@ -301,27 +291,6 @@ class _MediaPageState extends State<_MediaPage> {
             icon: const Icon(Icons.download),
             label: Text('saveAttachment'.tr()),
           ),
-          const SizedBox(height: 24),
-          if (text != null)
-            Expanded(
-              child: SingleChildScrollView(
-                child: SelectableText(
-                  text,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            )
-          else if (MediaUtils.isTextFile(message.fileName) &&
-              (message.mediaSize ?? 0) > MediaUtils.maxTextPreviewBytes)
-            Text(
-              'fileTooLargeToPreview'.tr(),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
         ],
       ),
     );

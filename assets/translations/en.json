@@ -130,6 +130,5 @@
     "forwarded": "Forwarded",
     "noChatsToForward": "No chats yet, search for a user",
     "mediaFile": "File",
-    "fileTooLarge": "File is too large, the maximum is",
-    "fileTooLargeToPreview": "The file is too large to preview, save it instead."
+    "fileTooLarge": "File is too large, the maximum is"
 }

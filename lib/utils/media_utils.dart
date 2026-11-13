@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:cryptography/cryptography.dart' as cryptography;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show IconData, Icons;
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:path_provider/path_provider.dart';
@@ -310,36 +311,52 @@ class MediaUtils {
   /// Largest upload the server accepts (mirrors MEDIA_MAX_UPLOAD_SIZE).
   static const int maxUploadBytes = 25 * 1024 * 1024;
 
-  /// Largest text file the viewer renders as a preview.
-  static const int maxTextPreviewBytes = 256 * 1024;
-
   /// Last path segment of [path], i.e. the file name with its extension.
   static String baseName(String path) => path.split(RegExp(r'[\\/]')).last;
 
-  /// Extensions whose content can be shown as text in the viewer.
-  static const Set<String> textExtensions = {
-    'txt',
-    'md',
-    'log',
-    'csv',
-    'json',
-    'xml',
-    'yaml',
-    'yml',
-    'ini',
-    'html',
-  };
-
-  /// Whether [fileName] is a text file we can preview.
-  static bool isTextFile(String? fileName) {
-    if (fileName == null) {
-      return false;
+  /// Icon for a document, picked from its extension. Everything unknown falls
+  /// back to a plain file.
+  static IconData iconForFileName(String? fileName) {
+    final dot = fileName?.lastIndexOf('.') ?? -1;
+    final extension = dot >= 0 && dot < (fileName!.length - 1)
+        ? fileName.substring(dot + 1).toLowerCase()
+        : '';
+    switch (extension) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+      case 'odt':
+      case 'rtf':
+        return Icons.description;
+      case 'xls':
+      case 'xlsx':
+      case 'ods':
+      case 'csv':
+        return Icons.table_chart;
+      case 'ppt':
+      case 'pptx':
+      case 'odp':
+        return Icons.slideshow;
+      case 'zip':
+      case 'rar':
+      case '7z':
+      case 'tar':
+      case 'gz':
+        return Icons.folder_zip;
+      case 'json':
+      case 'xml':
+      case 'yaml':
+      case 'yml':
+      case 'html':
+        return Icons.code;
+      case 'txt':
+      case 'md':
+      case 'log':
+        return Icons.article;
+      default:
+        return Icons.insert_drive_file;
     }
-    final dot = fileName.lastIndexOf('.');
-    if (dot < 0 || dot == fileName.length - 1) {
-      return false;
-    }
-    return textExtensions.contains(fileName.substring(dot + 1).toLowerCase());
   }
 
   /// Human readable size, e.g. `1.4 MB`.
