@@ -14,6 +14,7 @@ import '../utils/chat_sender.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_notifier.dart';
 import '../utils/theme_utils.dart';
+import '../widgets/attachment_confirm_sheet.dart';
 import '../widgets/chat_bubble.dart';
 import 'chat_info_page.dart';
 
@@ -302,59 +303,12 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   /// Bottom sheet with a caption field; returns the caption, or null to cancel.
-  Future<String?> _confirmAttachment(int count) async {
-    final controller = TextEditingController(text: _controllerMessage.text.trim());
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                count > 1
-                    ? '${'sendAlbum'.tr()} ($count)'
-                    : 'sendAttachment'.tr(),
-                style: Theme.of(ctx).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                minLines: 1,
-                maxLines: 4,
-                autofocus: true,
-                decoration: InputDecoration(hintText: 'addCaption'.tr()),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text('cancel'.tr()),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-                    child: Text('send'.tr()),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
+  Future<String?> _confirmAttachment(int count) {
+    return AttachmentConfirmSheet.show(
+      context,
+      count: count,
+      initialCaption: _controllerMessage.text.trim(),
     );
-    controller.dispose();
-    return result;
   }
 
   /// GIF/WebP inserted straight from the keyboard (Gboard image keyboard).
