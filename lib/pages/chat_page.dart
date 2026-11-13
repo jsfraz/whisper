@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:page_transition/page_transition.dart';
-import 'package:provider/provider.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
 import '../models/user.dart';
@@ -28,18 +28,27 @@ class ChatPage extends StatefulWidget {
 // Transaprent AppBar: https://ckreymborg.medium.com/how-to-create-a-glassmorphism-frosted-glass-appbar-in-flutter-fb217ce1b4ca
 
 class _ChatPageState extends State<ChatPage> {
+  /// Messages added per scroll-up step (incremental loading).
+  static const int _pageSize = 30;
+
   // Add controller for text input
   final TextEditingController _controllerMessage = TextEditingController();
   // Add list for messages
   List<PrivateMessage> _messages = [];
+  // How many of the newest messages are rendered
+  int _visibleCount = _pageSize;
   // Buttons
   bool _isSending = false;
-  // ScrollController for content
+  // ScrollController for content (list is reversed: offset 0 is the newest)
   final ScrollController _scrollController = ScrollController();
   // Indicates whether messages are being load for the first time
   bool _firstLoad = true;
+  // Guards against overlapping cache reads
+  bool _loading = false;
   // Voice recording state
   bool _isRecording = false;
+  bool _recordingStarting = false;
+  bool _stopRequested = false;
   bool _cancelRecording = false;
   MediaRecorderController? _recorderController;
   Duration _recordDuration = Duration.zero;
@@ -50,6 +59,8 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    MessageNotifier().addListener(_onMessagesChanged);
+    _scrollController.addListener(_onScroll);
     // Load messages from cache
     _loadMessages();
     // Load concept message
@@ -58,42 +69,77 @@ class _ChatPageState extends State<ChatPage> {
     _loadChatTheme();
   }
 
-  Future<void> _loadChatTheme() async {
-    Color? color = await CacheUtils.getChatTheme(widget.user.id);
-    if (mounted) {
+  /// Reload the conversation from the cache when messages or media state change.
+  void _onMessagesChanged() {
+    _loadMessages();
+  }
+
+  /// Load the conversation once per change instead of once per build.
+  Future<void> _loadMessages() async {
+    if (_loading || !mounted) {
+      return;
+    }
+    _loading = true;
+    try {
+      final messages = await MessageNotifier().getMessages(widget.user.id);
+      if (!mounted) {
+        return;
+      }
       setState(() {
-        _chatThemeColor = color;
+        _messages = messages;
+        _firstLoad = false;
+      });
+    } finally {
+      _loading = false;
+    }
+  }
+
+  /// Extend the rendered window when the user scrolls towards older messages.
+  void _onScroll() {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    if (_scrollController.position.extentAfter < 200 &&
+        _visibleCount < _messages.length) {
+      setState(() {
+        _visibleCount += _pageSize;
       });
     }
   }
 
+  /// Load the draft message saved when leaving the chat.
   Future<void> getConceptMessage() async {
     String? conceptMsg = await CacheUtils.getMessageConcept(widget.user.id);
-    if (conceptMsg != null) {
-      _controllerMessage.text = conceptMsg;
+    if (!mounted) {
+      return;
     }
+    setState(() {
+      _controllerMessage.text = conceptMsg ?? '';
+    });
   }
 
-  Future<void> _loadMessages() async {
-    _messages = await MessageNotifier().getMessages(widget.user.id);
-    MessageNotifier().notify();
-    setState(() {});
+  /// Load the per-chat theme override.
+  Future<void> _loadChatTheme() async {
+    Color? color = await CacheUtils.getChatTheme(widget.user.id);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _chatThemeColor = color;
+    });
   }
 
-  /// Open the chat info page (avatar and name in the header, info button).
   Future<void> _openChatInfo() async {
     await Navigator.of(context).push(PageTransition(
-        duration: const Duration(milliseconds: 300),
-        reverseDuration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        type: PageTransitionType.rightToLeftJoined,
-        child: ChatInfoPage(widget.user.id),
-        childCurrent: widget));
-    // The theme may have changed while the info page was open
+      type: PageTransitionType.rightToLeft,
+      child: ChatInfoPage(widget.user.id),
+    ));
+    // The theme (and possibly the user) may have changed while it was open.
     await _loadChatTheme();
+    await _loadMessages();
   }
 
-  /// Send message
+  /// Send the typed text.
   Future<void> _sendMessage() async {
     final text = _controllerMessage.text;
     if (text.isEmpty) {
@@ -104,7 +150,6 @@ class _ChatPageState extends State<ChatPage> {
     });
     if (await ChatSender.sendText(widget.user, text)) {
       _controllerMessage.text = '';
-      // Delete concept
       await CacheUtils.deleteMessageConcept(widget.user.id);
     }
     if (mounted) {
@@ -114,9 +159,8 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// Send a media attachment: encrypt for transport, upload, embed an encrypted
-  /// reference in the message, store the file encrypted-at-rest and add an
-  /// optimistic bubble.
+  /// Send a media attachment: probe what the type needs, then the shared send
+  /// path (encrypt, upload, persist a bubble, send).
   Future<void> _sendMedia(MediaType type, File file,
       {String caption = '', int? durationMs}) async {
     setState(() {
@@ -124,43 +168,14 @@ class _ChatPageState extends State<ChatPage> {
     });
     try {
       final bytes = await file.readAsBytes();
-
-      // Refuse what the server would reject anyway, before uploading it.
-      if (bytes.length > MediaUtils.maxUploadBytes) {
-        await Fluttertoast.showToast(
-            msg:
-                '${'fileTooLarge'.tr()} ${MediaUtils.formatBytes(MediaUtils.maxUploadBytes)}',
-            backgroundColor: Colors.red);
-        return;
-      }
-
-      // Probe metadata depending on the media type.
-      int? width;
-      int? height;
-      int? duration = durationMs;
-      if (type == MediaType.image || type == MediaType.gif) {
-        final probe = await MediaUtils.imageDimensions(bytes);
-        width = probe.width;
-        height = probe.height;
-      } else if (type == MediaType.video) {
-        final probe = await MediaUtils.videoMetadata(file.path);
-        width = probe.width;
-        height = probe.height;
-        duration ??= probe.durationMs;
-      }
-
+      final probe = await _probe(type, bytes, file.path, durationMs);
       final sent = await ChatSender.sendMedia(widget.user, type, bytes,
           caption: caption,
-          width: width,
-          height: height,
-          durationMs: duration,
+          width: probe.width,
+          height: probe.height,
+          durationMs: probe.durationMs,
           fileName: MediaUtils.baseName(file.path));
-
-      // The caption (taken from the text field) was consumed -> clear it.
-      if (sent && caption.isNotEmpty && _controllerMessage.text == caption) {
-        _controllerMessage.text = '';
-        await CacheUtils.deleteMessageConcept(widget.user.id);
-      }
+      _afterSend(sent, caption);
     } catch (e) {
       await Fluttertoast.showToast(
           msg: e.toString(), backgroundColor: Colors.red);
@@ -173,22 +188,173 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// Pick media using [picker], detect its type (unless [forcedType] is set)
-  /// and send it, using any typed text as the caption.
-  Future<void> _pickAndSend(
-      Future<File?> Function() picker, MediaType? forcedType) async {
+  /// Send several attachments as one album message.
+  Future<void> _sendAlbum(List<File> files, {String caption = ''}) async {
+    setState(() {
+      _isSending = true;
+    });
     try {
-      final file = await picker();
-      if (file == null) {
+      final attachments = <OutgoingAttachment>[];
+      for (final file in files) {
+        final bytes = await file.readAsBytes();
+        final type = MediaUtils.detectType(file.path);
+        final probe = await _probe(type, bytes, file.path, null);
+        attachments.add(OutgoingAttachment(
+          type: type,
+          bytes: bytes,
+          width: probe.width,
+          height: probe.height,
+          durationMs: probe.durationMs,
+          fileName: MediaUtils.baseName(file.path),
+        ));
+      }
+      final sent = await ChatSender.sendAlbum(widget.user, attachments,
+          caption: caption);
+      _afterSend(sent, caption);
+    } catch (e) {
+      await Fluttertoast.showToast(
+          msg: e.toString(), backgroundColor: Colors.red);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
+    }
+  }
+
+  /// Clear the composer when the caption was consumed by a successful send.
+  void _afterSend(bool sent, String caption) {
+    if (sent && caption.isNotEmpty && _controllerMessage.text == caption) {
+      _controllerMessage.text = '';
+      CacheUtils.deleteMessageConcept(widget.user.id);
+    }
+  }
+
+  /// Width/height/duration for the types that need them.
+  Future<MediaProbe> _probe(
+      MediaType type, Uint8List bytes, String path, int? durationMs) async {
+    if (type == MediaType.image || type == MediaType.gif) {
+      return MediaUtils.imageDimensions(bytes);
+    }
+    if (type == MediaType.video) {
+      final probe = await MediaUtils.videoMetadata(path);
+      return MediaProbe(
+        width: probe.width,
+        height: probe.height,
+        durationMs: probe.durationMs ?? durationMs,
+      );
+    }
+    return MediaProbe(durationMs: durationMs);
+  }
+
+  /// Pick one or more files, then confirm with an optional caption.
+  ///
+  /// [forcedType] fixes the type for camera picks; [filesOnly] rejects photos
+  /// and videos (the "File" entry must stay a document picker).
+  Future<void> _pickAndSend(
+      Future<List<File>> Function() picker,
+      {MediaType? forcedType,
+      bool filesOnly = false}) async {
+    try {
+      final picked = await picker();
+      if (picked.isEmpty) {
         return;
       }
-      final type = forcedType ?? MediaUtils.detectType(file.path);
-      final caption = _controllerMessage.text.trim();
-      await _sendMedia(type, file, caption: caption);
+      var files = picked;
+      if (filesOnly) {
+        files = picked.where((file) => !MediaUtils.isVisualMedia(file)).toList();
+        if (files.length != picked.length) {
+          await Fluttertoast.showToast(
+              msg: 'fileTypeNotAllowed'.tr(),
+              backgroundColor: Colors.orange);
+        }
+        if (files.isEmpty) {
+          return;
+        }
+      }
+
+      // Cheap size check before reading anything into memory.
+      for (final file in files) {
+        if (!MediaUtils.uploadFits(await file.length())) {
+          await Fluttertoast.showToast(
+              msg:
+                  '${'fileTooLarge'.tr()} ${MediaUtils.formatBytes(MediaUtils.maxUploadBytes)}',
+              backgroundColor: Colors.red);
+          return;
+        }
+      }
+
+      final caption = await _confirmAttachment(files.length);
+      if (caption == null) {
+        return;
+      }
+      if (files.length == 1) {
+        final type = forcedType ?? MediaUtils.detectType(files.first.path);
+        await _sendMedia(type, files.first, caption: caption);
+      } else {
+        await _sendAlbum(files, caption: caption);
+      }
     } catch (e) {
       await Fluttertoast.showToast(
           msg: e.toString(), backgroundColor: Colors.red);
     }
+  }
+
+  /// Bottom sheet with a caption field; returns the caption, or null to cancel.
+  Future<String?> _confirmAttachment(int count) async {
+    final controller = TextEditingController(text: _controllerMessage.text.trim());
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                count > 1
+                    ? '${'sendAlbum'.tr()} ($count)'
+                    : 'sendAttachment'.tr(),
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                minLines: 1,
+                maxLines: 4,
+                autofocus: true,
+                decoration: InputDecoration(hintText: 'addCaption'.tr()),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text('cancel'.tr()),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+                    child: Text('send'.tr()),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    controller.dispose();
+    return result;
   }
 
   /// GIF/WebP inserted straight from the keyboard (Gboard image keyboard).
@@ -219,7 +385,10 @@ class _ChatPageState extends State<ChatPage> {
                 title: Text('attachCamera'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickAndSend(MediaUtils.pickImageFromCamera, MediaType.image);
+                  _pickAndSend(() async {
+                    final file = await MediaUtils.pickImageFromCamera();
+                    return file == null ? <File>[] : [file];
+                  }, forcedType: MediaType.image);
                 },
               ),
               ListTile(
@@ -227,7 +396,10 @@ class _ChatPageState extends State<ChatPage> {
                 title: Text('attachVideoCamera'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickAndSend(MediaUtils.pickVideoFromCamera, MediaType.video);
+                  _pickAndSend(() async {
+                    final file = await MediaUtils.pickVideoFromCamera();
+                    return file == null ? <File>[] : [file];
+                  }, forcedType: MediaType.video);
                 },
               ),
               ListTile(
@@ -235,7 +407,7 @@ class _ChatPageState extends State<ChatPage> {
                 title: Text('attachGallery'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickAndSend(MediaUtils.pickMediaFromGallery, null);
+                  _pickAndSend(MediaUtils.pickMultipleMediaFromGallery);
                 },
               ),
               ListTile(
@@ -243,7 +415,7 @@ class _ChatPageState extends State<ChatPage> {
                 title: Text('attachFile'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _pickAndSend(MediaUtils.pickFile, null);
+                  _pickAndSend(MediaUtils.pickMultipleFiles, filesOnly: true);
                 },
               ),
             ],
@@ -255,22 +427,29 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Start recording a voice message (hold-to-record).
   Future<void> _startRecording() async {
-    if (_isRecording || _isSending) {
+    if (_isRecording || _recordingStarting || _isSending) {
       return;
     }
+    _recordingStarting = true;
     final controller = MediaRecorderController();
-    if (!await controller.hasPermission()) {
-      await controller.dispose();
-      await Fluttertoast.showToast(
-          msg: 'micPermissionDenied'.tr(), backgroundColor: Colors.red);
-      return;
-    }
     try {
+      if (!await controller.hasPermission()) {
+        await Fluttertoast.showToast(
+            msg: 'micPermissionDenied'.tr(), backgroundColor: Colors.red);
+        await controller.dispose();
+        return;
+      }
       await controller.start();
     } catch (e) {
       await controller.dispose();
       await Fluttertoast.showToast(
           msg: e.toString(), backgroundColor: Colors.red);
+      return;
+    } finally {
+      _recordingStarting = false;
+    }
+    if (!mounted) {
+      await controller.dispose();
       return;
     }
     setState(() {
@@ -286,6 +465,11 @@ class _ChatPageState extends State<ChatPage> {
         });
       }
     });
+    // The finger was lifted while the recorder was still starting.
+    if (_stopRequested) {
+      _stopRequested = false;
+      await _stopRecording();
+    }
   }
 
   /// Finish recording and send (unless the gesture was cancelled).
@@ -295,9 +479,12 @@ class _ChatPageState extends State<ChatPage> {
     final controller = _recorderController;
     _recorderController = null;
     final cancelled = _cancelRecording;
-    setState(() {
-      _isRecording = false;
-    });
+    _cancelRecording = false;
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+      });
+    }
     if (controller == null) {
       return;
     }
@@ -320,6 +507,17 @@ class _ChatPageState extends State<ChatPage> {
     }
     await _sendMedia(MediaType.voice, recorded.file,
         durationMs: recorded.durationMs);
+  }
+
+  /// Stop and drop the recording (bar button).
+  Future<void> _cancelRecordingGesture() async {
+    if (!_isRecording) {
+      return;
+    }
+    setState(() {
+      _cancelRecording = true;
+    });
+    await _stopRecording();
   }
 
   String _formatRecordDuration(Duration d) {
@@ -366,10 +564,19 @@ class _ChatPageState extends State<ChatPage> {
                     if (hasText) {
                       return IconButton(
                         onPressed: _isSending ? null : _sendMessage,
-                        icon: const Icon(Icons.send),
+                        icon: _isSending
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
+                              )
+                            : const Icon(Icons.send),
                       );
                     }
-                    // Hold-to-record voice message.
+                    // Hold-to-record voice message. The bar is overlaid while
+                    // recording, so this detector stays mounted and its
+                    // long-press end still fires.
                     return GestureDetector(
                       onLongPressStart: (_) {
                         if (!_isSending) {
@@ -388,6 +595,8 @@ class _ChatPageState extends State<ChatPage> {
                       onLongPressEnd: (_) {
                         if (_isRecording) {
                           _stopRecording();
+                        } else {
+                          _stopRequested = true;
                         }
                       },
                       child: IconButton(
@@ -415,7 +624,7 @@ class _ChatPageState extends State<ChatPage> {
     final color =
         _cancelRecording ? Colors.red : Theme.of(context).colorScheme.primary;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark
             ? Theme.of(context).colorScheme.surfaceBright
@@ -435,8 +644,16 @@ class _ChatPageState extends State<ChatPage> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Icon(
-            _cancelRecording ? Icons.delete : Icons.arrow_back,
+          IconButton(
+            tooltip: 'cancel'.tr(),
+            onPressed: _cancelRecordingGesture,
+            icon: const Icon(Icons.delete),
+            color: Colors.red,
+          ),
+          IconButton(
+            tooltip: 'send'.tr(),
+            onPressed: _stopRecording,
+            icon: const Icon(Icons.send),
             color: color,
           ),
         ],
@@ -444,66 +661,94 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// Get ListView with content
-  ListView _getContent(List<PrivateMessage> messages) {
-    _firstLoad = false;
+  /// Avatar + name header shown above the oldest message.
+  Widget _buildHeader() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 20, bottom: 20),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 50,
+              backgroundColor: widget.user.avatarColor,
+              child: Text(
+                widget.user.username.isNotEmpty
+                    ? widget.user.username[0].toUpperCase()
+                    : '?',
+                style: TextStyle(
+                  fontSize: 40,
+                  color: widget.user.avatarTextColor,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              widget.user.username,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 30),
+            Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 50),
+                child: Text('legendaryChat'.tr(), textAlign: TextAlign.center)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Reversed list: offset 0 is the newest message, so the chat opens at the
+  /// bottom and growing bubbles or the keyboard never strand it mid-list.
+  Widget _getContent(List<PrivateMessage> messages) {
+    final start = messages.length > _visibleCount
+        ? messages.length - _visibleCount
+        : 0;
+    final visible = messages.sublist(start);
+    final hasOlder = start > 0;
+    final itemCount = visible.length + 1;
+
     return ListView.builder(
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
       controller: _scrollController,
-      reverse: false,
-      itemCount: messages.length + 1,
+      reverse: true,
+      itemCount: itemCount,
       itemBuilder: (context, index) {
-        if (index == 0) {
-          // Header with avatar (will appear at the top)
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 20, bottom: 20),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: widget.user.avatarColor,
-                    child: Text(
-                      widget.user.username.isNotEmpty
-                          ? widget.user.username[0].toUpperCase()
-                          : '?',
-                      style: TextStyle(
-                        fontSize: 40,
-                        color: widget.user.avatarTextColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    widget.user.username,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 50),
-                      child: Text('legendaryChat'.tr(),
-                          textAlign: TextAlign.center)),
-                ],
+        // Last item is the conversation header (top of the screen).
+        if (index == visible.length) {
+          if (hasOlder) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
-            ),
-          );
+            );
+          }
+          return _buildHeader();
         }
-        // Return chat bubble
-        final previousMessage = index > 1 ? messages[index - 2] : null;
-        final message = messages[index - 1];
-        final nextMessage = index < messages.length ? messages[index] : null;
-        return ChatBubble(previousMessage, message, nextMessage, widget.user);
+        // index 0 is the newest message; older messages have higher indices.
+        final message = visible[visible.length - 1 - index];
+        final position = visible.length - 1 - index;
+        final older = position > 0 ? visible[position - 1] : null;
+        final newer = position < visible.length - 1
+            ? visible[position + 1]
+            : null;
+        return ChatBubble(older, message, newer, widget.user);
       },
     );
   }
 
   @override
   void dispose() {
+    MessageNotifier().removeListener(_onMessagesChanged);
+    _scrollController.removeListener(_onScroll);
     _recordTimer?.cancel();
     _recorderController?.dispose();
     _controllerMessage.dispose();
@@ -513,8 +758,6 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final notifier = context.watch<MessageNotifier>();
-
     return PopScope(
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop && _messages.isNotEmpty) {
@@ -591,35 +834,27 @@ class _ChatPageState extends State<ChatPage> {
             children: [
               // Messages and avatar list
               Expanded(
-                child: FutureBuilder<List<PrivateMessage>>(
-                    future: notifier.getMessages(widget.user.id),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting &&
-                          _firstLoad) {
-                        return Center(
-                          child: Transform.scale(
-                            scale: 1.5,
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-                      }
-                      // Set data
-                      if (snapshot.hasData) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _scrollController.jumpTo(
-                              _scrollController.position.maxScrollExtent);
-                        });
-                        _messages = snapshot.data!;
-                      }
-                      // Return messages
-                      return _getContent(_messages);
-                    }),
+                child: _firstLoad
+                    ? Center(
+                        child: Transform.scale(
+                          scale: 1.5,
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    : _getContent(_messages),
               ),
               SafeArea(
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: _isRecording ? _buildRecordingBar() : _buildInputBar(),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      _buildInputBar(),
+                      if (_isRecording)
+                        Positioned.fill(child: _buildRecordingBar()),
+                    ],
+                  ),
                 ),
               ),
             ],
