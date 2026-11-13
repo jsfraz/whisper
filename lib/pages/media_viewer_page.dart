@@ -117,12 +117,10 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
   Widget build(BuildContext context) {
     final controller = _controller;
     final caption = controller == null ? '' : _current.message;
+    final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: colors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white),
         actions: controller == null ? null : [_buildActions()],
       ),
       body: controller == null
@@ -139,13 +137,13 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
             ),
       bottomNavigationBar: caption.isNotEmpty
           ? Container(
-              color: Colors.black,
+              color: colors.surface,
               padding: const EdgeInsets.all(16),
               child: SafeArea(
                 top: false,
                 child: Text(
                   caption,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: colors.onSurface),
                 ),
               ),
             )
@@ -237,7 +235,7 @@ class _MediaPageState extends State<_MediaPage> {
     }
     if (_error) {
       return Text('mediaError'.tr(),
-          style: const TextStyle(color: Colors.white));
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface));
     }
     if (_isFile) {
       return _filePage();
@@ -257,32 +255,34 @@ class _MediaPageState extends State<_MediaPage> {
         ),
       );
     }
-    return Text('mediaError'.tr(), style: const TextStyle(color: Colors.white));
+    return Text('mediaError'.tr(),
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface));
   }
 
   /// File page: icon, name, size and a save button.
   Widget _filePage() {
     final message = widget.message;
     final name = message.fileName ?? 'mediaFile'.tr();
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(MediaUtils.iconForFileName(message.fileName),
-              color: Colors.white, size: 64),
+              color: colors.onSurface, size: 64),
           const SizedBox(height: 12),
           Text(
             name,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(color: colors.onSurface, fontSize: 16),
           ),
           if (message.mediaSize != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 MediaUtils.formatBytes(message.mediaSize!),
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
               ),
             ),
           const SizedBox(height: 16),
