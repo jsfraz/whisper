@@ -14,6 +14,13 @@ import 'message_notifier.dart';
 /// Actions for a single message, offered by the bubble long-press sheet and by
 /// the attachment viewer's overflow menu.
 class MessageActions {
+  /// Icons shared by the bubble sheet and the viewer's overflow menu, so both
+  /// offer the same actions with the same icons.
+  static const IconData copyIcon = Icons.copy;
+  static const IconData forwardIcon = Icons.forward;
+  static const IconData saveIcon = Icons.download;
+  static const IconData deleteIcon = Icons.delete;
+
   /// Whether [message] can be saved or forwarded (the file must be on disk).
   static bool canSave(PrivateMessage message) =>
       message.isMedia && message.localPath != null;
@@ -32,7 +39,7 @@ class MessageActions {
             children: [
               if (message.message.isNotEmpty)
                 ListTile(
-                  leading: const Icon(Icons.copy),
+                  leading: const Icon(copyIcon),
                   title: Text('copyMessage'.tr()),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -40,7 +47,7 @@ class MessageActions {
                   },
                 ),
               ListTile(
-                leading: const Icon(Icons.forward),
+                leading: const Icon(forwardIcon),
                 title: Text('forwardMessage'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -49,7 +56,7 @@ class MessageActions {
               ),
               if (canSave(message))
                 ListTile(
-                  leading: const Icon(Icons.download),
+                  leading: const Icon(saveIcon),
                   title: Text('saveAttachment'.tr()),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -57,7 +64,7 @@ class MessageActions {
                   },
                 ),
               ListTile(
-                leading: const Icon(Icons.delete),
+                leading: const Icon(deleteIcon),
                 title: Text('deleteMessageForMe'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);

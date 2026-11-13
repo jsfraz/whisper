@@ -112,10 +112,25 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
       },
       itemBuilder: (context) => [
         if (MessageActions.canSave(widget.message))
-          PopupMenuItem(value: 'save', child: Text('saveAttachment'.tr())),
-        PopupMenuItem(value: 'forward', child: Text('forwardMessage'.tr())),
-        PopupMenuItem(value: 'delete', child: Text('deleteMessageForMe'.tr())),
+          _menuItem('save', MessageActions.saveIcon, 'saveAttachment'.tr()),
+        _menuItem('forward', MessageActions.forwardIcon, 'forwardMessage'.tr()),
+        _menuItem(
+            'delete', MessageActions.deleteIcon, 'deleteMessageForMe'.tr()),
       ],
+    );
+  }
+
+  /// Menu row with the same icon the bubble sheet uses for this action.
+  PopupMenuItem<String> _menuItem(String value, IconData icon, String label) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon),
+          const SizedBox(width: 12),
+          Text(label),
+        ],
+      ),
     );
   }
 
