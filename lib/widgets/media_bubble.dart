@@ -317,12 +317,12 @@ class _MediaBubbleState extends State<MediaBubble> {
             ),
             Container(
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: Colors.black.withValues(alpha: 0.35),
                 shape: BoxShape.circle,
               ),
-              padding: const EdgeInsets.all(5),
+              padding: const EdgeInsets.all(3),
               child:
-                  const Icon(Icons.play_arrow, color: Colors.white, size: 26),
+                  const Icon(Icons.play_arrow, color: Colors.white, size: 18),
             ),
             if (widget.message.durationMs != null)
               Positioned(
@@ -523,7 +523,7 @@ class _AlbumTileState extends State<AlbumTile> {
             VideoThumbnail(path: widget.item.localPath),
             const Center(
                 child: Icon(Icons.play_circle_outline,
-                    color: Colors.white, size: 28)),
+                    color: Colors.white, size: 20)),
           ],
         );
       case MediaType.voice:
