@@ -12,5 +12,6 @@ class InviteData {
   String code;
   DateTime validUntil;
 
-  factory InviteData.fromJson(Map<String, dynamic> json) => _$InviteDataFromJson(json);
+  factory InviteData.fromJson(Map<String, dynamic> json) =>
+      _$InviteDataFromJson(json);
 }

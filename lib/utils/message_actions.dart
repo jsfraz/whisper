@@ -96,7 +96,7 @@ class MessageActions {
       final bytes = await MediaUtils.decryptAtRest(path);
       final saved = await FilePicker.saveFile(
         dialogTitle: 'saveAttachment'.tr(),
-        fileName:
+        fileName: message.fileName ??
             'whisper_${message.sentAt.millisecondsSinceEpoch}${MediaUtils.extensionForType(type)}',
         bytes: bytes,
       );

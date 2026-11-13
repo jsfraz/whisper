@@ -40,7 +40,8 @@ class _VoicePlayerState extends State<VoicePlayer> {
 
   Future<void> _prepare() async {
     try {
-      _tempFile = await MediaUtils.materializeTempFile(widget.localPath, '.m4a');
+      _tempFile =
+          await MediaUtils.materializeTempFile(widget.localPath, '.m4a');
       await _player.setFilePath(_tempFile!.path);
       if (mounted) {
         setState(() {
@@ -145,10 +146,10 @@ class _VoicePlayerState extends State<VoicePlayer> {
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
                         trackHeight: 2,
-                        thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 6),
-                        overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 12),
+                        thumbShape:
+                            const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape:
+                            const RoundSliderOverlayShape(overlayRadius: 12),
                         activeTrackColor: widget.color,
                         thumbColor: widget.color,
                         inactiveTrackColor: widget.color.withValues(alpha: 0.3),
@@ -159,8 +160,8 @@ class _VoicePlayerState extends State<VoicePlayer> {
                         value: value,
                         onChanged: _loading
                             ? null
-                            : (v) => _player
-                                .seek(Duration(milliseconds: v.toInt())),
+                            : (v) =>
+                                _player.seek(Duration(milliseconds: v.toInt())),
                       ),
                     ),
                     Align(

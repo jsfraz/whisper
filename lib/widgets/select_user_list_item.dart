@@ -17,7 +17,7 @@ class _SelectUserListItemState extends State<SelectUserListItem> {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      onTap: () {},   // Empty method so that the visual effect works
+      onTap: () {}, // Empty method so that the visual effect works
       tileColor: Colors.transparent,
       selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
       shape: RoundedRectangleBorder(

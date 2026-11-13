@@ -67,11 +67,15 @@ class _ChatListItemState extends State<ChatListItem> {
           case MediaType.voice:
             preview = '🎤 $preview';
             break;
+          case MediaType.file:
+            preview = '📄 $preview';
+            break;
           case null:
             break;
         }
       }
-      String msg = preview.length <= 14 ? preview : '${preview.substring(0, 14)}...';
+      String msg =
+          preview.length <= 14 ? preview : '${preview.substring(0, 14)}...';
       return meText + msg;
     }
 

@@ -128,5 +128,8 @@
     "attachmentSaveFailed": "Uložení přílohy se nepovedlo",
     "forwardTo": "Přeposlat komu",
     "forwarded": "Přeposláno",
-    "noChatsToForward": "Zatím žádné chaty, vyhledej uživatele"
+    "noChatsToForward": "Zatím žádné chaty, vyhledej uživatele",
+    "mediaFile": "Soubor",
+    "fileTooLarge": "Soubor je příliš velký, maximum je",
+    "fileTooLargeToPreview": "Soubor je pro náhled příliš velký, ulož si ho."
 }

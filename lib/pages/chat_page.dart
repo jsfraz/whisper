@@ -125,6 +125,15 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final bytes = await file.readAsBytes();
 
+      // Refuse what the server would reject anyway, before uploading it.
+      if (bytes.length > MediaUtils.maxUploadBytes) {
+        await Fluttertoast.showToast(
+            msg:
+                '${'fileTooLarge'.tr()} ${MediaUtils.formatBytes(MediaUtils.maxUploadBytes)}',
+            backgroundColor: Colors.red);
+        return;
+      }
+
       // Probe metadata depending on the media type.
       int? width;
       int? height;
@@ -141,7 +150,11 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       final sent = await ChatSender.sendMedia(widget.user, type, bytes,
-          caption: caption, width: width, height: height, durationMs: duration);
+          caption: caption,
+          width: width,
+          height: height,
+          durationMs: duration,
+          fileName: MediaUtils.baseName(file.path));
 
       // The caption (taken from the text field) was consumed -> clear it.
       if (sent && caption.isNotEmpty && _controllerMessage.text == caption) {

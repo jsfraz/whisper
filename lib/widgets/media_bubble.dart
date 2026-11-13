@@ -129,14 +129,17 @@ class _MediaBubbleState extends State<MediaBubble> {
         case MediaType.voice:
           media = _voiceWidget();
           break;
+        case MediaType.file:
+          media = _fileWidget();
+          break;
         case null:
           media = _placeholder(child: const Icon(Icons.broken_image));
       }
     }
 
-    final isVoice = type == MediaType.voice;
-    if (isVoice) {
-      // Voice messages live inside the coloured bubble.
+    // Voice and file messages live inside the coloured bubble.
+    final insideBubble = type == MediaType.voice || type == MediaType.file;
+    if (insideBubble) {
       return Container(
         decoration: BoxDecoration(
           color: widget.bubbleColor,
@@ -291,6 +294,47 @@ class _MediaBubbleState extends State<MediaBubble> {
       localPath: widget.message.localPath!,
       durationMs: widget.message.durationMs,
       color: widget.textColor,
+    );
+  }
+
+  /// Document bubble: icon, file name and size; opens the viewer's file page.
+  Widget _fileWidget() {
+    final name = widget.message.fileName ?? 'mediaFile'.tr();
+    return GestureDetector(
+      onTap: _openViewer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.insert_drive_file, color: widget.textColor, size: 32),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 180),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: widget.textColor),
+                  ),
+                  if (widget.message.mediaSize != null)
+                    Text(
+                      MediaUtils.formatBytes(widget.message.mediaSize!),
+                      style: TextStyle(
+                        color: widget.textColor.withValues(alpha: 0.7),
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

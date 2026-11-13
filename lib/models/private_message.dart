@@ -66,6 +66,10 @@ class PrivateMessage extends HiveObject {
   @HiveField(12, defaultValue: MediaDownloadStatus.ready)
   int downloadStatus;
 
+  /// Original file name including the extension (documents etc.).
+  @HiveField(13)
+  String? fileName;
+
   PrivateMessage(
     this.senderId,
     this.message,
@@ -80,6 +84,7 @@ class PrivateMessage extends HiveObject {
     this.height,
     this.durationMs,
     this.downloadStatus = MediaDownloadStatus.ready,
+    this.fileName,
   });
 
   bool get isMe => senderId == Singleton().profile.user.id;
@@ -116,6 +121,8 @@ class PrivateMessage extends HiveObject {
         return 'mediaVideo'.tr();
       case MediaType.voice:
         return 'mediaVoice'.tr();
+      case MediaType.file:
+        return fileName ?? 'mediaFile'.tr();
       case null:
         return message;
     }

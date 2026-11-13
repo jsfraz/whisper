@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -172,9 +173,14 @@ class _MediaPageState extends State<_MediaPage> {
   bool _loading = true;
   bool _error = false;
 
+  /// Decrypted text preview of a text file, null when there is none.
+  String? _text;
+
   MediaType get _type => widget.message.mediaType ?? MediaType.image;
 
   bool get _isVideo => _type == MediaType.video;
+
+  bool get _isFile => _type == MediaType.file;
 
   @override
   void initState() {
@@ -188,7 +194,15 @@ class _MediaPageState extends State<_MediaPage> {
       if (localPath == null) {
         throw Exception('no local media');
       }
-      if (_isVideo) {
+      if (_isFile) {
+        // Only text files get a preview, everything else just shows its name.
+        final size = widget.message.mediaSize ?? 0;
+        if (MediaUtils.isTextFile(widget.message.fileName) &&
+            size <= MediaUtils.maxTextPreviewBytes) {
+          final bytes = await MediaUtils.decryptAtRest(localPath);
+          _text = utf8.decode(bytes, allowMalformed: true);
+        }
+      } else if (_isVideo) {
         _tempFile = await MediaUtils.materializeTempFile(
             localPath, MediaUtils.extensionForType(_type));
         final controller = VideoPlayerController.file(_tempFile!);
@@ -235,6 +249,9 @@ class _MediaPageState extends State<_MediaPage> {
       return Text('mediaError'.tr(),
           style: const TextStyle(color: Colors.white));
     }
+    if (_isFile) {
+      return _filePage();
+    }
     if (_isVideo && _chewieController != null) {
       return AspectRatio(
         aspectRatio: _videoController!.value.aspectRatio,
@@ -251,5 +268,62 @@ class _MediaPageState extends State<_MediaPage> {
       );
     }
     return Text('mediaError'.tr(), style: const TextStyle(color: Colors.white));
+  }
+
+  /// File page: name, size, save button and a text preview when we have one.
+  Widget _filePage() {
+    final message = widget.message;
+    final name = message.fileName ?? 'mediaFile'.tr();
+    final text = _text;
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.insert_drive_file, color: Colors.white, size: 64),
+          const SizedBox(height: 12),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
+          if (message.mediaSize != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                MediaUtils.formatBytes(message.mediaSize!),
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () => MessageActions.save(message),
+            icon: const Icon(Icons.download),
+            label: Text('saveAttachment'.tr()),
+          ),
+          const SizedBox(height: 24),
+          if (text != null)
+            Expanded(
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  text,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            )
+          else if (MediaUtils.isTextFile(message.fileName) &&
+              (message.mediaSize ?? 0) > MediaUtils.maxTextPreviewBytes)
+            Text(
+              'fileTooLargeToPreview'.tr(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+        ],
+      ),
+    );
   }
 }

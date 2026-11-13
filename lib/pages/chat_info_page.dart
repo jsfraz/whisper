@@ -247,8 +247,9 @@ class _MediaTileState extends State<_MediaTile> {
   }
 
   Future<void> _loadImage() async {
-    // Videos have no thumbnail generator, the play icon is enough.
-    if (widget.message.mediaType == MediaType.video) {
+    // Videos and documents have no thumbnail, an icon is enough.
+    if (widget.message.mediaType == MediaType.video ||
+        widget.message.mediaType == MediaType.file) {
       return;
     }
     final path = widget.message.localPath;
@@ -274,6 +275,7 @@ class _MediaTileState extends State<_MediaTile> {
   @override
   Widget build(BuildContext context) {
     final isVideo = widget.message.mediaType == MediaType.video;
+    final isFile = widget.message.mediaType == MediaType.file;
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
@@ -285,13 +287,35 @@ class _MediaTileState extends State<_MediaTile> {
                     ? Icon(Icons.broken_image, size: 24)
                     : isVideo
                         ? Icon(Icons.play_arrow, size: 32)
-                        : SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
+                        : isFile
+                            ? _fileTile()
+                            : SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
               ),
       ),
+    );
+  }
+
+  /// Documents: extension badge instead of a thumbnail.
+  Widget _fileTile() {
+    final name = widget.message.fileName ?? '';
+    final dot = name.lastIndexOf('.');
+    final extension =
+        dot > 0 && dot < name.length - 1 ? name.substring(dot + 1) : '';
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.insert_drive_file, size: 24),
+        if (extension.isNotEmpty)
+          Text(
+            extension.toUpperCase(),
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+          ),
+      ],
     );
   }
 }

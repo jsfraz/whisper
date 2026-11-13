@@ -61,7 +61,8 @@ class _ForwardPageState extends State<ForwardPage> {
             caption: message.message,
             width: message.width,
             height: message.height,
-            durationMs: message.durationMs);
+            durationMs: message.durationMs,
+            fileName: message.fileName);
       } else {
         sent = await ChatSender.sendText(to, message.message);
       }

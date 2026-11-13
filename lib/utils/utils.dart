@@ -181,6 +181,7 @@ class Utils {
                   width: ref.width,
                   height: ref.height,
                   durationMs: ref.durationMs,
+                  fileName: ref.fileName,
                   downloadStatus: pm.MediaDownloadStatus.pending,
                 );
                 return (mediaMsg, ref);
@@ -206,8 +207,9 @@ class Utils {
           final results = await Future.wait(decryptionTasks);
 
           // Filter out failed decryptions (null values)
-          final valid =
-              results.whereType<(pm.PrivateMessage, MediaReference?)>().toList();
+          final valid = results
+              .whereType<(pm.PrivateMessage, MediaReference?)>()
+              .toList();
           decryptedMessages = valid.map((e) => e.$1).toList();
           pendingMediaRefs =
               valid.map((e) => e.$2).whereType<MediaReference>().toList();

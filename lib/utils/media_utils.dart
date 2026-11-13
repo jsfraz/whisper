@@ -277,16 +277,21 @@ class MediaUtils {
     if (mime == 'image/gif' || lower.endsWith('.gif')) {
       return MediaType.gif;
     }
+    if (mime.startsWith('image/')) {
+      return MediaType.image;
+    }
     if (mime.startsWith('video/')) {
       return MediaType.video;
     }
     if (mime.startsWith('audio/')) {
       return MediaType.voice;
     }
-    return MediaType.image;
+    // Anything else is sent as a plain file.
+    return MediaType.file;
   }
 
-  /// Default file extension used when materializing a temp file for playback.
+  /// Default file extension used when materializing a temp file for playback,
+  /// or as a last resort when a real name is not known.
   static String extensionForType(MediaType type) {
     switch (type) {
       case MediaType.image:
@@ -297,7 +302,59 @@ class MediaUtils {
         return '.mp4';
       case MediaType.voice:
         return '.m4a';
+      case MediaType.file:
+        return '';
     }
+  }
+
+  /// Largest upload the server accepts (mirrors MEDIA_MAX_UPLOAD_SIZE).
+  static const int maxUploadBytes = 25 * 1024 * 1024;
+
+  /// Largest text file the viewer renders as a preview.
+  static const int maxTextPreviewBytes = 256 * 1024;
+
+  /// Last path segment of [path], i.e. the file name with its extension.
+  static String baseName(String path) => path.split(RegExp(r'[\\/]')).last;
+
+  /// Extensions whose content can be shown as text in the viewer.
+  static const Set<String> textExtensions = {
+    'txt',
+    'md',
+    'log',
+    'csv',
+    'json',
+    'xml',
+    'yaml',
+    'yml',
+    'ini',
+    'html',
+  };
+
+  /// Whether [fileName] is a text file we can preview.
+  static bool isTextFile(String? fileName) {
+    if (fileName == null) {
+      return false;
+    }
+    final dot = fileName.lastIndexOf('.');
+    if (dot < 0 || dot == fileName.length - 1) {
+      return false;
+    }
+    return textExtensions.contains(fileName.substring(dot + 1).toLowerCase());
+  }
+
+  /// Human readable size, e.g. `1.4 MB`.
+  static String formatBytes(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    }
+    const units = ['KB', 'MB', 'GB'];
+    double value = bytes / 1024;
+    var unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit++;
+    }
+    return '${value.toStringAsFixed(value >= 10 ? 0 : 1)} ${units[unit]}';
   }
 
   /// Translation key for a short human label of a media type (used in previews
@@ -312,6 +369,8 @@ class MediaUtils {
         return 'mediaVideo';
       case MediaType.voice:
         return 'mediaVoice';
+      case MediaType.file:
+        return 'mediaFile';
     }
   }
 
@@ -414,9 +473,9 @@ class MediaUtils {
     return picked == null ? null : File(picked.path);
   }
 
-  /// Pick an arbitrary media (image/video) file.
+  /// Pick an arbitrary file (images, videos, documents, ...).
   static Future<File?> pickFile() async {
-    final picked = await FilePicker.pickFile(type: FileType.media);
+    final picked = await FilePicker.pickFile(type: FileType.any);
     final path = picked?.path;
     return path == null ? null : File(path);
   }

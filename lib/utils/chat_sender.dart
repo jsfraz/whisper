@@ -53,7 +53,11 @@ class ChatSender {
   /// Send [bytes] as a media attachment of [type] to [recipient]. The caller
   /// supplies the probed metadata so `null` there is meaningful.
   static Future<bool> sendMedia(User recipient, MediaType type, Uint8List bytes,
-      {String caption = '', int? width, int? height, int? durationMs}) async {
+      {String caption = '',
+      int? width,
+      int? height,
+      int? durationMs,
+      String? fileName}) async {
     try {
       await Utils.wsConnect();
       if (!Singleton().wsClient.isConnected) {
@@ -90,6 +94,7 @@ class ChatSender {
         width: width,
         height: height,
         durationMs: durationMs,
+        fileName: fileName,
       );
       final envelope = MediaUtils.buildMediaEnvelope(reference, caption);
 
@@ -120,6 +125,7 @@ class ChatSender {
           height: height,
           durationMs: durationMs,
           downloadStatus: MediaDownloadStatus.ready,
+          fileName: fileName,
         )
       ]);
       return true;
