@@ -323,9 +323,9 @@ class _MediaBubbleState extends State<MediaBubble> {
                   color: Colors.black.withValues(alpha: 0.35),
                   shape: BoxShape.circle,
                 ),
-                padding: const EdgeInsets.all(3),
+                padding: const EdgeInsets.all(4),
                 child:
-                    const Icon(Icons.play_arrow, color: Colors.white, size: 18),
+                    const Icon(Icons.play_arrow, color: Colors.white, size: 24),
               ),
             ),
             if (widget.message.durationMs != null)
