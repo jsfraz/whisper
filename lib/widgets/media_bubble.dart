@@ -97,9 +97,13 @@ class _MediaBubbleState extends State<MediaBubble> {
       PageTransition(
         type: PageTransitionType.fade,
         duration: const Duration(milliseconds: 200),
-        child: MediaViewerPage(
-          message: widget.message,
-          conversationUserId: widget.conversationUserId,
+        // The viewer is a separate route; carry the chat theme over to it
+        child: Theme(
+          data: Theme.of(context),
+          child: MediaViewerPage(
+            message: widget.message,
+            conversationUserId: widget.conversationUserId,
+          ),
         ),
       ),
     );

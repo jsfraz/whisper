@@ -51,12 +51,18 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     }
   }
 
-  /// Pick a per-chat theme color
+  /// Pick a per-chat theme color. The dialog uses the chat color too.
   Future<void> _pickChatTheme() async {
     Color? color = await showDialog<Color>(
         context: context,
-        builder: (context) => DialogUtils.colorPickerDialog(
-            context, _chatThemeColor ?? Singleton().appTheme.color));
+        builder: (dialogContext) => Theme(
+              data: ThemeUtils.chatTheme(context, _chatThemeColor),
+              child: Builder(
+                builder: (themedContext) => DialogUtils.colorPickerDialog(
+                    themedContext,
+                    _chatThemeColor ?? Singleton().appTheme.color),
+              ),
+            ));
     if (color == null || !mounted) {
       return;
     }
@@ -80,9 +86,13 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
       PageTransition(
         type: PageTransitionType.fade,
         duration: const Duration(milliseconds: 200),
-        child: MediaViewerPage(
-          message: message,
-          conversationUserId: widget.userId,
+        // The viewer is a separate route, so it needs the chat theme passed in
+        child: Theme(
+          data: ThemeUtils.chatTheme(context, _chatThemeColor),
+          child: MediaViewerPage(
+            message: message,
+            conversationUserId: widget.userId,
+          ),
         ),
       ),
     );
