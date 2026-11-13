@@ -205,7 +205,10 @@ class _MediaBubbleState extends State<MediaBubble> {
 
   Widget _withCaption(Widget media, bool hasCaption) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      // Own messages sit on the right, so the caption does too.
+      crossAxisAlignment: widget.message.isMe
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         ClipRRect(
@@ -314,12 +317,12 @@ class _MediaBubbleState extends State<MediaBubble> {
             ),
             Container(
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.45),
+                color: Colors.black.withValues(alpha: 0.4),
                 shape: BoxShape.circle,
               ),
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(5),
               child:
-                  const Icon(Icons.play_arrow, color: Colors.white, size: 36),
+                  const Icon(Icons.play_arrow, color: Colors.white, size: 26),
             ),
             if (widget.message.durationMs != null)
               Positioned(

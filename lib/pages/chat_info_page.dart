@@ -10,6 +10,7 @@ import '../utils/dialog_utils.dart';
 import '../utils/media_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/theme_utils.dart';
+import '../widgets/media_bubble.dart';
 import 'home_page.dart';
 import 'media_viewer_page.dart';
 
@@ -257,7 +258,7 @@ class _MediaTileState extends State<_MediaTile> {
   }
 
   Future<void> _loadImage() async {
-    // Videos and documents have no thumbnail, an icon is enough.
+    // Videos get a first-frame thumbnail; documents show an icon.
     if (widget.message.mediaType == MediaType.video ||
         widget.message.mediaType == MediaType.file) {
       return;
@@ -290,23 +291,36 @@ class _MediaTileState extends State<_MediaTile> {
       onTap: widget.onTap,
       child: Container(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: _bytes != null
-            ? Image.memory(_bytes!, fit: BoxFit.cover)
-            : Center(
-                child: _error
-                    ? Icon(Icons.broken_image, size: 24)
-                    : isVideo
-                        ? Icon(Icons.play_arrow, size: 32)
+        child: isVideo
+            ? _videoTile()
+            : _bytes != null
+                ? Image.memory(_bytes!, fit: BoxFit.cover)
+                : Center(
+                    child: _error
+                        ? const Icon(Icons.broken_image, size: 24)
                         : isFile
                             ? _fileTile()
-                            : SizedBox(
+                            : const SizedBox(
                                 width: 18,
                                 height: 18,
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2),
                               ),
-              ),
+                  ),
       ),
+    );
+  }
+
+  /// Video: first frame with a play badge.
+  Widget _videoTile() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        VideoThumbnail(path: widget.message.localPath),
+        const Center(
+          child: Icon(Icons.play_arrow, color: Colors.white, size: 28),
+        ),
+      ],
     );
   }
 
