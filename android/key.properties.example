@@ -1,0 +1,12 @@
+# Copy to key.properties and fill in before building a release APK.
+# key.properties is gitignored; never commit the keystore or these values.
+#
+# Generate a keystore once:
+#   keytool -genkeypair -v -keystore whisper-release.jks -keyalg RSA \
+#     -keysize 4096 -validity 10000 -alias whisper
+#
+# storeFile is relative to android/.
+storeFile=../whisper-release.jks
+storePassword=CHANGE_ME
+keyAlias=whisper
+keyPassword=CHANGE_ME

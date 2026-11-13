@@ -18,14 +18,6 @@ class NotificationService {
 
   /// Init notification settings
   Future<void> init() async {
-    // Local notifications are only set up for the platforms that have their
-    // settings below. iOS/macOS need the Darwin settings tracked in the
-    // "Android / iOS permissions" backlog item.
-    if (defaultTargetPlatform != TargetPlatform.android &&
-        defaultTargetPlatform != TargetPlatform.linux) {
-      return;
-    }
-
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('ic_stat_whisper');
     final LinuxInitializationSettings initializationSettingsLinux =
@@ -33,10 +25,15 @@ class NotificationService {
       defaultActionName: 'whisper_message',
       defaultIcon: ThemeLinuxIcon('mail-unread'),
     );
+    // Asks for alert/badge/sound permission on iOS and macOS.
+    const DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings();
 
     final InitializationSettings initializationSettings =
         InitializationSettings(
             android: initializationSettingsAndroid,
+            iOS: initializationSettingsDarwin,
+            macOS: initializationSettingsDarwin,
             linux: initializationSettingsLinux);
 
     await _flutterLocalNotificationsPlugin.initialize(

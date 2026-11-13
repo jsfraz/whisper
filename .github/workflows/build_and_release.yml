@@ -65,6 +65,15 @@ jobs:
           #  exit 1
           #fi
 
+      # Fail fast when the version was not bumped for this release
+      - name: Check version bump
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | cut -d+ -f1 | tr -d '[:space:]')
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::v$VERSION is already released, bump version in pubspec.yaml"
+            exit 1
+          fi
+
       # Building Android APK
       - name: Build Android APK
         run: flutter build apk --release
@@ -73,7 +82,7 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d '[:space:]')
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | cut -d+ -f1 | tr -d '[:space:]')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # Rename APK file

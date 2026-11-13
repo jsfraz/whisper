@@ -47,6 +47,17 @@
 	<string>Whisper needs microphone access to record voice messages.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Whisper needs photo library access to attach images and videos to your messages.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Whisper uses Face ID to unlock your encrypted messages.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>http</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

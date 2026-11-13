@@ -175,6 +175,27 @@ Required repository secrets (Settings > Secrets and variables > Actions):
 | `GOOGLE_SERVICE_INFO_PLIST_BASE64` | not wired yet | base64 of `ios/Runner/GoogleService-Info.plist`. Add it to the build before shipping iOS releases. |
 | `GITHUB_TOKEN` | both | Provided automatically by GitHub. Used by the secret scan. |
 
+### Release signing
+
+Release builds are signed with the debug key unless `android/key.properties`
+exists (copy `android/key.properties.example`). A keystore is never committed:
+
+```bash
+keytool -genkeypair -v -keystore whisper-release.jks -keyalg RSA -keysize 4096 \
+  -validity 10000 -alias whisper
+cp android/key.properties.example android/key.properties   # then fill it in
+```
+
+CI has no keystore, so the APK it publishes is debug-signed; add the keystore as
+a secret and decode it in the workflow before shipping real releases. The
+release workflow fails when the `v<version>` tag for the current
+`pubspec.yaml` version already exists, which is the reminder to bump `version`
+(and the build number after `+`) before every release.
+
+iOS push notifications need the *Push Notifications* capability on the
+`cz.josefraz.whisper` App ID; `ios/Runner/Runner.entitlements` is already wired
+into the project.
+
 Pull requests from forks cannot read repository secrets, so CI is skipped for them.
 
 These files are not included in the repository for security reasons. The base64 encoding ensures safe transmission and prevents issues with special characters.
