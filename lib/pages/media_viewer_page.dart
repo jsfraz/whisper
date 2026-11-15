@@ -12,6 +12,7 @@ import '../utils/cache_utils.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
+import '../utils/playback_lock.dart';
 
 /// Fullscreen viewer for the media of one conversation, stored
 /// encrypted-at-rest. Swiping moves between the attachments.
@@ -156,7 +157,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
                 _index = index;
               }),
               itemBuilder: (context, index) => Center(
-                child: _MediaPage(_media[index]),
+                child: _MediaPage(_media[index], current: index == _index),
               ),
             ),
       bottomNavigationBar: caption.isNotEmpty
@@ -179,20 +180,24 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
 /// One attachment of the viewer: decodes its own file and releases it again
 /// when the page is swiped away.
 class _MediaPage extends StatefulWidget {
-  const _MediaPage(this.message);
+  const _MediaPage(this.message, {required this.current});
   final PrivateMessage message;
+
+  /// Whether this page is the one on screen; a swiped-away page pauses.
+  final bool current;
 
   @override
   State<_MediaPage> createState() => _MediaPageState();
 }
 
-class _MediaPageState extends State<_MediaPage> {
+class _MediaPageState extends State<_MediaPage> with WidgetsBindingObserver {
   Uint8List? _imageBytes;
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
   File? _tempFile;
   bool _loading = true;
   bool _error = false;
+  bool _lockHeld = false;
 
   MediaType get _type => widget.message.mediaType ?? MediaType.image;
 
@@ -203,7 +208,44 @@ class _MediaPageState extends State<_MediaPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    PlaybackLock.owner.addListener(_onLockChanged);
     _load();
+  }
+
+  /// A video claims the lock while it plays and gives it back when it stops,
+  /// so a voice message can never be heard underneath it.
+  void _onVideoStateChanged() {
+    final playing = _videoController?.value.isPlaying ?? false;
+    if (playing) {
+      _lockHeld = true;
+      PlaybackLock.claim(this);
+    } else if (_lockHeld) {
+      _lockHeld = false;
+      PlaybackLock.release(this);
+    }
+  }
+
+  /// Pauses when a voice message starts playing.
+  void _onLockChanged() {
+    if (!identical(PlaybackLock.owner.value, this)) {
+      _videoController?.pause();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _MediaPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.current) {
+      _videoController?.pause();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _videoController?.pause();
+    }
   }
 
   Future<void> _load() async {
@@ -219,6 +261,7 @@ class _MediaPageState extends State<_MediaPage> {
             localPath, MediaUtils.extensionForType(_type));
         final controller = VideoPlayerController.file(_tempFile!);
         await controller.initialize();
+        controller.addListener(_onVideoStateChanged);
         _videoController = controller;
         _chewieController = ChewieController(
           videoPlayerController: controller,
@@ -246,6 +289,10 @@ class _MediaPageState extends State<_MediaPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    PlaybackLock.owner.removeListener(_onLockChanged);
+    PlaybackLock.release(this);
+    _videoController?.removeListener(_onVideoStateChanged);
     _chewieController?.dispose();
     _videoController?.dispose();
     MediaUtils.deleteLocalFile(_tempFile?.path);

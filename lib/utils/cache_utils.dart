@@ -24,6 +24,7 @@ class CacheUtils {
   static const _userKey = 'user';
   static const _messageConceptKey = 'messageConcept';
   static const _biometry = 'biometry';
+  static const _playbackSpeed = 'playbackSpeed';
   static const String _saltStorageKey = 'whisper_pbkdf2_salt';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static const _chatThemeKeyPrefix = 'chatTheme:';
@@ -262,6 +263,23 @@ class CacheUtils {
     await box.put(_biometry, enabled);
   }
 
+  /// Opens box with playback preferences
+  static Future<Box> _openPlaybackBox() async {
+    return Hive.openBox(_playbackSpeed);
+  }
+
+  /// Returns the voice message playback speed, 1x until changed
+  static Future<double> getPlaybackSpeed() async {
+    Box box = await _openPlaybackBox();
+    return (box.get(_playbackSpeed) as num?)?.toDouble() ?? 1.0;
+  }
+
+  /// Sets the voice message playback speed
+  static Future<void> setPlaybackSpeed(double speed) async {
+    Box box = await _openPlaybackBox();
+    await box.put(_playbackSpeed, speed);
+  }
+
   /// Opens box with private messages
   static Future<Box> _openPrivateMessagesBox() async {
     return Hive.openBox(_privateMessagesKey);
@@ -388,10 +406,10 @@ class CacheUtils {
           // The message-level flag follows the album, so the bubble can show a
           // single state for "still downloading" vs "done".
           if (downloadStatus != null) {
-            final allReady = items
-                .every((item) => item.status == MediaDownloadStatus.ready);
-            final anyFailed = items
-                .any((item) => item.status == MediaDownloadStatus.failed);
+            final allReady =
+                items.every((item) => item.status == MediaDownloadStatus.ready);
+            final anyFailed =
+                items.any((item) => item.status == MediaDownloadStatus.failed);
             msg.downloadStatus = allReady
                 ? MediaDownloadStatus.ready
                 : (anyFailed
@@ -410,8 +428,8 @@ class CacheUtils {
   /// Apply [update] to the stored copy of [message] and persist the list.
   /// The message is matched by sender and timestamp, the same identity the
   /// delete path uses.
-  static Future<void> updateStoredMessage(String userId,
-      PrivateMessage message, void Function(PrivateMessage stored) update) async {
+  static Future<void> updateStoredMessage(String userId, PrivateMessage message,
+      void Function(PrivateMessage stored) update) async {
     Box box = await _openPrivateMessagesBox();
     List<dynamic>? messages = box.get(userId);
     if (messages == null) {
