@@ -120,9 +120,9 @@ class Utils {
   static Future<void> _doAuthCheck() async {
     final profile = Singleton().profile;
     final hasTokens = profile.refreshToken != '' || profile.accessToken != '';
-    bool toAuth = !hasTokens || isTokenExpired(profile.refreshToken);
+    bool toAuth = !hasTokens || !isTokenUsable(profile.refreshToken);
 
-    if (!toAuth && isTokenExpired(profile.accessToken)) {
+    if (!toAuth && !isTokenUsable(profile.accessToken)) {
       var refreshed = false;
       try {
         final refreshResponse = await Utils.callApi(
@@ -184,28 +184,46 @@ class Utils {
     Singleton().apiToken = profile.accessToken;
   }
 
-  /// Whether a JWT is expired or unreadable.
-  ///
-  /// A local convenience only: the server remains the authority. Replaces the
-  /// jwt_decoder dependency, which was used for this single check.
-  static bool isTokenExpired(String token) {
+  /// Claims of a JWT, or null when it cannot be read. Local use only: the
+  /// server remains the authority.
+  static Map<String, dynamic>? tokenClaims(String token) {
     final parts = token.split('.');
     if (parts.length != 3) {
-      return true;
+      return null;
     }
     try {
-      final payload = jsonDecode(
+      return jsonDecode(
               utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))))
           as Map<String, dynamic>;
-      final exp = payload['exp'];
-      if (exp is! int) {
-        return false;
-      }
-      return DateTime.fromMillisecondsSinceEpoch(exp * 1000)
-          .isBefore(DateTime.now());
     } catch (_) {
+      return null;
+    }
+  }
+
+  /// Whether a JWT is expired or unreadable.
+  static bool isTokenExpired(String token) {
+    final payload = tokenClaims(token);
+    if (payload == null) {
       return true;
     }
+    final exp = payload['exp'];
+    if (exp is! int) {
+      return false;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(exp * 1000)
+        .isBefore(DateTime.now());
+  }
+
+  /// Whether a JWT is accepted by the current server: readable, unexpired and
+  /// carrying the token type the server requires. Tokens issued before types
+  /// existed are useless even while their expiry is still in the future, so
+  /// they must trigger a login instead of failing every request.
+  static bool isTokenUsable(String token) {
+    if (isTokenExpired(token)) {
+      return false;
+    }
+    final claims = tokenClaims(token);
+    return claims != null && claims['typ'] is String;
   }
 
   /// Whether a server URL may be used.

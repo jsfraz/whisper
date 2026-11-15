@@ -19,11 +19,12 @@ import 'package:whisper_openapi_client_dart/api.dart';
 class _RealHttpOverrides extends HttpOverrides {}
 
 /// An unsigned JWT that only has to be readable by the local expiry check.
-String tokenExpiring({required Duration inFuture}) {
+String tokenExpiring({required Duration inFuture, String typ = 'access'}) {
   String encode(Map<String, dynamic> value) =>
       base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
   final payload = {
     'sub': 'user',
+    'typ': typ,
     'exp': DateTime.now().add(inFuture).millisecondsSinceEpoch ~/ 1000,
   };
   return '${encode({'alg': 'HS256', 'typ': 'JWT'})}.${encode(payload)}.sig';
@@ -67,7 +68,7 @@ void main() {
       bu.CryptoUtils.encodeRSAPrivateKeyToPem(
           keys.privateKey as RSAPrivateKey),
       tokenExpiring(inFuture: const Duration(minutes: 10)),
-      tokenExpiring(inFuture: const Duration(days: 6)),
+      tokenExpiring(inFuture: const Duration(days: 6), typ: 'refresh'),
       true,
     );
   });

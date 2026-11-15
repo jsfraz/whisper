@@ -33,6 +33,32 @@ void main() {
     expect(Utils.isTokenExpired(live), isFalse);
   });
 
+  test('a token without the type claim is not usable', () {
+    // Issued before the server started requiring `typ`: valid signature and
+    // expiry, but every request would be rejected.
+    final legacy = _token({
+      'sub': 'user',
+      'exp': DateTime.now()
+          .add(const Duration(minutes: 5))
+          .millisecondsSinceEpoch ~/
+          1000,
+    });
+    expect(Utils.isTokenExpired(legacy), isFalse);
+    expect(Utils.isTokenUsable(legacy), isFalse);
+  });
+
+  test('a typed token is usable', () {
+    final typed = _token({
+      'sub': 'user',
+      'typ': 'access',
+      'exp': DateTime.now()
+          .add(const Duration(minutes: 5))
+          .millisecondsSinceEpoch ~/
+          1000,
+    });
+    expect(Utils.isTokenUsable(typed), isTrue);
+  });
+
   test('a malformed token counts as expired', () {
     expect(Utils.isTokenExpired(''), isTrue);
     expect(Utils.isTokenExpired('not-a-jwt'), isTrue);
