@@ -271,18 +271,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
               Divider(thickness: 1, indent: 10, endIndent: 10),
 
-              // Danger zone title
-              Padding(
-                padding: EdgeInsets.only(bottom: 5),
-                child: Text(
-                  'dangerZone'.tr(),
-                  style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16),
-                ),
-              ),
-
               // Delete all chats
               TextButton(
                 onPressed: () async {
