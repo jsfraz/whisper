@@ -16,16 +16,26 @@ class AttachmentConfirmSheet extends StatefulWidget {
   });
 
   /// Shows the sheet and returns the caption, or null when cancelled.
+  ///
+  /// [theme] and [backgroundColor] come from the caller: a modal route renders
+  /// above the chat's own Theme, so without them the sheet uses the app theme.
   static Future<String?> show(BuildContext context,
-      {required int count, String initialCaption = ''}) {
+      {required int count,
+      String initialCaption = '',
+      ThemeData? theme,
+      Color? backgroundColor}) {
     return showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (ctx) => AttachmentConfirmSheet(
-        count: count,
-        initialCaption: initialCaption,
-      ),
+      backgroundColor: backgroundColor,
+      builder: (ctx) {
+        final sheet = AttachmentConfirmSheet(
+          count: count,
+          initialCaption: initialCaption,
+        );
+        return theme == null ? sheet : Theme(data: theme, child: sheet);
+      },
     );
   }
 
@@ -79,7 +89,8 @@ class _AttachmentConfirmSheetState extends State<AttachmentConfirmSheet> {
               ),
               const SizedBox(width: 8),
               FilledButton(
-                onPressed: () => Navigator.pop(context, _controller.text.trim()),
+                onPressed: () =>
+                    Navigator.pop(context, _controller.text.trim()),
                 child: Text('send'.tr()),
               ),
             ],

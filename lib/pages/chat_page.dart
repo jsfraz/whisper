@@ -13,6 +13,7 @@ import '../utils/cache_utils.dart';
 import '../utils/chat_sender.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_notifier.dart';
+import '../utils/singleton.dart';
 import '../utils/theme_utils.dart';
 import '../widgets/attachment_confirm_sheet.dart';
 import '../widgets/chat_bubble.dart';
@@ -331,6 +332,8 @@ class _ChatPageState extends State<ChatPage> {
       context,
       count: count,
       initialCaption: _controllerMessage.text.trim(),
+      theme: ThemeUtils.chatTheme(context, _chatThemeColor),
+      backgroundColor: chatBackground(tintAlpha: 0.18),
     );
   }
 
@@ -715,7 +718,9 @@ class _ChatPageState extends State<ChatPage> {
         final older = position > 0 ? visible[position - 1] : null;
         final newer =
             position < visible.length - 1 ? visible[position + 1] : null;
-        return ChatBubble(older, message, newer, widget.user);
+        return ChatBubble(older, message, newer, widget.user,
+            // The picked chat color itself, not a tonal derivative of it.
+            accentColor: _chatThemeColor ?? Singleton().appTheme.color);
       },
     );
   }
@@ -729,6 +734,26 @@ class _ChatPageState extends State<ChatPage> {
     _controllerMessage.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Background tinted by the chat color: the M3 surface alone is almost
+  /// neutral, so a chat with its own color was indistinguishable from any other.
+  ///
+  /// [tintAlpha] overrides how much of the color goes in (the AppBar uses more
+  /// so the header reads as part of the conversation).
+  Color chatBackground({double? tintAlpha}) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = _chatThemeColor ?? Singleton().appTheme.color;
+    final double alpha = tintAlpha ??
+        (Theme.of(context).brightness == Brightness.dark ? 0.16 : 0.12);
+    return Color.alphaBlend(accent.withValues(alpha: alpha), scheme.surface);
+  }
+
+  /// AppBar color: a stronger tint, kept translucent so the blur still shows.
+  Color appBarBackground() {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    return chatBackground(tintAlpha: dark ? 0.30 : 0.22)
+        .withValues(alpha: 0.85);
   }
 
   @override
@@ -748,6 +773,7 @@ class _ChatPageState extends State<ChatPage> {
         data: ThemeUtils.chatTheme(context, _chatThemeColor),
         child: Scaffold(
           extendBodyBehindAppBar: true,
+          backgroundColor: chatBackground(),
           appBar: PreferredSize(
             preferredSize: Size(
               double.infinity,
@@ -758,10 +784,7 @@ class _ChatPageState extends State<ChatPage> {
                 filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                 child: AppBar(
                   automaticallyImplyLeading: false,
-                  backgroundColor: Theme.of(context)
-                      .colorScheme
-                      .surface
-                      .withValues(alpha: 0.5),
+                  backgroundColor: appBarBackground(),
                   leading: Row(
                     children: [
                       IconButton(

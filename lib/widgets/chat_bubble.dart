@@ -13,10 +13,12 @@ class ChatBubble extends StatefulWidget {
   final PrivateMessage message;
   final PrivateMessage? nextMessage;
   final User user;
+  // Fixed for both light and dark mode (see ThemeUtils.bubbleAccent).
+  final Color accentColor;
 
   const ChatBubble(
       this.previousMessage, this.message, this.nextMessage, this.user,
-      {super.key});
+      {required this.accentColor, super.key});
 
   @override
   State<ChatBubble> createState() => _ChatBubbleState();
@@ -96,18 +98,14 @@ class _ChatBubbleState extends State<ChatBubble> {
     }
 
     Color bubbleBackground() {
-      var brightness = Theme.of(context).brightness;
       if (widget.message.isMe) {
-        if (brightness == Brightness.dark) {
-          return Theme.of(context).colorScheme.secondary;
-        }
-        return Theme.of(context).colorScheme.primary;
-      } else {
-        if (brightness == Brightness.dark) {
-          return Theme.of(context).colorScheme.onSecondary;
-        }
-        return Theme.of(context).colorScheme.surfaceDim;
+        return widget.accentColor;
       }
+      // The other side stays neutral, only the tone follows the brightness.
+      if (Theme.of(context).brightness == Brightness.dark) {
+        return Theme.of(context).colorScheme.surfaceContainerHigh;
+      }
+      return Theme.of(context).colorScheme.surfaceDim;
     }
 
     Color bubbleTextColor() {
