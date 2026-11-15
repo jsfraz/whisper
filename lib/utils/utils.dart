@@ -252,6 +252,11 @@ class Utils {
           await Fluttertoast.showToast(
               msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
         }
+        // Self-sent messages are stored locally before sending; dropping the
+        // server echo prevents a duplicate bubble in the debug self-chat.
+        decryptedMessages.removeWhere(
+            (message) => message.senderId == Singleton().profile.user.id);
+
         if (decryptedMessages.isNotEmpty) {
           // A batch can hold messages from several senders: store each
           // conversation under its own key.
