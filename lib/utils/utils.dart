@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:vibration/vibration.dart';
@@ -13,11 +12,14 @@ import '../utils/notification_service.dart';
 import '../pages/chat_page.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
+import 'package:whisper_websocket_client_dart/models/delivery_ack.dart';
 import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/private_message.dart';
+import 'package:whisper_websocket_client_dart/models/ws_message.dart';
 import 'package:whisper_websocket_client_dart/models/ws_response.dart';
 import 'package:whisper_websocket_client_dart/models/ws_response_type.dart';
 import 'cache_utils.dart';
+import 'chat_sender.dart';
 import 'crypto_utils.dart';
 import 'media_utils.dart';
 import 'message_notifier.dart';
@@ -34,8 +36,13 @@ class Utils {
   }
 
   /// Call API, handle errors and return result.
+  ///
+  /// [showError] turns the red error toast off for internal calls (token
+  /// renewal) that have their own recovery path.
   static Future<T?> callApi<T>(Future<T> Function() call,
-      {bool useSecurity = true, bool rethrowErr = false}) async {
+      {bool useSecurity = true,
+      bool rethrowErr = false,
+      bool showError = true}) async {
     // Check tokens
     if (useSecurity) {
       await authCheck();
@@ -47,7 +54,11 @@ class Utils {
       return result;
     } catch (e) {
       // Handle error
-      if (e is ApiException) {
+      if (e is ApiException && !showError) {
+        if (e.innerException is SocketException) {
+          Singleton().offlineMode = true;
+        }
+      } else if (e is ApiException) {
         if (e.innerException == null) {
           if (e.message != '') {
             Map<String, dynamic> messageMap =
@@ -85,53 +96,95 @@ class Utils {
   }
 
   /// Checks access and refresh tokens and renews them if necessary.
+  ///
+  /// A refresh can be refused (session revoked, or a token minted before
+  /// sessions were recorded). The RSA challenge always works with the stored
+  /// private key, so it is the fallback instead of leaving the app unauthorized.
   static Future<void> authCheck() async {
-    bool toAuth = false;
-    // Initial auth
-    if (Singleton().profile.refreshToken == '' &&
-        Singleton().profile.accessToken == '') {
-      toAuth = true;
-    } else {
-      // Auth when refresh token is expired
-      toAuth = JwtDecoder.isExpired(Singleton().profile.refreshToken);
+    final profile = Singleton().profile;
+    final hasTokens = profile.refreshToken != '' || profile.accessToken != '';
+    bool toAuth = !hasTokens || isTokenExpired(profile.refreshToken);
+
+    if (!toAuth && isTokenExpired(profile.accessToken)) {
+      var refreshed = false;
+      try {
+        final refreshResponse = await Utils.callApi(
+            () => Singleton().authApi.refreshUserAccessToken(
+                refreshUserAccessTokenInput: RefreshUserAccessTokenInput(
+                    refreshToken: profile.refreshToken)),
+            useSecurity: false,
+            rethrowErr: true,
+            showError: false);
+        if (refreshResponse != null) {
+          profile.accessToken = refreshResponse.accessToken;
+          await CacheUtils.setProfile(profile);
+          refreshed = true;
+        }
+      } on ApiException catch (e) {
+        // 401: the server will not renew this session -> log in again.
+        if (e.code == 401) {
+          toAuth = true;
+        }
+      } catch (_) {
+        // Network problem: stay offline, the next call retries.
+      }
+      if (!refreshed && !toAuth) {
+        Singleton().apiToken = profile.accessToken;
+        return;
+      }
     }
 
-    // Auth if necessary
     if (toAuth) {
-      // Auth
-      final token = await CryptoUtils.generateRsaJwt(
-          Singleton().profile.user.id,
-          bu.CryptoUtils.rsaPrivateKeyFromPem(Singleton().profile.privateKey));
-      var authResponse = await Utils.callApi(
-          () => Singleton()
-              .authApi
-              .authUser(authUserInput: AuthUserInput(token: token)),
-          useSecurity: false);
-      if (authResponse != null) {
-        // Set tokens to singleton
-        Singleton().profile.accessToken = authResponse.accessToken;
-        Singleton().profile.refreshToken = authResponse.refreshToken;
-        // Save profile to cache
-        await CacheUtils.setProfile(Singleton().profile);
-      }
-    } else if (JwtDecoder.isExpired(Singleton().profile.accessToken)) {
-      // Refresh access token if expired
-      var refreshResponse = await Utils.callApi(
-          () => Singleton().authApi.refreshUserAccessToken(
-              refreshUserAccessTokenInput: RefreshUserAccessTokenInput(
-                  refreshToken: Singleton().profile.refreshToken)),
-          useSecurity: false);
-
-      if (refreshResponse != null) {
-        // Set access token to singleton
-        Singleton().profile.accessToken = refreshResponse.accessToken;
-        // Save profile to cache
-        await CacheUtils.setProfile(Singleton().profile);
+      // The server only accepts a login JWT that carries a fresh challenge, so
+      // it can never be replayed and a revoked session stays revoked.
+      final challenge = await Utils.callApi(
+          () => Singleton().authApi.authChallenge(),
+          useSecurity: false,
+          showError: false);
+      if (challenge != null) {
+        final token = await CryptoUtils.generateRsaJwt(
+            profile.user.id,
+            bu.CryptoUtils.rsaPrivateKeyFromPem(profile.privateKey),
+            nonce: challenge.challenge);
+        final authResponse = await Utils.callApi(
+            () => Singleton().authApi.authUser(
+                authUserInput: AuthUserInput(token: token)),
+            useSecurity: false,
+            showError: false);
+        if (authResponse != null) {
+          profile.accessToken = authResponse.accessToken;
+          profile.refreshToken = authResponse.refreshToken;
+          await CacheUtils.setProfile(profile);
+        }
       }
     }
 
     // Set API token
-    Singleton().apiToken = Singleton().profile.accessToken;
+    Singleton().apiToken = profile.accessToken;
+  }
+
+  /// Whether a JWT is expired or unreadable.
+  ///
+  /// A local convenience only: the server remains the authority. Replaces the
+  /// jwt_decoder dependency, which was used for this single check.
+  static bool isTokenExpired(String token) {
+    final parts = token.split('.');
+    if (parts.length != 3) {
+      return true;
+    }
+    try {
+      final payload = jsonDecode(
+              utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))))
+          as Map<String, dynamic>;
+      final exp = payload['exp'];
+      if (exp is! int) {
+        return false;
+      }
+      return DateTime.fromMillisecondsSinceEpoch(exp * 1000)
+          .isBefore(DateTime.now());
+    } catch (_) {
+      return true;
+    }
   }
 
   /// Get WebSocket URL from APi URL
@@ -156,16 +209,23 @@ class Utils {
         try {
           // One isolate for the whole batch: a per-message decrypt used to
           // cost an RSA key parse and an isolate spawn each.
-          final decryptedBatch = await CryptoUtils.decryptMessageBatch(
-              messages
-                  .map((message) => {
-                        'data': message.content,
-                        'key': message.key,
-                        'nonce': message.nonce,
-                        'mac': message.mac,
-                      })
-                  .toList(),
-              Singleton().profile.privateKey);
+          List<Uint8List?> decryptedBatch;
+          try {
+            decryptedBatch = await CryptoUtils.decryptMessageBatch(
+                messages
+                    .map((message) => {
+                          'data': message.content,
+                          'key': message.key,
+                          'nonce': message.nonce,
+                          'mac': message.mac,
+                        })
+                    .toList(),
+                Singleton().profile.privateKey);
+          } catch (_) {
+            // A batch failure must not drop the messages: they become visible
+            // placeholders below instead of disappearing.
+            decryptedBatch = List<Uint8List?>.filled(messages.length, null);
+          }
 
           final decryptionTasks = messages.asMap().entries.map((entry) async {
             final index = entry.key;
@@ -235,7 +295,18 @@ class Utils {
                 debugPrint(
                     'Failed to decrypt message from ${message.senderId}: $e');
               }
-              return null; // Return null for failed decryptions
+              // Keep a visible placeholder: dropping the message hides the loss
+              // from the user and from the server (which still has the entry).
+              return (
+                pm.PrivateMessage(
+                  message.senderId,
+                  pm.PrivateMessage.undecryptableMarker,
+                  message.sentAt,
+                  DateTime.now(),
+                  false,
+                ),
+                const <MediaReference>[]
+              );
             }
           });
 
@@ -284,6 +355,10 @@ class Utils {
             }
           }
 
+          // Everything is stored (placeholders included): the server may drop
+          // these entries from the offline queue.
+          _ackReceived(messages);
+
           // Remove messages from notifications if user was not online when they were sent
           decryptedMessages.removeWhere((x) => !messages
               .where((y) => y.sentAt == x.sentAt && y.senderId == x.senderId)
@@ -324,6 +399,12 @@ class Utils {
         SystemNavigator.pop();
         break;
 
+      // Delivery acknowledgement of one of our outgoing messages
+      case WsResponseType.ack:
+        final ack = wsResponse.payload as DeliveryAck;
+        await ChatSender.confirmSent(ack.receiverId, ack.sentAt);
+        break;
+
       // Error
       case WsResponseType.error:
         var error = wsResponse.payload as String;
@@ -331,6 +412,35 @@ class Utils {
         break;
     }
   }
+
+  /// Tells the server the received messages are stored, so it can drop them
+  /// from the offline queue. Batched, the server accepts at most 100 per ack.
+  static void _ackReceived(List<PrivateMessage> messages) {
+    if (messages.isEmpty || !Singleton().wsClient.isConnected) {
+      return;
+    }
+    final acked = messages
+        .map((message) => AckedMessage(message.senderId, message.sentAt))
+        .toList();
+    const batchSize = 100;
+    for (var i = 0; i < acked.length; i += batchSize) {
+      final end =
+          i + batchSize < acked.length ? i + batchSize : acked.length;
+      try {
+        Singleton()
+            .wsClient
+            .sendMessage(WsMessage.ack(acked.sublist(i, end)));
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('ack failed: $e');
+        }
+      }
+    }
+  }
+
+  /// Invoked after a successful connect, e.g. to push a pending Firebase id
+  /// without polling.
+  static Future<void> Function()? onConnected;
 
   /// Connect to WebSocket with improved connection handling
   static Future<void> wsConnect({bool firstConnect = false}) async {
@@ -384,6 +494,14 @@ class Utils {
 
       if (kDebugMode) {
         debugPrint('WebSocket connected successfully');
+      }
+
+      // Messages that never got a delivery ack are retried now; the server
+      // deduplicates them by (receiver, sentAt).
+      await ChatSender.resendPending();
+      final onConnected = Utils.onConnected;
+      if (onConnected != null) {
+        await onConnected();
       }
     } catch (e) {
       // WebSocket connection failed

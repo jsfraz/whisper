@@ -23,6 +23,7 @@ class CacheUtils {
   static const _privateMessagesKey = 'privateMessages';
   static const _userKey = 'user';
   static const _messageConceptKey = 'messageConcept';
+  static const _pendingSendsKey = 'pendingSends';
   static const _biometry = 'biometry';
   static const _playbackSpeed = 'playbackSpeed';
   static const String _saltStorageKey = 'whisper_pbkdf2_salt';
@@ -116,6 +117,8 @@ class CacheUtils {
     userBox.deleteFromDisk();
     Box messageConceptBox = await _openMessageConceptBox();
     messageConceptBox.deleteFromDisk();
+    Box pendingSendsBox = await _openPendingSendsBox();
+    pendingSendsBox.deleteFromDisk();
     if (await isBiometryEnabled()) {
       await BiometricAuth.clearEncryptionKey();
     }
@@ -280,42 +283,115 @@ class CacheUtils {
     await box.put(_playbackSpeed, speed);
   }
 
-  /// Opens box with private messages
+  /// Opens the message box. One key per message, so a write touches one entry
+  /// instead of rewriting a whole conversation.
   static Future<Box> _openPrivateMessagesBox() async {
     return Hive.openBox(_privateMessagesKey);
   }
 
-  /// Add user message to cache
+  /// Separates the conversation id from the timestamp in a message key.
+  static const String _messageKeySeparator = '|';
+
+  /// Key of one stored message: conversation id plus client timestamp.
+  ///
+  /// One key per message instead of one list per conversation: adding a message
+  /// writes a single entry instead of rewriting the whole chat.
+  static String messageKey(String userId, DateTime sentAt) =>
+      '$userId$_messageKeySeparator${sentAt.microsecondsSinceEpoch}';
+
+  /// Conversation id of a stored message key, null for legacy keys.
+  static String? conversationOfKey(dynamic key) {
+    if (key is! String) {
+      return null;
+    }
+    final index = key.lastIndexOf(_messageKeySeparator);
+    if (index <= 0) {
+      return null;
+    }
+    return key.substring(0, index);
+  }
+
+  static int _timestampOfKey(String key) {
+    final index = key.lastIndexOf(_messageKeySeparator);
+    return int.tryParse(key.substring(index + 1)) ?? 0;
+  }
+
+  /// Keys of one conversation, in box order.
+  static Iterable<String> _conversationKeys(Box box, String userId) {
+    return box.keys.whereType<String>().where((key) {
+      final index = key.lastIndexOf(_messageKeySeparator);
+      return index > 0 && key.substring(0, index) == userId;
+    });
+  }
+
+  /// Older versions stored a whole conversation under the user id. Move those
+  /// messages into per-message keys once, then drop the old entry.
+  static Future<void> _migrateLegacyConversation(
+      Box box, String userId) async {
+    if (!box.containsKey(userId)) {
+      return;
+    }
+    final legacy = box.get(userId);
+    if (legacy is List) {
+      for (final entry in legacy) {
+        if (entry is PrivateMessage) {
+          await box.put(messageKey(userId, entry.sentAt), entry);
+        }
+      }
+    }
+    await box.delete(userId);
+  }
+
+  /// Migrates every legacy conversation entry in the box.
+  static Future<void> _migrateLegacyMessages(Box box) async {
+    for (final key in box.keys.whereType<String>().toList()) {
+      if (conversationOfKey(key) != null) {
+        continue;
+      }
+      await _migrateLegacyConversation(box, key);
+    }
+  }
+
+  /// Add messages to a conversation.
+  ///
+  /// A message that is already stored is skipped: the server re-sends
+  /// unacknowledged messages, and the stored copy may already carry the read
+  /// flag.
   static Future<void> addPrivateMessages(
       String userId, List<PrivateMessage> messages) async {
     Box box = await _openPrivateMessagesBox();
-    List<PrivateMessage> chatMessages = await getPrivateMessages(userId);
-    chatMessages.addAll(messages);
-    await box.put(userId, chatMessages);
+    await _migrateLegacyConversation(box, userId);
+    for (final message in messages) {
+      final key = messageKey(userId, message.sentAt);
+      if (box.containsKey(key)) {
+        continue;
+      }
+      await box.put(key, message);
+    }
   }
 
-  /// Get user messages and mark them as read
+  /// Get user messages, oldest first, and mark them as read
   static Future<List<PrivateMessage>> getPrivateMessages(String userId,
       {bool markAsRead = false}) async {
     Box box = await _openPrivateMessagesBox();
-    List<dynamic>? messages = box.get(userId);
-    // Mark as read, but only write when something actually changed: this runs
-    // on every chat rebuild.
-    if (markAsRead && messages != null) {
-      var changed = false;
-      for (PrivateMessage msg in messages) {
-        if (!msg.read) {
-          msg.read = true;
-          changed = true;
-        }
-      }
-      if (changed) {
-        await box.put(userId, messages);
+    await _migrateLegacyConversation(box, userId);
+    final entries = <MapEntry<String, PrivateMessage>>[];
+    for (final key in _conversationKeys(box, userId)) {
+      final value = box.get(key);
+      if (value is PrivateMessage) {
+        entries.add(MapEntry(key, value));
       }
     }
-    return messages == null
-        ? []
-        : messages.map((e) => e as PrivateMessage).toList();
+    entries.sort((a, b) => a.value.sentAt.compareTo(b.value.sentAt));
+    // Mark as read, but only write the messages that actually changed: this
+    // runs on every chat rebuild.
+    for (final entry in entries) {
+      if (markAsRead && !entry.value.read) {
+        entry.value.read = true;
+        await box.put(entry.key, entry.value);
+      }
+    }
+    return entries.map((entry) => entry.value).toList();
   }
 
   /// Delete a single message locally (and its media file). Nothing is sent to
@@ -323,15 +399,10 @@ class CacheUtils {
   static Future<void> deletePrivateMessage(
       String userId, PrivateMessage message) async {
     Box box = await _openPrivateMessagesBox();
-    List<dynamic>? messages = box.get(userId);
-    if (messages == null) {
-      return;
-    }
-    messages.removeWhere((m) =>
-        m is PrivateMessage &&
-        m.senderId == message.senderId &&
-        m.sentAt == message.sentAt);
-    await box.put(userId, messages);
+    await _migrateLegacyConversation(box, userId);
+    // Removing the key also removes an emptied conversation from the list.
+    await box.delete(messageKey(userId, message.sentAt));
+    await _deletePendingSend(userId, message.sentAt);
     for (final path in message.localPaths) {
       await MediaUtils.deleteLocalFile(path);
     }
@@ -342,7 +413,12 @@ class CacheUtils {
     Box messageBox = await _openPrivateMessagesBox();
     // Delete on-disk media files for this conversation first.
     await _deleteMediaFilesForUser(userId);
-    await messageBox.delete(userId);
+    for (final key in _conversationKeys(messageBox, userId).toList()) {
+      await messageBox.delete(key);
+    }
+    if (messageBox.containsKey(userId)) {
+      await messageBox.delete(userId);
+    }
     Box userBox = await _openUserBox();
     await userBox.delete(userId);
     await deleteMessageConcept(userId);
@@ -363,13 +439,19 @@ class CacheUtils {
   static Future<void> updatePrivateMessageMedia(String userId, String mediaId,
       {String? localPath, int? downloadStatus, int? mediaSize}) async {
     Box box = await _openPrivateMessagesBox();
-    List<dynamic>? messages = box.get(userId);
-    if (messages == null) {
+    await _migrateLegacyConversation(box, userId);
+    final keys = _conversationKeys(box, userId).toList();
+    if (keys.isEmpty) {
       return;
     }
-    bool changed = false;
-    for (final dynamic m in messages) {
-      final msg = m as PrivateMessage;
+    final updated = <String>[];
+    for (final key in keys) {
+      final dynamic m = box.get(key);
+      if (m is! PrivateMessage) {
+        continue;
+      }
+      bool changed = false;
+      final msg = m;
       if (msg.mediaId == mediaId) {
         if (localPath != null) {
           msg.localPath = localPath;
@@ -408,8 +490,9 @@ class CacheUtils {
           if (downloadStatus != null) {
             final allReady =
                 items.every((item) => item.status == MediaDownloadStatus.ready);
-            final anyFailed =
-                items.any((item) => item.status == MediaDownloadStatus.failed);
+            final anyFailed = items.any((item) =>
+                item.status == MediaDownloadStatus.failed ||
+                item.status == MediaDownloadStatus.expired);
             msg.downloadStatus = allReady
                 ? MediaDownloadStatus.ready
                 : (anyFailed
@@ -419,31 +502,95 @@ class CacheUtils {
           changed = true;
         }
       }
+      if (changed) {
+        updated.add(key);
+      }
     }
-    if (changed) {
-      await box.put(userId, messages);
+    for (final key in updated) {
+      final message = box.get(key);
+      if (message is PrivateMessage) {
+        await box.put(key, message);
+      }
     }
   }
 
-  /// Apply [update] to the stored copy of [message] and persist the list.
-  /// The message is matched by sender and timestamp, the same identity the
-  /// delete path uses.
+  /// Apply [update] to the stored copy of [message] and persist it.
+  ///
+  /// The message is identified by conversation and client timestamp, the same
+  /// identity the delete path and the delivery ack use.
   static Future<void> updateStoredMessage(String userId, PrivateMessage message,
       void Function(PrivateMessage stored) update) async {
     Box box = await _openPrivateMessagesBox();
-    List<dynamic>? messages = box.get(userId);
-    if (messages == null) {
+    await _migrateLegacyConversation(box, userId);
+    final key = messageKey(userId, message.sentAt);
+    final stored = box.get(key);
+    if (stored is! PrivateMessage) {
       return;
     }
-    for (final dynamic m in messages) {
-      final stored = m as PrivateMessage;
-      if (stored.senderId == message.senderId &&
-          stored.sentAt == message.sentAt) {
-        update(stored);
-        await box.put(userId, messages);
-        return;
-      }
+    update(stored);
+    await box.put(key, stored);
+  }
+
+  /// Marks the message the server acknowledged as sent.
+  ///
+  /// [receiverId] and [sentAt] are the values the server echoes back; the pair
+  /// identifies the stored message without keeping a client message id.
+  static Future<void> markMessageSent(
+      String receiverId, DateTime sentAt) async {
+    Box box = await _openPrivateMessagesBox();
+    await _migrateLegacyConversation(box, receiverId);
+    final key = messageKey(receiverId, sentAt);
+    final stored = box.get(key);
+    if (stored is! PrivateMessage) {
+      return;
     }
+    stored.sendStatus = SendStatus.sent;
+    await box.put(key, stored);
+    await _deletePendingSend(receiverId, sentAt);
+  }
+
+  /// Remembers a message that is waiting for its delivery ack, so a reconnect
+  /// can resend exactly those.
+  static Future<void> addPendingSend(
+      String receiverId, DateTime sentAt) async {
+    Box box = await _openPendingSendsBox();
+    await box.put(messageKey(receiverId, sentAt), receiverId);
+  }
+
+  static Future<void> _deletePendingSend(
+      String receiverId, DateTime sentAt) async {
+    Box box = await _openPendingSendsBox();
+    await box.delete(messageKey(receiverId, sentAt));
+  }
+
+  /// Messages still waiting for a delivery ack, grouped by conversation.
+  static Future<Map<String, List<PrivateMessage>>> getPendingSends() async {
+    Box pending = await _openPendingSendsBox();
+    Box box = await _openPrivateMessagesBox();
+    final byConversation = <String, List<PrivateMessage>>{};
+    for (final entry in pending.toMap().entries) {
+      final key = entry.key;
+      if (key is! String) {
+        continue;
+      }
+      final receiverId = entry.value as String;
+      final message = box.get(key);
+      if (message is! PrivateMessage ||
+          message.sendStatus != SendStatus.sending) {
+        // Acked, deleted or already given up: forget the marker.
+        await pending.delete(key);
+        continue;
+      }
+      byConversation.putIfAbsent(receiverId, () => []).add(message);
+    }
+    for (final messages in byConversation.values) {
+      messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
+    }
+    return byConversation;
+  }
+
+  static Future<Box> _openPendingSendsBox() {
+    return Hive.openBox(_pendingSendsKey);
   }
 
   /// Opens box with users
@@ -469,15 +616,36 @@ class CacheUtils {
     await box.put(user.id, user);
   }
 
-  /// Get Map of all conversations with their last messages
+  /// Get Map of all conversations with their last messages.
+  ///
+  /// Only the newest message of each conversation is deserialized, so the list
+  /// does not pay for the whole history.
   static Future<Map<User, PrivateMessage>> getLatestPrivateMessages() async {
     Box box = await _openPrivateMessagesBox();
+    await _migrateLegacyMessages(box);
+
+    final newestKey = <String, String>{};
+    final newestTimestamp = <String, int>{};
+    for (final key in box.keys.whereType<String>()) {
+      final userId = conversationOfKey(key);
+      if (userId == null) {
+        continue;
+      }
+      final timestamp = _timestampOfKey(key);
+      if (timestamp > (newestTimestamp[userId] ?? -1)) {
+        newestTimestamp[userId] = timestamp;
+        newestKey[userId] = key;
+      }
+    }
+
     Map<User, PrivateMessage> conversations = {};
-    for (var entry in box.toMap().entries) {
-      User? user = await getUserById(entry.key as String);
-      List<dynamic> messages = entry.value;
-      conversations[user ?? User(entry.key as String, '', '', false)] =
-          messages.last as PrivateMessage;
+    for (final entry in newestKey.entries) {
+      final message = box.get(entry.value);
+      if (message is! PrivateMessage) {
+        continue;
+      }
+      User? user = await getUserById(entry.key);
+      conversations[user ?? User(entry.key, '', '', false)] = message;
     }
     // Sort conversations by last message date
     var sortedEntries = conversations.entries.toList()
@@ -490,9 +658,11 @@ class CacheUtils {
     Box messageBox = await _openPrivateMessagesBox();
     Box userBox = await _openUserBox();
     Box conceptBox = await _openMessageConceptBox();
+    Box pendingBox = await _openPendingSendsBox();
     await userBox.clear();
     await messageBox.clear();
     await conceptBox.clear();
+    await pendingBox.clear();
     // Remove every locally stored media file.
     await MediaUtils.clearMediaDir();
   }

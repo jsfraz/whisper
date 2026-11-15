@@ -254,12 +254,20 @@ class _ChatBubbleState extends State<ChatBubble> {
                             ),
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 10),
-                            child: LinkifiedText(
-                              widget.message.message,
-                              style: TextStyle(
-                                color: bubbleTextColor(),
-                              ),
-                            ),
+                            child: widget.message.isUndecryptable
+                                ? Text(
+                                    'messageUndecryptable'.tr(),
+                                    style: TextStyle(
+                                      color: bubbleTextColor(),
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  )
+                                : LinkifiedText(
+                                    widget.message.message,
+                                    style: TextStyle(
+                                      color: bubbleTextColor(),
+                                    ),
+                                  ),
                           ),
                         // Outgoing messages show a clock while they are being
                         // sent and an error when the send failed.

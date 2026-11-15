@@ -10,6 +10,15 @@ Also see [Wiki](https://github.com/jsfraz/whisper/wiki)!
 |---|---|---|
 |![Screenshot 1](screenshots/1.png)|![Screenshot 2](screenshots/2.png)|![Screenshot 3](screenshots/3.png)|
 
+## Delivery model
+
+One account is one device, and the server keeps an encrypted copy of a message
+only until the receiver acknowledges that it stored it. A message that was sent
+but never acknowledged is re-sent on the next connect; the server drops the
+duplicates. Media is deleted from the server when the receiver confirms the
+download, so an attachment that was never fetched before its TTL (or before a
+reinstall) shows as expired rather than being re-downloadable.
+
 ## Download
 
 You can download the app [here in the releases](https://github.com/jsfraz/whisper/releases).
@@ -85,12 +94,8 @@ Known limitations (Linux desktop, verified):
   - used for HTTP requests
 - [json_annotation](https://pub.dev/packages/json_annotation)
   - used for JSON serialization annotations
-- [jwt_decoder](https://pub.dev/packages/jwt_decoder)
-  - used for JWT token decoding
 - [local_auth](https://pub.dev/packages/local_auth)
   - used for biometric authentication
-- [mobile_scanner](https://pub.dev/packages/mobile_scanner)
-  - used for QR code scanning
 - [page_transition](https://pub.dev/packages/page_transition)
   - used for custom page transitions
 - [path_provider](https://pub.dev/packages/path_provider)

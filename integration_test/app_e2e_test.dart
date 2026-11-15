@@ -69,16 +69,20 @@ void main() {
 
   testWidgets('login with RSA JWT and refresh', (tester) async {
     final apiClient = client(null);
+    final authApi = AuthenticationApi(apiClient);
+    // The login token must carry the one-time challenge.
+    final challenge = await authApi.authChallenge();
     final jwt = await CryptoUtils.generateRsaJwt(
-        '1', keys.privateKey as bu.RSAPrivateKey);
-    final auth = await AuthenticationApi(apiClient).authUser(
+        '1', keys.privateKey as bu.RSAPrivateKey,
+        nonce: challenge!.challenge);
+    final auth = await authApi.authUser(
       authUserInput: AuthUserInput(token: jwt),
     );
 
     expect(auth!.accessToken, isNotEmpty);
     expect(auth.refreshToken, isNotEmpty);
 
-    final refreshed = await AuthenticationApi(apiClient).refreshUserAccessToken(
+    final refreshed = await authApi.refreshUserAccessToken(
       refreshUserAccessTokenInput:
           RefreshUserAccessTokenInput(refreshToken: auth.refreshToken),
     );

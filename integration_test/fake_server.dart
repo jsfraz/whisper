@@ -52,6 +52,8 @@ class FakeServer {
           'publicKey': body['publicKey'],
           'admin': false,
         });
+      } else if (path == '/api/auth/challenge') {
+        _json(request.response, {'challenge': 'challenge-1', 'expiresIn': 30});
       } else if (path == '/api/auth') {
         _json(request.response, {
           'accessToken': 'access-1',

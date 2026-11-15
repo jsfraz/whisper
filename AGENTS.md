@@ -45,6 +45,16 @@ not in this repository). Use them for the fast loop, but the shell gates below s
 - **Media upload**: `uploadMedia(file, receiverId)` — the argument order comes from the generator, not from logic. Verify call sites after regenerating the client.
 - **Path dependencies**: `pubspec.yaml` pulls both clients via `path:`, so CI cannot see which client version the app actually uses. Pinning to a tag is phase 2 debt.
 - **Firebase**: analysis fails without `lib/firebase_options.dart`. CI decodes it from a secret.
+- **Login needs a challenge**: `CryptoUtils.generateRsaJwt` requires a `nonce`
+  fetched from `AuthenticationApi.authChallenge()`; the server spends it on use.
+  A login without it is refused.
+- **Delivery ack**: `ChatSender` keeps a message `sending` until the server acks it
+  (`WsResponseType.ack`), and `Utils.onWsMessageReceived` acks what it stored. Do
+  not mark a message `sent` on the socket write; that hides lost messages.
+- **Message storage**: one Hive key per message (`<conversation>|<microseconds>`),
+  so a new message never rewrites a chat. Do not go back to a list per chat.
+- **Media is single-delivery**: the server deletes the file on confirm, so a
+  second device or a reinstall shows `MediaDownloadStatus.expired`.
 
 ## Definition of done
 

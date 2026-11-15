@@ -128,18 +128,25 @@ class CryptoUtils {
     return decrypted;
   }
 
-  /// Generates JWT token valid for 5 seconds asynchronously.
+  /// Generates the login JWT, valid for 5 seconds, asynchronously.
+  ///
+  /// [nonce] is the one-time challenge from the server: it is signed into the
+  /// token and spent on use, so a captured token cannot be replayed.
   static Future<String> generateRsaJwt(
-      String userId, RSAPrivateKey privateKey) async {
-    return await compute(
-        _generateRsaJwt, {'userId': userId, 'privateKey': privateKey});
+      String userId, RSAPrivateKey privateKey,
+      {required String nonce}) async {
+    return await compute(_generateRsaJwt,
+        {'userId': userId, 'privateKey': privateKey, 'nonce': nonce});
   }
 
   /// Generate JWT token synchronously.
   static String _generateRsaJwt(Map<String, dynamic> data) {
-    final jwt = djwt.JWT({'sub': data['userId']});
+    final jwt = djwt.JWT({'sub': data['userId'], 'nonce': data['nonce']});
     Duration expiresIn = Duration(seconds: 5);
-    Duration notBefore = Duration.zero;
+    // dart_jsonwebtoken writes `nbf = now + notBefore`, so a negative value
+    // backdates the token and a server clock a few seconds behind the phone no
+    // longer rejects it as "not valid yet".
+    Duration notBefore = const Duration(seconds: -30);
     return jwt.sign(djwt.RSAPrivateKey.raw(data['privateKey']),
         algorithm: djwt.JWTAlgorithm.RS256,
         expiresIn: expiresIn,

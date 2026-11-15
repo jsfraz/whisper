@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:whisper_openapi_client_dart/media_download.dart';
 import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
@@ -110,11 +111,19 @@ class MessageNotifier extends ChangeNotifier {
       // Confirm receipt so the server can delete its copy.
       await Utils.callApi(
           () => Singleton().mediaApi.confirmMediaDownload(reference.mediaId));
-    } catch (_) {
+    } catch (e) {
+      // A 404 means the server no longer has the file (confirmed on another
+      // device, expired, or the account was cleaned up): retrying cannot work,
+      // so the message shows a terminal state instead of a retry button.
+      final expired = e is ApiException && e.code == 404;
+      if (expired) {
+        _pendingMediaRefs.remove(reference.mediaId);
+      }
       await CacheUtils.updatePrivateMessageMedia(
         conversationUserId,
         reference.mediaId,
-        downloadStatus: MediaDownloadStatus.failed,
+        downloadStatus:
+            expired ? MediaDownloadStatus.expired : MediaDownloadStatus.failed,
       );
       notifyListeners();
     }

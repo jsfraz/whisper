@@ -150,7 +150,8 @@ class _MediaBubbleState extends State<MediaBubble> {
           : _fileWidget();
     } else if (widget.message.downloadStatus == MediaDownloadStatus.pending) {
       media = _placeholder(child: const CircularProgressIndicator());
-    } else if (widget.message.downloadStatus == MediaDownloadStatus.failed) {
+    } else if (widget.message.downloadStatus == MediaDownloadStatus.failed ||
+        widget.message.downloadStatus == MediaDownloadStatus.expired) {
       media = _failed();
     } else if (widget.message.localPath == null) {
       media = _placeholder(child: const CircularProgressIndicator());
@@ -512,7 +513,8 @@ class _AlbumTileState extends State<AlbumTile> {
           ),
         ],
       );
-    } else if (item.status == MediaDownloadStatus.failed) {
+    } else if (item.status == MediaDownloadStatus.failed ||
+        item.status == MediaDownloadStatus.expired) {
       content = const Center(child: Icon(Icons.error_outline));
     } else if (!item.isReady) {
       content = const Center(child: CircularProgressIndicator(strokeWidth: 2));

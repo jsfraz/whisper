@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../utils/nav_transitions.dart';
-import 'package:provider/provider.dart';
 import 'package:sprintf/sprintf.dart';
 import '../pages/chat_page.dart';
 import '../utils/websocket_manager.dart';
@@ -40,7 +39,7 @@ class _HomePageState extends State<HomePage>
   List<User> _serverUsers = [];
   int _currentPageIndex = 0;
   List<ModelsInvite> _serverInvites = [];
-  Map<User, PrivateMessage> _chats = {};
+  List<MapEntry<User, PrivateMessage>> _chatEntries = [];
   bool _firstLoad = true;
   String? _pendingFid; // Store pending FID
 
@@ -63,6 +62,11 @@ class _HomePageState extends State<HomePage>
     }
     // Get all conversations with their last messages
     _getConversations();
+    // Refresh the list when a message arrives or its state changes; the build
+    // method must not create a new future on every rebuild.
+    MessageNotifier().addListener(_onMessagesChanged);
+    // A pending FCM id is retried when the socket comes up instead of polling.
+    Utils.onConnected = _sendPendingFid;
     // Open the chat a notification tap pointed at (after unlocking)
     _openPendingChat();
     // Taps arriving while Home is alive open the chat right away
@@ -89,29 +93,36 @@ class _HomePageState extends State<HomePage>
     // Register with FCM, the FID arrives via onRegistered
     _registerForPush();
 
-    // Listen to offline mode changes to send the pending FID
-    _listenToConnectivityChanges();
   }
 
   @override
   void dispose() {
     _adminTabController.dispose();
+    MessageNotifier().removeListener(_onMessagesChanged);
     if (NotificationService.onChatSelected == _openChat) {
       NotificationService.onChatSelected = null;
+    }
+    if (Utils.onConnected == _sendPendingFid) {
+      Utils.onConnected = null;
     }
     super.dispose();
     // Stop checking WebSocket connection
     _webSocketManager.stopConnectionCheck();
   }
 
-  /// Listen to connectivity changes and send the pending FID
-  void _listenToConnectivityChanges() {
-    // Check periodically if we came back online and have a pending FID
-    Timer.periodic(Duration(seconds: 30), (timer) {
-      if (!Singleton().offlineMode && _pendingFid != null) {
-        _sendPushTargetWhenOnline(_pendingFid!);
-      }
-    });
+  /// Reload the conversation list after a message or its send/media state
+  /// changed.
+  void _onMessagesChanged() {
+    _getConversations();
+  }
+
+  /// Push a pending Firebase installation id once the socket is up.
+  Future<void> _sendPendingFid() async {
+    final fid = _pendingFid;
+    if (fid == null) {
+      return;
+    }
+    await _sendPushTargetWhenOnline(fid);
   }
 
   /// Register with FCM, the FID arrives via onRegistered
@@ -156,10 +167,14 @@ class _HomePageState extends State<HomePage>
 
   /// Get all conversations with their last messages
   Future<void> _getConversations() async {
-    _chats = await CacheUtils.getLatestPrivateMessages();
-    if (context.mounted) {
-      setState(() {});
+    final chats = await CacheUtils.getLatestPrivateMessages();
+    if (!mounted) {
+      return;
     }
+    setState(() {
+      _chatEntries = chats.entries.toList();
+      _firstLoad = false;
+    });
   }
 
   /// Get server users
@@ -263,7 +278,7 @@ class _HomePageState extends State<HomePage>
   }
 
   /// Get ListView with content
-  ListView _getContent(Map<User, PrivateMessage> chats) {
+  ListView _getContent(List<MapEntry<User, PrivateMessage>> chats) {
     _firstLoad = false;
     return ListView.builder(
       physics: const BouncingScrollPhysics(
@@ -271,7 +286,9 @@ class _HomePageState extends State<HomePage>
       ),
       itemCount: chats.length,
       itemBuilder: (context, index) {
-        final chat = chats.entries.elementAt(index);
+        // Indexed access: `Map.entries.elementAt` is O(n) and made the list
+        // build O(n^2).
+        final chat = chats[index];
         return Padding(
           padding: EdgeInsets.only(right: 5, left: 5, bottom: 3),
           child: ChatListItem(chat.key, chat.value, () {
@@ -285,8 +302,6 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    final notifier = context.watch<MessageNotifier>();
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: _currentPageIndex == 0
@@ -391,25 +406,14 @@ class _HomePageState extends State<HomePage>
             SizedBox(height: 10),
             // Messages and avatar list
             Expanded(
-              child: FutureBuilder<Map<User, PrivateMessage>>(
-                  future: notifier.getLatestPrivateMessages(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        _firstLoad) {
-                      return Center(
-                        child: Transform.scale(
-                          scale: 1.5,
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-                    // Set data
-                    if (snapshot.hasData) {
-                      _chats = snapshot.data!;
-                    }
-                    // Return chats
-                    return _getContent(_chats);
-                  }),
+              child: _firstLoad
+                  ? Center(
+                      child: Transform.scale(
+                        scale: 1.5,
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  : _getContent(_chatEntries),
             ),
           ],
         ),
@@ -478,17 +482,22 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  /// Error row with a retry button, replacing the blank tab of the old UI.
+  /// Centred error message with a retry button, replacing the blank tab of the old UI.
   Widget _adminError(VoidCallback retry) {
     final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 20, color: colors.error),
-          const SizedBox(width: 8),
-          Expanded(child: Text('loadError'.tr())),
-          TextButton(onPressed: retry, child: Text('retry'.tr())),
+          Icon(Icons.error_outline, size: 40, color: colors.error),
+          const SizedBox(height: 12),
+          Text(
+            'loadError'.tr(),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 16),
+          FilledButton.tonal(onPressed: retry, child: Text('retry'.tr())),
         ],
       ),
     );

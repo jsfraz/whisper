@@ -18,6 +18,10 @@ class MediaDownloadStatus {
 
   /// Download or decryption failed; can be retried.
   static const int failed = 2;
+
+  /// The server no longer has the file: it was confirmed on another device,
+  /// expired, or the sender's account was cleaned up. Retrying cannot help.
+  static const int expired = 3;
 }
 
 /// Outbound send state, shown as an icon in the bubble.
@@ -181,7 +185,15 @@ class PrivateMessage extends HiveObject {
     this.albumJson,
   });
 
+  /// Stored instead of the text when a message cannot be decrypted. It keeps a
+  /// visible gap in the chat, and the receiver only acks what it stored, so the
+  /// server still has the ciphertext.
+  static const String undecryptableMarker = '\uE000whisper-undecryptable';
+
   bool get isMe => senderId == Singleton().profile.user.id;
+
+  /// Whether the stored text is the placeholder of an undecryptable message.
+  bool get isUndecryptable => message == undecryptableMarker;
 
   int get notificationId => receivedAt.microsecondsSinceEpoch % 0x7FFFFFFF;
 
@@ -260,6 +272,9 @@ class PrivateMessage extends HiveObject {
   /// Short text used in chat list previews and notifications. Falls back to a
   /// localized media label when a media message has no caption.
   String get preview {
+    if (isUndecryptable) {
+      return 'messageUndecryptable'.tr();
+    }
     if (!isMedia || message.isNotEmpty) {
       return message;
     }
