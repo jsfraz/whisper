@@ -27,12 +27,32 @@ import 'singleton.dart';
 import '../models/private_message.dart' as pm;
 
 class Utils {
-  /// Capitalize first letter of string.
-  static String capitalizeFirstLetter(String input) {
-    if (input.isEmpty) {
-      return input;
+  /// Localized text for a server error code (the server only sends camelCase
+  /// names). An unknown code falls back to a generic message, so the user never
+  /// sees a raw identifier.
+  static String serverErrorText(String code) {
+    if (code.isEmpty) {
+      return 'serverError'.tr();
     }
-    return input[0].toUpperCase() + input.substring(1);
+    final text = code.tr();
+    return text == code ? 'serverError'.tr() : text;
+  }
+
+  /// Error code from a JSON error body ({"error": "someCode"}). Empty when the
+  /// body carries no code.
+  static String serverErrorCode(String? body) {
+    if (body == null || body.isEmpty) {
+      return '';
+    }
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map && decoded['error'] is String) {
+        return decoded['error'] as String;
+      }
+    } catch (_) {
+      // Not JSON: nothing to translate.
+    }
+    return '';
   }
 
   /// Call API, handle errors and return result.
@@ -60,18 +80,12 @@ class Utils {
         }
       } else if (e is ApiException) {
         if (e.innerException == null) {
-          if (e.message != '') {
-            Map<String, dynamic> messageMap =
-                jsonDecode(e.message!) as Map<String, dynamic>;
-            await Fluttertoast.showToast(
-                msg: Utils.capitalizeFirstLetter(messageMap['error']),
-                backgroundColor: Colors.red);
-          } else {
-            await Fluttertoast.showToast(
-                msg: Utils.capitalizeFirstLetter(
-                    'HTTP error ${e.code.toString()}'),
-                backgroundColor: Colors.red);
-          }
+          final code = Utils.serverErrorCode(e.message);
+          await Fluttertoast.showToast(
+              msg: code.isEmpty
+                  ? 'httpError'.tr(args: [e.code.toString()])
+                  : Utils.serverErrorText(code),
+              backgroundColor: Colors.red);
         } else {
           if (e.innerException is SocketException) {
             Singleton().offlineMode = true;
@@ -463,7 +477,8 @@ class Utils {
       // Error
       case WsResponseType.error:
         var error = wsResponse.payload as String;
-        await Fluttertoast.showToast(msg: error, backgroundColor: Colors.red);
+        await Fluttertoast.showToast(
+            msg: Utils.serverErrorText(error), backgroundColor: Colors.red);
         break;
     }
   }
