@@ -9,6 +9,7 @@ import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import '../models/invite_data.dart';
 import 'register_page.dart';
 import '../utils/nav_transitions.dart';
+import '../utils/utils.dart';
 
 class ScanInvitePage extends StatefulWidget {
   const ScanInvitePage({super.key});
@@ -46,6 +47,17 @@ class _ScanInvitePageState extends State<ScanInvitePage> {
     try {
       final inviteMap = jsonDecode(scanCode) as Map<String, dynamic>;
       final invite = InviteData.fromJson(inviteMap);
+      // Release builds only talk to HTTPS: tokens and metadata would otherwise
+      // travel in clear text.
+      if (!Utils.isAllowedServerUrl(invite.url)) {
+        if (_showScanToastOnce(scanCode, 'insecureServerUrl')) {
+          Fluttertoast.showToast(
+            msg: 'insecureServerUrl'.tr(),
+            backgroundColor: Colors.red,
+          );
+        }
+        return;
+      }
       if (invite.validUntil.difference(DateTime.now()).isNegative) {
         if (_showScanToastOnce(scanCode, 'inviteExpired')) {
           Fluttertoast.showToast(

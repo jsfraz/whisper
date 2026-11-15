@@ -24,6 +24,8 @@ class CacheUtils {
   static const _userKey = 'user';
   static const _messageConceptKey = 'messageConcept';
   static const _pendingSendsKey = 'pendingSends';
+  static const _settingsKey = 'settings';
+  static const _notificationPreviewKey = 'notificationPreview';
   static const _biometry = 'biometry';
   static const _playbackSpeed = 'playbackSpeed';
   static const String _saltStorageKey = 'whisper_pbkdf2_salt';
@@ -119,6 +121,8 @@ class CacheUtils {
     messageConceptBox.deleteFromDisk();
     Box pendingSendsBox = await _openPendingSendsBox();
     pendingSendsBox.deleteFromDisk();
+    Box settingsBox = await Hive.openBox(_settingsKey);
+    settingsBox.deleteFromDisk();
     if (await isBiometryEnabled()) {
       await BiometricAuth.clearEncryptionKey();
     }
@@ -264,6 +268,19 @@ class CacheUtils {
   static Future<void> setBiometryEnabled(bool enabled) async {
     Box box = await _openBiometryBox();
     await box.put(_biometry, enabled);
+  }
+
+  /// Whether notifications may show the decrypted message text. Default on,
+  /// matching the previous behaviour; the user can hide it.
+  static Future<bool> getNotificationPreview() async {
+    Box box = await Hive.openBox(_settingsKey);
+    return box.get(_notificationPreviewKey) as bool? ?? true;
+  }
+
+  /// Sets whether notifications may show the message text.
+  static Future<void> setNotificationPreview(bool value) async {
+    Box box = await Hive.openBox(_settingsKey);
+    await box.put(_notificationPreviewKey, value);
   }
 
   /// Opens box with playback preferences

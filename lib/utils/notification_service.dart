@@ -106,7 +106,10 @@ class NotificationService {
     }
     // More messages
     if (messages.length > 1) {
-      final lines = getGroupedNotificationLines(groupedMessagesByUser);
+      final preview = await CacheUtils.getNotificationPreview();
+      final lines = preview
+          ? getGroupedNotificationLines(groupedMessagesByUser)
+          : ['newMessageBody'.tr()];
       final groupedPlatformChannelSpecifics = await groupedNotificationDetails(
           lines, groupedMessagesByUser.keys.length, messages.length);
       await _flutterLocalNotificationsPlugin.show(
@@ -167,6 +170,9 @@ class NotificationService {
   Future<void> showMessageNotification(PrivateMessage message) async {
     var user = await CacheUtils.getUserById(message.senderId) ??
         User(message.senderId, '', '', false);
+    // The text is decrypted; the user decides whether the lock screen shows it.
+    final preview = await CacheUtils.getNotificationPreview();
+    final body = preview ? message.preview : 'newMessageBody'.tr();
 
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
@@ -181,14 +187,14 @@ class NotificationService {
       playSound: true,
       sound: RawResourceAndroidNotificationSound('notification'),
       // Message previews are long, don't let Android truncate them
-      styleInformation: BigTextStyleInformation(message.preview),
+      styleInformation: BigTextStyleInformation(body),
     );
     NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
     await _flutterLocalNotificationsPlugin.show(
       id: message.notificationId,
       title: user.username,
-      body: message.preview,
+      body: body,
       notificationDetails: platformChannelSpecifics,
       payload: message.senderId.toString(),
     );

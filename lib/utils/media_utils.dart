@@ -267,6 +267,33 @@ class MediaUtils {
     return file;
   }
 
+  /// Whether a file name belongs to the app's plaintext temp files.
+  static bool isTempMediaName(String name) =>
+      name.startsWith('whisper_media_') || name.startsWith('whisper_send_');
+
+  /// Remove plaintext media left in the temp directory.
+  ///
+  /// Playback materializes decrypted files and the keyboard writes plaintext
+  /// GIFs; both are deleted on dispose, but a crash leaves them behind. At
+  /// rest they must not exist.
+  static Future<void> clearTempFiles() async {
+    try {
+      final dir = await getTemporaryDirectory();
+      await for (final entity in dir.list()) {
+        if (entity is! File) {
+          continue;
+        }
+        if (isTempMediaName(baseName(entity.path))) {
+          await entity.delete();
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Failed to clear temp media: $e');
+      }
+    }
+  }
+
   /// Delete a single (encrypted) media file, ignoring errors.
   static Future<void> deleteLocalFile(String? path) async {
     if (path == null) {

@@ -25,6 +25,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _isBiometryEnabled = false;
+  bool _notificationPreview = true;
 
   @override
   void initState() {
@@ -34,6 +35,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadSettings() async {
     _isBiometryEnabled = await CacheUtils.isBiometryEnabled();
+    _notificationPreview = await CacheUtils.getNotificationPreview();
     setState(() {});
   }
 
@@ -135,6 +137,39 @@ class _SettingsPageState extends State<SettingsPage> {
                               !Singleton().profile.enableNotifications;
                         });
                         await Singleton().profile.save();
+                      },
+                    )
+                  ],
+                ),
+              ),
+
+              // Notification previews
+              TextButton(
+                onPressed: null,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.visibility,
+                      size: 24,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(left: 5),
+                      child: Text(
+                        'notificationPreview'.tr(),
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.secondary),
+                      ),
+                    ),
+                    Spacer(),
+                    Switch(
+                      value: _notificationPreview,
+                      onChanged: (value) async {
+                        setState(() {
+                          _notificationPreview = !_notificationPreview;
+                        });
+                        await CacheUtils.setNotificationPreview(
+                            _notificationPreview);
                       },
                     )
                   ],

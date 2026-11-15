@@ -16,6 +16,7 @@ import 'models/private_message.dart';
 import 'models/profile.dart';
 import 'models/user.dart';
 import 'pages/whisper_page.dart';
+import 'utils/media_utils.dart';
 import 'utils/notification_service.dart';
 import 'utils/singleton.dart';
 import 'utils/theme_notifier.dart';
@@ -67,6 +68,10 @@ void main() async {
     ..registerAdapter(UserAdapter())
     ..registerAdapter(AppThemeAdapter())
     ..registerAdapter(PrivateMessageAdapter());
+
+  // Plaintext media from an interrupted playback or send must not survive a
+  // restart.
+  await MediaUtils.clearTempFiles();
 
   // Default theme
   Singleton().appTheme = await CacheUtils.getTheme() ??

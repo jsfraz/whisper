@@ -150,5 +150,8 @@
   "messageSending": "Sending",
   "messageSendFailed": "Sending failed",
   "messageUndecryptable": "This message could not be decrypted",
-  "mediaExpired": "The attachment is no longer available on the server"
+  "mediaExpired": "The attachment is no longer available on the server",
+  "notificationPreview": "Show message text in notifications",
+  "newMessageBody": "You have a new message",
+  "insecureServerUrl": "The server must use HTTPS"
 }

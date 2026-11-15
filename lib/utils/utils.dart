@@ -95,12 +95,29 @@ class Utils {
     return '${dir.path}/whisper';
   }
 
+  /// In-flight token renewal. Concurrent callers (a resume fires several API
+  /// calls at once) share one renewal: the refresh token is single use, so two
+  /// parallel refreshes would burn the session.
+  static Future<void>? _authInFlight;
+
   /// Checks access and refresh tokens and renews them if necessary.
   ///
   /// A refresh can be refused (session revoked, or a token minted before
   /// sessions were recorded). The RSA challenge always works with the stored
   /// private key, so it is the fallback instead of leaving the app unauthorized.
-  static Future<void> authCheck() async {
+  static Future<void> authCheck() {
+    final inFlight = _authInFlight;
+    if (inFlight != null) {
+      return inFlight;
+    }
+    final renewal = _doAuthCheck();
+    _authInFlight = renewal;
+    return renewal.whenComplete(() {
+      _authInFlight = null;
+    });
+  }
+
+  static Future<void> _doAuthCheck() async {
     final profile = Singleton().profile;
     final hasTokens = profile.refreshToken != '' || profile.accessToken != '';
     bool toAuth = !hasTokens || isTokenExpired(profile.refreshToken);
@@ -117,6 +134,10 @@ class Utils {
             showError: false);
         if (refreshResponse != null) {
           profile.accessToken = refreshResponse.accessToken;
+          // The server rotates the refresh token: the old one is spent.
+          if (refreshResponse.refreshToken.isNotEmpty) {
+            profile.refreshToken = refreshResponse.refreshToken;
+          }
           await CacheUtils.setProfile(profile);
           refreshed = true;
         }
@@ -185,6 +206,22 @@ class Utils {
     } catch (_) {
       return true;
     }
+  }
+
+  /// Whether a server URL may be used.
+  ///
+  /// Release builds only talk to HTTPS: message bodies stay end-to-end
+  /// encrypted, but tokens, contacts and metadata would travel in clear text
+  /// over plain HTTP. Debug builds accept HTTP for local development.
+  static bool isAllowedServerUrl(String url) {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null || !uri.hasAuthority || uri.host.isEmpty) {
+      return false;
+    }
+    if (uri.scheme == 'https') {
+      return true;
+    }
+    return !kReleaseMode && uri.scheme == 'http';
   }
 
   /// Get WebSocket URL from APi URL

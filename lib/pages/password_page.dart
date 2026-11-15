@@ -50,7 +50,6 @@ class _PasswordPageState extends State<PasswordPage> {
     if (key != null) {
       setState(() {
         _isButtonDisabled = true;
-        _controllerLocalPassword.text = 'yourAmazingPasswordIsHereOhYesItIs';
       });
 
       // Set the decryption key

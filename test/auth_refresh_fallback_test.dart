@@ -89,7 +89,10 @@ void main() {
       } else if (request.uri.path == '/api/auth/refresh') {
         request.response.statusCode = refreshStatus;
         request.response.write(refreshStatus == 200
-            ? jsonEncode({'accessToken': 'refreshed-access'})
+            ? jsonEncode({
+                'accessToken': 'refreshed-access',
+                'refreshToken': 'rotated-refresh',
+              })
             : jsonEncode({'error': 'refresh session was revoked'}));
       } else if (request.uri.path == '/api/auth') {
         expect(body, contains('token'));
@@ -137,6 +140,21 @@ void main() {
     Singleton().profile.accessToken = tokenExpiring(inFuture: Duration.zero);
 
     await Utils.authCheck();
+
+    expect(requestedPaths, ['/api/auth/refresh']);
+    expect(Singleton().profile.accessToken, 'refreshed-access');
+    // The server rotates the refresh token; keeping the old one would break the
+    // next refresh.
+    expect(Singleton().profile.refreshToken, 'rotated-refresh');
+  });
+
+  test('concurrent callers share one renewal', () async {
+    // The refresh token is single use: two parallel refreshes would burn the
+    // session, so a resume must not fan out.
+    await startServer(refreshStatus: 200);
+    Singleton().profile.accessToken = tokenExpiring(inFuture: Duration.zero);
+
+    await Future.wait([Utils.authCheck(), Utils.authCheck(), Utils.authCheck()]);
 
     expect(requestedPaths, ['/api/auth/refresh']);
     expect(Singleton().profile.accessToken, 'refreshed-access');

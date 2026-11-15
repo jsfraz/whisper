@@ -48,6 +48,11 @@ not in this repository). Use them for the fast loop, but the shell gates below s
 - **Login needs a challenge**: `CryptoUtils.generateRsaJwt` requires a `nonce`
   fetched from `AuthenticationApi.authChallenge()`; the server spends it on use.
   A login without it is refused.
+- **Privacy defaults**: notifications may show the decrypted text; the setting
+  lives in the `settings` box (`CacheUtils.getNotificationPreview`). Plaintext
+  temp media is swept on startup (`MediaUtils.clearTempFiles`) and must stay
+  that way — the temp dir may never hold readable media after a restart.
+- **Server URL**: `Utils.isAllowedServerUrl` allows HTTP only in debug builds.
 - **Delivery ack**: `ChatSender` keeps a message `sending` until the server acks it
   (`WsResponseType.ack`), and `Utils.onWsMessageReceived` acks what it stored. Do
   not mark a message `sent` on the socket write; that hides lost messages.

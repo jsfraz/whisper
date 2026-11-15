@@ -150,5 +150,8 @@
   "messageSending": "Odesílá se",
   "messageSendFailed": "Odeslání se nezdařilo",
   "messageUndecryptable": "Tuto zprávu se nepodařilo dešifrovat",
-  "mediaExpired": "Příloha už není na serveru dostupná"
+  "mediaExpired": "Příloha už není na serveru dostupná",
+  "notificationPreview": "Zobrazovat text zpráv v notifikacích",
+  "newMessageBody": "Máte novou zprávu",
+  "insecureServerUrl": "Server musí používat HTTPS"
 }
