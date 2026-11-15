@@ -4,6 +4,7 @@ import '../models/user.dart';
 import '../models/private_message.dart';
 import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
+import 'linkified_text.dart';
 import 'media_bubble.dart';
 
 // Long-press opens the message actions sheet (copy, forward, save, delete).
@@ -253,12 +254,11 @@ class _ChatBubbleState extends State<ChatBubble> {
                             ),
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 10),
-                            child: Text(
+                            child: LinkifiedText(
                               widget.message.message,
                               style: TextStyle(
                                 color: bubbleTextColor(),
                               ),
-                              softWrap: true,
                             ),
                           ),
                         // Outgoing messages show a clock while they are being
@@ -268,10 +268,10 @@ class _ChatBubbleState extends State<ChatBubble> {
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Tooltip(
-                              message: widget.message.sendStatus ==
-                                      SendStatus.failed
-                                  ? 'messageSendFailed'.tr()
-                                  : 'messageSending'.tr(),
+                              message:
+                                  widget.message.sendStatus == SendStatus.failed
+                                      ? 'messageSendFailed'.tr()
+                                      : 'messageSending'.tr(),
                               child: Icon(
                                 widget.message.sendStatus == SendStatus.failed
                                     ? Icons.error_outline
