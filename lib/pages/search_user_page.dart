@@ -7,6 +7,7 @@ import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import '../widgets/user_list_item.dart';
 import 'chat_page.dart';
+import '../utils/nav_transitions.dart';
 
 typedef UserSearchCallback = Future<List<User>?> Function(String query);
 
@@ -204,9 +205,7 @@ class _SearchUserPageState extends State<SearchUserPage> {
                               }
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        ChatPage(_users[index])),
+                                slideUpRoute(ChatPage(_users[index])),
                                 (route) => route
                                     .isFirst, // Returns true only for Home page
                               );

@@ -14,6 +14,7 @@ import '../utils/message_notifier.dart';
 import '../utils/utils.dart';
 import 'scan_invite_button_page.dart';
 import '../widgets/change_password_dialog.dart';
+import '../utils/nav_transitions.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -319,9 +320,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       if (Platform.isIOS) {
                         // Apple (https://stackoverflow.com/a/57534684/19371130)
                         Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => ScanInviteButtonPage()));
+                            context, fadeRoute(ScanInviteButtonPage()));
                       } else if (Platform.isAndroid) {
                         // Android
                         SystemNavigator.pop();

@@ -8,6 +8,7 @@ import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 
 import '../models/invite_data.dart';
 import 'register_page.dart';
+import '../utils/nav_transitions.dart';
 
 class ScanInvitePage extends StatefulWidget {
   const ScanInvitePage({super.key});
@@ -59,10 +60,7 @@ class _ScanInvitePageState extends State<ScanInvitePage> {
       await _qrController?.pauseCamera();
       if (!mounted) return;
 
-      await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => RegisterPage(invite)),
-      );
+      await Navigator.push(context, stepRoute(RegisterPage(invite)));
     } catch (_) {
       if (_showScanToastOnce(scanCode, 'invalidQr')) {
         Fluttertoast.showToast(

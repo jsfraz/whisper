@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:page_transition/page_transition.dart';
+import '../utils/nav_transitions.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
 import '../utils/cache_utils.dart';
@@ -84,11 +84,9 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
       return;
     }
     Navigator.of(context).push(
-      PageTransition(
-        type: PageTransitionType.fade,
-        duration: const Duration(milliseconds: 200),
+      fadeRoute(
         // The viewer is a separate route, so it needs the chat theme passed in
-        child: Theme(
+        Theme(
           data: ThemeUtils.chatTheme(context, _chatThemeColor),
           child: MediaViewerPage(
             message: message,
@@ -206,7 +204,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                     // Redirect to home page and clear navigation stack
                     Navigator.pushAndRemoveUntil(
                       context,
-                      MaterialPageRoute(builder: (context) => const HomePage()),
+                      fadeRoute(const HomePage()),
                       (route) => false,
                     );
                   });

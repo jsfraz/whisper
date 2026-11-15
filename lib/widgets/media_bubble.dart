@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:page_transition/page_transition.dart';
+import '../utils/nav_transitions.dart';
 import 'package:video_player/video_player.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
@@ -98,11 +98,9 @@ class _MediaBubbleState extends State<MediaBubble> {
       return;
     }
     Navigator.of(context).push(
-      PageTransition(
-        type: PageTransitionType.fade,
-        duration: const Duration(milliseconds: 200),
+      fadeRoute(
         // The viewer is a separate route; carry the chat theme over to it
-        child: Theme(
+        Theme(
           data: Theme.of(context),
           child: MediaViewerPage(
             message: widget.message,

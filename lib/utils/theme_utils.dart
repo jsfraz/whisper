@@ -10,9 +10,14 @@ class ThemeUtils {
     if (seed == null) {
       return Theme.of(context);
     }
-    return ThemeData.from(
-        colorScheme: ColorScheme.fromSeed(
-            seedColor: seed, brightness: Theme.of(context).brightness),
+    final brightness = Theme.of(context).brightness;
+    // Recomputing the tonal palette on every rebuild lands mid-transition.
+    final key = Object.hash(seed, brightness);
+    return _chatThemes[key] ??= ThemeData.from(
+        colorScheme:
+            ColorScheme.fromSeed(seedColor: seed, brightness: brightness),
         useMaterial3: Singleton().appTheme.useMaterial3);
   }
+
+  static final Map<int, ThemeData> _chatThemes = {};
 }

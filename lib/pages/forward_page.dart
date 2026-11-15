@@ -9,6 +9,7 @@ import '../utils/media_utils.dart';
 import '../utils/message_notifier.dart';
 import '../widgets/user_list_item.dart';
 import 'search_user_page.dart';
+import '../utils/nav_transitions.dart';
 
 /// Picks the destination of a forwarded message: an existing conversation or a
 /// user found by search. Sends the message and closes itself.
@@ -94,12 +95,12 @@ class _ForwardPageState extends State<ForwardPage> {
             icon: const Icon(Icons.search),
             tooltip: 'searchUserPage'.tr(),
             onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => SearchUserPage(onUserSelected: (user) {
-                        // Close the search page, _forward closes this one
-                        Navigator.pop(context);
-                        _forward(user);
-                      })));
+              Navigator.of(context)
+                  .push(stepRoute(SearchUserPage(onUserSelected: (user) {
+                // Close the search page, _forward closes this one
+                Navigator.pop(context);
+                _forward(user);
+              })));
             },
           ),
         ],

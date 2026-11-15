@@ -10,6 +10,7 @@ import 'cache_utils.dart';
 import 'dialog_utils.dart';
 import 'media_utils.dart';
 import 'message_notifier.dart';
+import '../utils/nav_transitions.dart';
 
 /// Actions for a single message, offered by the bubble long-press sheet and by
 /// the attachment viewer's overflow menu.
@@ -113,8 +114,7 @@ class MessageActions {
   /// Pick a chat (or a user) and send the message there.
   static Future<void> forward(
       BuildContext context, PrivateMessage message) async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => ForwardPage(message)));
+    await Navigator.of(context).push(stepRoute(ForwardPage(message)));
   }
 
   /// Delete the message only on this device, after a confirmation.

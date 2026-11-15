@@ -6,7 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:page_transition/page_transition.dart';
+import '../utils/nav_transitions.dart';
 import 'package:provider/provider.dart';
 import 'package:sprintf/sprintf.dart';
 import '../pages/chat_page.dart';
@@ -239,13 +239,7 @@ class _HomePageState extends State<HomePage>
       if (!mounted) {
         return;
       }
-      Navigator.of(context).push(PageTransition(
-          duration: const Duration(milliseconds: 300),
-          reverseDuration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          type: PageTransitionType.bottomToTopJoined,
-          child: ChatPage(user),
-          childCurrent: widget));
+      Navigator.of(context).push(slideUpRoute(ChatPage(user)));
     });
   }
 
@@ -282,13 +276,7 @@ class _HomePageState extends State<HomePage>
           padding: EdgeInsets.only(right: 5, left: 5, bottom: 3),
           child: ChatListItem(chat.key, chat.value, () {
             // Push to chat
-            Navigator.of(context).push(PageTransition(
-                duration: const Duration(milliseconds: 300),
-                reverseDuration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                type: PageTransitionType.bottomToTopJoined,
-                child: ChatPage(chat.key),
-                childCurrent: widget));
+            Navigator.of(context).push(slideUpRoute(ChatPage(chat.key)));
           }),
         );
       },
@@ -345,14 +333,7 @@ class _HomePageState extends State<HomePage>
                         icon: const Icon(Icons.settings),
                         tooltip: 'settingsButton'.tr(),
                         onPressed: () {
-                          Navigator.of(context).push(PageTransition(
-                            duration: const Duration(milliseconds: 300),
-                            reverseDuration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                            type: PageTransitionType.rightToLeftJoined,
-                            child: SettingsPage(),
-                            childCurrent: widget,
-                          ));
+                          Navigator.of(context).push(stepRoute(SettingsPage()));
                         },
                       ),
                     ],
@@ -366,13 +347,7 @@ class _HomePageState extends State<HomePage>
       floatingActionButton: _currentPageIndex == 0
           ? FloatingActionButton(
               onPressed: () {
-                Navigator.of(context).push(PageTransition(
-                    duration: const Duration(milliseconds: 300),
-                    reverseDuration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    type: PageTransitionType.bottomToTopJoined,
-                    child: SearchUserPage(),
-                    childCurrent: widget));
+                Navigator.of(context).push(stepRoute(SearchUserPage()));
               },
               shape: const CircleBorder(),
               foregroundColor: Theme.of(context).colorScheme.surface,

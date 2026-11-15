@@ -15,6 +15,7 @@ import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'home_page.dart';
+import '../utils/nav_transitions.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage(this.invite, {super.key});
@@ -170,7 +171,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
                   // Redirect to home page and clear navigation history
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const HomePage()),
+                    fadeRoute(const HomePage()),
                     (Route<dynamic> route) => false,
                   );
                 } else {
@@ -180,7 +181,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
                   // Redirect to home page and clear navigation history
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const HomePage()),
+                    fadeRoute(const HomePage()),
                     (Route<dynamic> route) => false,
                   );
                 }
@@ -189,7 +190,7 @@ class _RegisterPageState extends State<RegisterPage> {
           } else {
             // Redirect to home page and clear navigation history
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const HomePage()),
+              fadeRoute(const HomePage()),
               (Route<dynamic> route) => false,
             );
           }

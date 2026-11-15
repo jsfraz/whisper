@@ -5,7 +5,7 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:page_transition/page_transition.dart';
+import '../utils/nav_transitions.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
 import '../models/user.dart';
@@ -86,6 +86,14 @@ class _ChatPageState extends State<ChatPage> {
       if (!mounted) {
         return;
       }
+      // The first content frame decrypts every visible attachment, so keep it
+      // out of the push animation and let the spinner ride along instead.
+      if (_firstLoad) {
+        await _waitForRouteAnimation();
+      }
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _messages = messages;
         _firstLoad = false;
@@ -93,6 +101,26 @@ class _ChatPageState extends State<ChatPage> {
     } finally {
       _loading = false;
     }
+  }
+
+  /// Completes once the page transition that opened this page has finished.
+  Future<void> _waitForRouteAnimation() async {
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation == null || animation.status == AnimationStatus.completed) {
+      return;
+    }
+    final done = Completer<void>();
+    void onStatus(AnimationStatus status) {
+      if (status == AnimationStatus.completed) {
+        animation.removeStatusListener(onStatus);
+        if (!done.isCompleted) {
+          done.complete();
+        }
+      }
+    }
+
+    animation.addStatusListener(onStatus);
+    await done.future;
   }
 
   /// Extend the rendered window when the user scrolls towards older messages.
@@ -131,10 +159,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _openChatInfo() async {
-    await Navigator.of(context).push(PageTransition(
-      type: PageTransitionType.rightToLeft,
-      child: ChatInfoPage(widget.user.id),
-    ));
+    await Navigator.of(context).push(stepRoute(ChatInfoPage(widget.user.id)));
     // The theme (and possibly the user) may have changed while it was open.
     await _loadChatTheme();
     await _loadMessages();

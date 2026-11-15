@@ -9,6 +9,7 @@ import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import 'home_page.dart';
+import '../utils/nav_transitions.dart';
 
 class PasswordPage extends StatefulWidget {
   const PasswordPage({super.key});
@@ -69,8 +70,7 @@ class _PasswordPageState extends State<PasswordPage> {
 
         // Redirect to home page
         if (mounted) {
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (context) => const HomePage()));
+          Navigator.pushReplacement(context, fadeRoute(const HomePage()));
         }
       } catch (e) {
         setState(() {
@@ -158,8 +158,7 @@ class _PasswordPageState extends State<PasswordPage> {
         await Utils.wsConnect(firstConnect: true);
 
         if (mounted) {
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (context) => const HomePage()));
+          Navigator.pushReplacement(context, fadeRoute(const HomePage()));
         }
       } else {
         await Fluttertoast.showToast(
