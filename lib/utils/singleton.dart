@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:http/io_client.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:whisper_websocket_client_dart/ws_client.dart';
@@ -40,7 +43,20 @@ class Singleton {
   set apiToken(String token) {
     var auth = HttpBearerAuth();
     auth.accessToken = Singleton().profile.accessToken;
-    _api = ApiClient(basePath: Singleton().profile.url, authentication: auth);
+    _api = createApiClient(Singleton().profile.url, authentication: auth);
+  }
+
+  /// API client with connection and idle timeouts.
+  ///
+  /// The generated client has no timeout of its own, so a stalled server would
+  /// leave a future pending forever (a media bubble stuck on "downloading").
+  static ApiClient createApiClient(String basePath,
+      {Authentication? authentication}) {
+    final httpClient = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 15)
+      ..idleTimeout = const Duration(seconds: 30);
+    return ApiClient(basePath: basePath, authentication: authentication)
+      ..client = IOClient(httpClient);
   }
 
   set offlineMode(bool offline) {

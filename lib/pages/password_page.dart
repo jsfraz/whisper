@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:whisper_websocket_client_dart/ws_client.dart';
 import '../utils/biometric_auth.dart';
 import '../utils/cache_utils.dart';
@@ -59,7 +58,8 @@ class _PasswordPageState extends State<PasswordPage> {
         // Load profile
         Singleton().profile = await CacheUtils.getProfile();
         // OpenAPI client
-        Singleton().api = ApiClient(basePath: Singleton().profile.url);
+        Singleton().api =
+            Singleton.createApiClient(Singleton().profile.url);
         // Check tokens
         await Utils.authCheck();
         // WebSocket client
@@ -147,7 +147,8 @@ class _PasswordPageState extends State<PasswordPage> {
         // Add profile to singleton
         Singleton().profile = await CacheUtils.getProfile();
         // OpenAPI client
-        Singleton().api = ApiClient(basePath: Singleton().profile.url);
+        Singleton().api =
+            Singleton.createApiClient(Singleton().profile.url);
         // Kontrola tokenů
         await Utils.authCheck();
 

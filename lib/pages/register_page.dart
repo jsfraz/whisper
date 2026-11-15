@@ -108,7 +108,7 @@ class _RegisterPageState extends State<RegisterPage> {
         // Generate RSA keypair
         var keyPair = await CryptoUtils.getRSAKeyPair();
         // OpenAPI client
-        Singleton().api = ApiClient(basePath: widget.invite.url);
+        Singleton().api = Singleton.createApiClient(widget.invite.url);
         // Registration
         var newUser = await Utils.callApi(
             () => Singleton().authApi.createUser(
