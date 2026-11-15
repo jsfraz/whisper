@@ -5,8 +5,10 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
+import 'package:sprintf/sprintf.dart';
 import '../pages/chat_page.dart';
 import '../utils/websocket_manager.dart';
 import '../widgets/chat_list_item.dart';
@@ -20,9 +22,10 @@ import '../utils/dialog_utils.dart';
 import '../widgets/invite_list_item.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import '../models/user.dart';
+import '../utils/admin_format.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
-import '../widgets/select_user_list_item.dart';
+import '../widgets/admin_user_list_item.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -31,15 +34,24 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with SingleTickerProviderStateMixin {
   final WebSocketManager _webSocketManager = WebSocketManager();
   List<User> _serverUsers = [];
-  List<String> _selectedUsers = [];
   int _currentPageIndex = 0;
   List<ModelsInvite> _serverInvites = [];
   Map<User, PrivateMessage> _chats = {};
   bool _firstLoad = true;
   String? _pendingFid; // Store pending FID
+
+  // Kept in state so switching the bottom navigation back to the admin panel
+  // does not drop the selected sub-tab.
+  late final TabController _adminTabController =
+      TabController(length: 2, vsync: this);
+  bool _usersLoading = true;
+  bool _usersError = false;
+  bool _invitesLoading = true;
+  bool _invitesError = false;
 
   @override
   void initState() {
@@ -83,6 +95,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _adminTabController.dispose();
     if (NotificationService.onChatSelected == _openChat) {
       NotificationService.onChatSelected = null;
     }
@@ -151,56 +164,69 @@ class _HomePageState extends State<HomePage> {
 
   /// Get server users
   Future<void> _getServerUsers() async {
-    if (mounted) {
-      setState(() {
-        _serverUsers = [];
-        _selectedUsers = [];
-      });
-      var users = await Utils.callApi(() => Singleton().userApi.getAllUsers());
-      if (users != null) {
-        for (var x in users) {
-          _serverUsers.add(User.fromModel(x));
-        }
-        if (mounted) {
-          setState(() {});
-        }
-      }
+    if (!mounted) {
+      return;
     }
+    setState(() {
+      _usersError = false;
+      _usersLoading = true;
+    });
+    final users = await Utils.callApi(() => Singleton().userApi.getAllUsers());
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      // A failed refresh keeps the rows that are already on screen.
+      _usersError = users == null;
+      if (users != null) {
+        _serverUsers = sortedByUsername(users.map(User.fromModel).toList());
+      }
+      _usersLoading = false;
+    });
   }
 
-  /// Delete selected users
-  Future<void> _deleteSelectedUsers() async {
-    setState(() {
-      _serverUsers =
-          []; // I am unable to deactivate the user checkbox, so I will make all the users vanish so it will reset itself :)
-    });
-    // Delete selected users
-    await Utils.callApi(() => Singleton()
-        .userApi
-        .deleteUsers(deleteUsersInput: DeleteUsersInput(ids: _selectedUsers)));
-    setState(() {
-      _selectedUsers = [];
-    });
-    // Refresh users
+  /// Delete one user after the confirmation dialog confirmed it.
+  Future<void> _deleteUser(User user) async {
+    try {
+      await Utils.callApi(
+        () => Singleton()
+            .userApi
+            .deleteUsers(deleteUsersInput: DeleteUsersInput(ids: [user.id])),
+        rethrowErr: true,
+      );
+    } catch (_) {
+      // Utils.callApi already surfaced the error as a red toast.
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    Fluttertoast.showToast(
+        msg: 'userDeleted'.tr(), backgroundColor: Colors.grey);
     await _getServerUsers();
   }
 
   /// Get server invites
   Future<void> _getServerInvites() async {
-    if (mounted) {
-      setState(() {
-        _serverInvites = [];
-      });
-      var invites =
-          await Utils.callApi(() => Singleton().inviteApi.getAllInvites());
-      if (mounted) {
-        setState(() {
-          if (invites != null) {
-            _serverInvites = invites;
-          }
-        });
-      }
+    if (!mounted) {
+      return;
     }
+    setState(() {
+      _invitesError = false;
+      _invitesLoading = true;
+    });
+    final invites =
+        await Utils.callApi(() => Singleton().inviteApi.getAllInvites());
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _invitesError = invites == null;
+      if (invites != null) {
+        _serverInvites = invites;
+      }
+      _invitesLoading = false;
+    });
   }
 
   /// Open the chat of [userId] on top of Home.
@@ -235,12 +261,11 @@ class _HomePageState extends State<HomePage> {
     await _openChat(userId);
   }
 
-  /// Shows new invite dialog.
+  /// Shows new invite dialog. It has no cancel path, so closing it always
+  /// means an invite was created.
   Future<void> _createNewInvite(BuildContext context) async {
-    await showDialog(context: context, builder: DialogUtils.inviteDialog)
-        .then((_) async {
-      await _getServerInvites();
-    });
+    await showDialog(context: context, builder: DialogUtils.inviteDialog);
+    await _getServerInvites();
   }
 
   /// Get ListView with content
@@ -289,7 +314,7 @@ class _HomePageState extends State<HomePage> {
                     backgroundColor: Theme.of(context)
                         .colorScheme
                         .surface
-                        .withValues(alpha: 0.2),
+                        .withValues(alpha: 0.5),
                     // User icon with first letter
                     leading: Transform.scale(
                       scale: 0.65,
@@ -337,10 +362,10 @@ class _HomePageState extends State<HomePage> {
             )
           : null,
       resizeToAvoidBottomInset: false,
-      // Floating button
-      floatingActionButton: FloatingActionButton(
-        onPressed: _currentPageIndex == 0
-            ? () {
+      // Floating button, only on the messages tab; the invites tab has its own
+      floatingActionButton: _currentPageIndex == 0
+          ? FloatingActionButton(
+              onPressed: () {
                 Navigator.of(context).push(PageTransition(
                     duration: const Duration(milliseconds: 300),
                     reverseDuration: const Duration(milliseconds: 300),
@@ -348,20 +373,14 @@ class _HomePageState extends State<HomePage> {
                     type: PageTransitionType.bottomToTopJoined,
                     child: SearchUserPage(),
                     childCurrent: widget));
-              }
-            : () async {
-                await _createNewInvite(context);
               },
-        shape: const CircleBorder(),
-        foregroundColor: Theme.of(context).colorScheme.surface,
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        tooltip: _currentPageIndex == 0
-            ? 'addChat'.tr()
-            : 'newInvite'.tr(), // Change tooltip according to page index
-        child: Icon(_currentPageIndex == 0
-            ? Icons.add_comment
-            : Icons.person_add), // Change icon according to page index
-      ),
+              shape: const CircleBorder(),
+              foregroundColor: Theme.of(context).colorScheme.surface,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              tooltip: 'addChat'.tr(),
+              child: const Icon(Icons.add_comment),
+            )
+          : null,
       // Bottom navigation bar for admin only
       bottomNavigationBar: Singleton().profile.user.admin
           ? SafeArea(
@@ -420,104 +439,172 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         // Admin panel
-        DefaultTabController(
-          initialIndex: 0,
-          length: 2,
-          child: Scaffold(
-            appBar: AppBar(
-              title: Text('adminPage'.tr()),
-              bottom: TabBar(
-                tabs: <Widget>[
-                  Tab(
-                    child: Text(
-                      'serverUsersPage'.tr(),
-                      style: TextStyle(fontSize: 18),
-                    ),
-                  ),
-                  Tab(
-                    child: Text(
-                      'serverInvitesPage'.tr(),
-                      style: TextStyle(fontSize: 18),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            body: TabBarView(
-              children: <Widget>[
-                // Server users
-                Column(
-                  children: [
-                    Visibility(
-                      visible: _serverUsers.isNotEmpty,
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: Padding(
-                          padding: EdgeInsets.all(5),
-                          child: ElevatedButton(
-                            onPressed: _selectedUsers.isEmpty
-                                ? null
-                                : () async {
-                                    await DialogUtils.yesNoDialog(
-                                        context,
-                                        'deleteUserConfirm'.tr(),
-                                        'deleteUserConfirmText'.tr(),
-                                        _deleteSelectedUsers);
-                                  },
-                            child: Text('deleteUser'.tr()),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: _getServerUsers,
-                        child: ListView.builder(
-                          physics: const BouncingScrollPhysics(
-                            parent: AlwaysScrollableScrollPhysics(),
-                          ),
-                          itemCount: _serverUsers.length,
-                          itemBuilder: (context, index) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: SelectUserListItem(_serverUsers[index],
-                                  (isSelected) {
-                                // Add/remove selected users from list
-                                setState(() {
-                                  if (isSelected) {
-                                    isSelected = isSelected;
-                                    _selectedUsers.add(_serverUsers[index].id);
-                                  } else {
-                                    _selectedUsers
-                                        .remove(_serverUsers[index].id);
-                                  }
-                                });
-                              }),
-                            );
-                          },
-                        ),
-                      ),
-                    )
-                  ],
-                ),
-                // Invites
-                RefreshIndicator(
-                  onRefresh: _getServerInvites,
-                  child: ListView.builder(
-                    physics: const BouncingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics(),
-                    ),
-                    itemCount: _serverInvites.length,
-                    itemBuilder: (context, index) {
-                      return InviteListItem(_serverInvites[index]);
-                    },
-                  ),
-                )
+        Scaffold(
+          appBar: AppBar(
+            title: Text('adminPage'.tr()),
+            bottom: TabBar(
+              controller: _adminTabController,
+              tabs: <Widget>[
+                Tab(child: Text('serverUsersPage'.tr())),
+                Tab(child: Text('serverInvitesPage'.tr())),
               ],
             ),
           ),
+          body: TabBarView(
+            controller: _adminTabController,
+            children: <Widget>[
+              _usersTab(),
+              _invitesTab(),
+            ],
+          ),
         )
       ][_currentPageIndex], // Pick widget by current index
+    );
+  }
+
+  /// Rounded surface the admin rows sit in.
+  Widget _adminCard(List<Widget> children) {
+    final colors = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Material(
+        color: colors.surfaceContainerHigh,
+        child: Column(
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0)
+                Divider(
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: colors.outlineVariant,
+                ),
+              children[i],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Centred icon + message used for the empty admin lists.
+  Widget _adminEmpty(IconData icon, String message) {
+    final colors = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 220,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 40, color: colors.secondary),
+          const SizedBox(height: 12),
+          Text(message, style: TextStyle(color: colors.secondary)),
+        ],
+      ),
+    );
+  }
+
+  /// Error row with a retry button, replacing the blank tab of the old UI.
+  Widget _adminError(VoidCallback retry) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, size: 20, color: colors.error),
+          const SizedBox(width: 8),
+          Expanded(child: Text('loadError'.tr())),
+          TextButton(onPressed: retry, child: Text('retry'.tr())),
+        ],
+      ),
+    );
+  }
+
+  Widget _adminSpinner() {
+    return Center(
+      child: Transform.scale(
+        scale: 1.5,
+        child: const CircularProgressIndicator(),
+      ),
+    );
+  }
+
+  Widget _usersTab() {
+    if (_usersLoading && _serverUsers.isEmpty) {
+      return _adminSpinner();
+    }
+    if (_usersError && _serverUsers.isEmpty) {
+      return _adminError(_getServerUsers);
+    }
+    return RefreshIndicator(
+      onRefresh: _getServerUsers,
+      child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 24),
+        children: [
+          if (_serverUsers.isEmpty)
+            _adminEmpty(Icons.people_outline, 'noUsers'.tr())
+          else
+            _adminCard([
+              for (final user in _serverUsers)
+                AdminUserListItem(
+                  user,
+                  onDelete: () async {
+                    await DialogUtils.yesNoDialog(
+                      context,
+                      'deleteUserConfirm'.tr(),
+                      sprintf(
+                          'deleteUserConfirmTextName'.tr(), [user.username]),
+                      () => _deleteUser(user),
+                    );
+                  },
+                ),
+            ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _invitesTab() {
+    if (_invitesLoading && _serverInvites.isEmpty) {
+      return _adminSpinner();
+    }
+    if (_invitesError && _serverInvites.isEmpty) {
+      return _adminError(_getServerInvites);
+    }
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: _getServerInvites,
+          child: ListView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 96),
+            children: [
+              if (_serverInvites.isEmpty)
+                _adminEmpty(Icons.mail_outline, 'noInvites'.tr())
+              else
+                _adminCard([
+                  for (final invite in _serverInvites) InviteListItem(invite),
+                ]),
+            ],
+          ),
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            onPressed: () => _createNewInvite(context),
+            shape: const CircleBorder(),
+            foregroundColor: Theme.of(context).colorScheme.surface,
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            tooltip: 'newInvite'.tr(),
+            child: const Icon(Icons.person_add),
+          ),
+        ),
+      ],
     );
   }
 }

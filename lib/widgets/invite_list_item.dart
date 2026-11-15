@@ -2,28 +2,31 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:sprintf/sprintf.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 
+import '../utils/admin_format.dart';
+
+/// One row of the admin invite list: the invited address and how long the
+/// invitation is still valid. Mostly static, so it only rebuilds per minute.
 class InviteListItem extends StatefulWidget {
   const InviteListItem(this.invite, {super.key});
 
   final ModelsInvite invite;
 
   @override
-  State<InviteListItem> createState() => _UserListItemState();
+  State<InviteListItem> createState() => _InviteListItemState();
 }
 
-class _UserListItemState extends State<InviteListItem> {
-  late Timer _timer;
+class _InviteListItemState extends State<InviteListItem> {
+  Timer? _timer;
   late Duration _remainingTime;
 
   @override
   void initState() {
     super.initState();
     _remainingTime = widget.invite.validUntil.difference(DateTime.now());
-
-    // Start the timer to update every second
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) {
         setState(() {
           _remainingTime = widget.invite.validUntil.difference(DateTime.now());
@@ -33,36 +36,27 @@ class _UserListItemState extends State<InviteListItem> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    // Stop when remaining time is negative
-    if (_remainingTime.isNegative) {
-      _timer.cancel();
-    }
-    // Calculate absolute remaining time
-    Duration displayDuration = _remainingTime;
-    // Format display time
-    String displayTime =
-        displayDuration.toString().split('.').first.padLeft(8, '0');
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final remaining = inviteRemaining(_remainingTime);
     return ListTile(
-      onTap: () {}, // Empty method so that the visual effect works
       tileColor: Colors.transparent,
-      selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      title: Text(widget.invite.mail),
-      trailing: Transform.scale(
-        scale: 1.3,
-        child: Text(
-          _remainingTime.isNegative ? 'inviteExpired'.tr() : displayTime,
-          style: TextStyle(
-            color: _remainingTime.isNegative
-                ? Colors.red
-                : Theme.of(context).colorScheme.secondary,
-            fontWeight:
-                _remainingTime.isNegative ? FontWeight.bold : FontWeight.normal,
-          ),
+      title: Text(widget.invite.mail, overflow: TextOverflow.ellipsis),
+      trailing: Text(
+        remaining == null
+            ? 'inviteExpired'.tr()
+            : sprintf(
+                'inviteExpiresIn'.tr(), ['${remaining.value}', remaining.unit]),
+        style: TextStyle(
+          fontSize: 12,
+          color: remaining == null ? Colors.red : colors.secondary,
+          fontWeight: remaining == null ? FontWeight.bold : FontWeight.normal,
         ),
       ),
     );
