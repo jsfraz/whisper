@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:crypto/crypto.dart';
 import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart' as djwt;
 import 'package:flutter/foundation.dart';
@@ -85,6 +86,46 @@ class CryptoUtils {
     cipher.init(false, PrivateKeyParameter<RSAPrivateKey>(data['privateKey']));
     // Decrypting message
     return cipher.process(data['message']);
+  }
+
+  /// Decrypts a batch of hybrid-encrypted messages inside one isolate.
+  ///
+  /// A burst of incoming messages used to cost one RSA key parse and one
+  /// isolate spawn per message; here it costs one of each per batch.
+  /// Messages that fail to decrypt come back as null.
+  static Future<List<Uint8List?>> decryptMessageBatch(
+      List<Map<String, Uint8List>> messages, String privateKeyPem) async {
+    return compute(
+        _decryptMessageBatch, {'messages': messages, 'pem': privateKeyPem});
+  }
+
+  static Future<List<Uint8List?>> _decryptMessageBatch(
+      Map<String, dynamic> data) async {
+    final privateKey =
+        bu.CryptoUtils.rsaPrivateKeyFromPem(data['pem'] as String);
+    final messages = data['messages'] as List;
+    final aesAlgorithm = cryptography.AesGcm.with256bits();
+    final decrypted = <Uint8List?>[];
+    for (final entry in messages) {
+      final message = (entry as Map).cast<String, dynamic>();
+      try {
+        final cipher = PKCS1Encoding(RSAEngine())
+          ..init(false, PrivateKeyParameter<RSAPrivateKey>(privateKey));
+        final aesKeyBytes = cipher.process(message['key'] as Uint8List);
+        final plainText = await aesAlgorithm.decrypt(
+          cryptography.SecretBox(
+            message['data'] as Uint8List,
+            nonce: message['nonce'] as Uint8List,
+            mac: cryptography.Mac(message['mac'] as Uint8List),
+          ),
+          secretKey: cryptography.SecretKey(aesKeyBytes),
+        );
+        decrypted.add(Uint8List.fromList(plainText));
+      } catch (_) {
+        decrypted.add(null);
+      }
+    }
+    return decrypted;
   }
 
   /// Generates JWT token valid for 5 seconds asynchronously.

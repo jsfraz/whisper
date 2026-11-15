@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -140,10 +141,37 @@ class MediaUtils {
   }
 
   /// Decrypt an at-rest file written by [encryptAtRest].
+  ///
+  /// Throttled: decrypting spawns an isolate per call, so a chat full of
+  /// attachments would otherwise spawn one burst per scroll.
   static Future<Uint8List> decryptAtRest(String path) async {
-    final blob = await File(path).readAsBytes();
-    final key = Uint8List.fromList(Singleton().boxCollectionKey);
-    return compute(_gcmDecrypt, _GcmArgs(blob, key));
+    return _withDecryptSlot(() async {
+      final blob = await File(path).readAsBytes();
+      final key = Uint8List.fromList(Singleton().boxCollectionKey);
+      return compute(_gcmDecrypt, _GcmArgs(blob, key));
+    });
+  }
+
+  static const int _maxConcurrentDecrypts = 2;
+  static int _activeDecrypts = 0;
+  static final List<Completer<void>> _decryptWaiters = [];
+
+  /// Runs [task] while at most [_maxConcurrentDecrypts] decrypts are alive.
+  static Future<T> _withDecryptSlot<T>(Future<T> Function() task) async {
+    while (_activeDecrypts >= _maxConcurrentDecrypts) {
+      final waiter = Completer<void>();
+      _decryptWaiters.add(waiter);
+      await waiter.future;
+    }
+    _activeDecrypts++;
+    try {
+      return await task();
+    } finally {
+      _activeDecrypts--;
+      if (_decryptWaiters.isNotEmpty) {
+        _decryptWaiters.removeAt(0).complete();
+      }
+    }
   }
 
   /// Encrypt bytes with an explicit AES-GCM key (no singleton lookup).

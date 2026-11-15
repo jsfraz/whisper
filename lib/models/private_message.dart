@@ -70,8 +70,7 @@ class AlbumItem {
     }
   }
 
-  bool get isReady =>
-      status == MediaDownloadStatus.ready && localPath != null;
+  bool get isReady => status == MediaDownloadStatus.ready && localPath != null;
 
   Map<String, dynamic> toJson() => {
         'mediaId': mediaId,
@@ -159,6 +158,10 @@ class PrivateMessage extends HiveObject {
   @HiveField(15)
   String? albumJson;
 
+  /// Cache for [album], keyed by the [albumJson] it was decoded from.
+  String? _albumCacheJson;
+  List<AlbumItem>? _albumCache;
+
   PrivateMessage(
     this.senderId,
     this.message,
@@ -189,11 +192,24 @@ class PrivateMessage extends HiveObject {
   bool get isAlbum => albumJson != null;
 
   /// Decoded album items, empty for non-album messages.
+  ///
+  /// Cached per [albumJson]: the getter is hit from previews, deletion paths
+  /// and album widgets, and decoding the JSON on every access is wasteful.
   List<AlbumItem> get album {
     final raw = albumJson;
     if (raw == null) {
       return const [];
     }
+    if (raw == _albumCacheJson) {
+      return _albumCache ?? const [];
+    }
+    final decodedItems = _decodeAlbum(raw);
+    _albumCacheJson = raw;
+    _albumCache = decodedItems;
+    return decodedItems;
+  }
+
+  List<AlbumItem> _decodeAlbum(String raw) {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is List) {
@@ -211,6 +227,8 @@ class PrivateMessage extends HiveObject {
   /// Replaces the album items and serializes them back into [albumJson].
   void setAlbum(List<AlbumItem> items) {
     albumJson = jsonEncode(items.map((item) => item.toJson()).toList());
+    _albumCacheJson = null;
+    _albumCache = null;
   }
 
   /// Local (encrypted-at-rest) files of this message, for deletion.

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -65,8 +66,20 @@ class _MediaBubbleState extends State<MediaBubble> {
     _imagePath = path;
     final type = widget.message.mediaType;
     final isImage = type == MediaType.image || type == MediaType.gif;
-    _imageFuture =
-        path != null && isImage ? MediaUtils.decryptAtRest(path) : null;
+    _imageFuture = path != null && isImage ? _decryptAfterFrame(path) : null;
+  }
+
+  /// Lets the first frame land before paying for the decryption, so a chat
+  /// full of images does not stall the push animation.
+  Future<Uint8List> _decryptAfterFrame(String path) async {
+    final firstFrame = Completer<void>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!firstFrame.isCompleted) {
+        firstFrame.complete();
+      }
+    });
+    await firstFrame.future;
+    return MediaUtils.decryptAtRest(path);
   }
 
   /// Constrained display size derived from the original media dimensions.

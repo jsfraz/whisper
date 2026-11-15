@@ -106,125 +106,142 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
           title: Text('chatInfoPage'.tr()),
         ),
         body: SafeArea(
-          child: ListView(
-            children: [
-              // Chat theme
-              TextButton(
-                onPressed: _pickChatTheme,
-                child: Row(
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
                   children: [
-                    Icon(
-                      Icons.palette,
-                      size: 24,
-                    ),
-                    Padding(
-                      padding: EdgeInsets.only(left: 5),
-                      child: Text(
-                        'chatTheme'.tr(),
+                    // Chat theme
+                    TextButton(
+                      onPressed: _pickChatTheme,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.palette,
+                            size: 24,
+                          ),
+                          Padding(
+                            padding: EdgeInsets.only(left: 5),
+                            child: Text(
+                              'chatTheme'.tr(),
+                            ),
+                          ),
+                          if (_chatThemeColor != null)
+                            Padding(
+                              padding: EdgeInsets.only(left: 10),
+                              child: Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: _chatThemeColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          SizedBox(
+                            width: 24,
+                          ),
+                        ],
                       ),
                     ),
+                    // Drop the override
                     if (_chatThemeColor != null)
-                      Padding(
-                        padding: EdgeInsets.only(left: 10),
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: _chatThemeColor,
-                            shape: BoxShape.circle,
-                          ),
+                      TextButton(
+                        onPressed: _clearChatTheme,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.restart_alt,
+                              size: 24,
+                            ),
+                            Padding(
+                              padding: EdgeInsets.only(left: 5),
+                              child: Text(
+                                'useGlobalTheme'.tr(),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 24,
+                            ),
+                          ],
                         ),
                       ),
-                    SizedBox(
-                      width: 24,
-                    ),
+
+                    Divider(thickness: 1, indent: 10, endIndent: 10),
                   ],
                 ),
               ),
-              // Drop the override
-              if (_chatThemeColor != null)
-                TextButton(
-                  onPressed: _clearChatTheme,
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.restart_alt,
-                        size: 24,
-                      ),
-                      Padding(
-                        padding: EdgeInsets.only(left: 5),
-                        child: Text(
-                          'useGlobalTheme'.tr(),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 24,
-                      ),
-                    ],
+
+              // Shared media title
+              if (_media.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: Text(
+                      'mediaTitle'.tr(),
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
                 ),
-
-              Divider(thickness: 1, indent: 10, endIndent: 10),
-
-              // Shared media
-              if (_media.isNotEmpty) ...[
-                Padding(
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Text(
-                    'mediaTitle'.tr(),
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
+              // Grid as a sliver, so only the visible tiles decrypt
+              if (_media.isNotEmpty)
+                SliverPadding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 4,
-                    crossAxisSpacing: 4,
-                  ),
-                  itemCount: _media.length,
-                  itemBuilder: (context, index) => _MediaTile(
-                    message: _media[index],
-                    onTap: () => _openMedia(_media[index]),
+                  sliver: SliverGrid.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 4,
+                      crossAxisSpacing: 4,
+                    ),
+                    itemCount: _media.length,
+                    itemBuilder: (context, index) => _MediaTile(
+                      message: _media[index],
+                      onTap: () => _openMedia(_media[index]),
+                    ),
                   ),
                 ),
-                Divider(thickness: 1, indent: 10, endIndent: 10),
-              ],
 
-              // Delete chat
-              TextButton(
-                onPressed: () async {
-                  await DialogUtils.yesNoDialog(
-                      context,
-                      'deleteChatConfirm'.tr(),
-                      'deleteChatConfirmText'.tr(), () async {
-                    MessageNotifier().deleteChat(widget.userId);
-                    // Redirect to home page and clear navigation stack
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      fadeRoute(const HomePage()),
-                      (route) => false,
-                    );
-                  });
-                },
-                child: Row(
+              SliverToBoxAdapter(
+                child: Column(
                   children: [
-                    Icon(
-                      Icons.delete_forever,
-                      size: 24,
-                      color: Colors.red,
-                    ),
-                    Padding(
-                      padding: EdgeInsets.only(left: 5),
-                      child: Text(
-                        'deleteChat'.tr(),
-                        style: TextStyle(color: Colors.red),
+                    if (_media.isNotEmpty)
+                      Divider(thickness: 1, indent: 10, endIndent: 10),
+
+                    // Delete chat
+                    TextButton(
+                      onPressed: () async {
+                        await DialogUtils.yesNoDialog(
+                            context,
+                            'deleteChatConfirm'.tr(),
+                            'deleteChatConfirmText'.tr(), () async {
+                          MessageNotifier().deleteChat(widget.userId);
+                          // Redirect to home page and clear navigation stack
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            fadeRoute(const HomePage()),
+                            (route) => false,
+                          );
+                        });
+                      },
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_forever,
+                            size: 24,
+                            color: Colors.red,
+                          ),
+                          Padding(
+                            padding: EdgeInsets.only(left: 5),
+                            child: Text(
+                              'deleteChat'.tr(),
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 24,
+                          ),
+                        ],
                       ),
-                    ),
-                    SizedBox(
-                      width: 24,
                     ),
                   ],
                 ),

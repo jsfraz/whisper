@@ -153,17 +153,28 @@ class Utils {
         // Media references of each conversation that still need a download.
         final pendingMediaRefs = <String, List<MediaReference>>{};
 
-        // Parallel decrypt all messages
         try {
-          final decryptionTasks = messages.map((message) async {
+          // One isolate for the whole batch: a per-message decrypt used to
+          // cost an RSA key parse and an isolate spawn each.
+          final decryptedBatch = await CryptoUtils.decryptMessageBatch(
+              messages
+                  .map((message) => {
+                        'data': message.content,
+                        'key': message.key,
+                        'nonce': message.nonce,
+                        'mac': message.mac,
+                      })
+                  .toList(),
+              Singleton().profile.privateKey);
+
+          final decryptionTasks = messages.asMap().entries.map((entry) async {
+            final index = entry.key;
+            final message = entry.value;
             try {
-              var decryptedMessage = await CryptoUtils.decryptMessageData(
-                  message.content,
-                  message.key,
-                  message.nonce,
-                  message.mac,
-                  bu.CryptoUtils.rsaPrivateKeyFromPem(
-                      Singleton().profile.privateKey));
+              final decryptedMessage = decryptedBatch[index];
+              if (decryptedMessage == null) {
+                throw const FormatException('message decryption failed');
+              }
               // Media message: decode the envelope and create a placeholder.
               final envelope =
                   MediaUtils.tryParseMediaEnvelope(decryptedMessage);
