@@ -123,8 +123,21 @@ class _MediaBubbleState extends State<MediaBubble> {
       return _albumWidget(hasCaption);
     }
 
+    final insideBubble = type == MediaType.voice || type == MediaType.file;
+
     Widget media;
-    if (widget.message.downloadStatus == MediaDownloadStatus.pending) {
+    if (insideBubble &&
+        widget.message.downloadStatus == MediaDownloadStatus.pending) {
+      media = type == MediaType.voice
+          ? SizedBox(
+              width: 220,
+              height: 48,
+              child: Center(
+                child: CircularProgressIndicator(color: widget.textColor),
+              ),
+            )
+          : _fileWidget();
+    } else if (widget.message.downloadStatus == MediaDownloadStatus.pending) {
       media = _placeholder(child: const CircularProgressIndicator());
     } else if (widget.message.downloadStatus == MediaDownloadStatus.failed) {
       media = _failed();
@@ -151,7 +164,6 @@ class _MediaBubbleState extends State<MediaBubble> {
     }
 
     // Voice and file messages live inside the coloured bubble.
-    final insideBubble = type == MediaType.voice || type == MediaType.file;
     if (insideBubble) {
       return Container(
         decoration: BoxDecoration(
@@ -188,9 +200,8 @@ class _MediaBubbleState extends State<MediaBubble> {
           ),
           itemCount: shown,
           itemBuilder: (context, index) {
-            final hidden = items.length > 4 && index == 3
-                ? items.length - 3
-                : null;
+            final hidden =
+                items.length > 4 && index == 3 ? items.length - 3 : null;
             return AlbumTile(
               item: items[index],
               hiddenCount: hidden,
@@ -369,8 +380,18 @@ class _MediaBubbleState extends State<MediaBubble> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(MediaUtils.iconForFileName(widget.message.fileName),
-                color: widget.textColor, size: 32),
+            if (widget.message.downloadStatus == MediaDownloadStatus.pending)
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: widget.textColor,
+                ),
+              )
+            else
+              Icon(MediaUtils.iconForFileName(widget.message.fileName),
+                  color: widget.textColor, size: 32),
             const SizedBox(width: 8),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 180),
@@ -462,9 +483,7 @@ class _AlbumTileState extends State<AlbumTile> {
     final item = widget.item;
     final type = item.mediaType;
     Widget content;
-    if (widget.hiddenCount != null &&
-        widget.hiddenCount! > 0 &&
-        item.isReady) {
+    if (widget.hiddenCount != null && widget.hiddenCount! > 0 && item.isReady) {
       content = Stack(
         fit: StackFit.expand,
         children: [
@@ -485,8 +504,7 @@ class _AlbumTileState extends State<AlbumTile> {
     } else if (item.status == MediaDownloadStatus.failed) {
       content = const Center(child: Icon(Icons.error_outline));
     } else if (!item.isReady) {
-      content =
-          const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      content = const Center(child: CircularProgressIndicator(strokeWidth: 2));
     } else {
       content = _thumbnail(type);
     }
@@ -629,6 +647,7 @@ class _VideoThumbnailState extends State<VideoThumbnail> {
     }
     return FittedBox(
       fit: BoxFit.cover,
+      clipBehavior: Clip.hardEdge,
       child: SizedBox(
         width: controller.value.size.width,
         height: controller.value.size.height,

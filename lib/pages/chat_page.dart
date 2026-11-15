@@ -253,10 +253,8 @@ class _ChatPageState extends State<ChatPage> {
   ///
   /// [forcedType] fixes the type for camera picks; [filesOnly] rejects photos
   /// and videos (the "File" entry must stay a document picker).
-  Future<void> _pickAndSend(
-      Future<List<File>> Function() picker,
-      {MediaType? forcedType,
-      bool filesOnly = false}) async {
+  Future<void> _pickAndSend(Future<List<File>> Function() picker,
+      {MediaType? forcedType, bool filesOnly = false}) async {
     try {
       final picked = await picker();
       if (picked.isEmpty) {
@@ -264,11 +262,11 @@ class _ChatPageState extends State<ChatPage> {
       }
       var files = picked;
       if (filesOnly) {
-        files = picked.where((file) => !MediaUtils.isVisualMedia(file)).toList();
+        files =
+            picked.where((file) => !MediaUtils.isVisualMedia(file)).toList();
         if (files.length != picked.length) {
           await Fluttertoast.showToast(
-              msg: 'fileTypeNotAllowed'.tr(),
-              backgroundColor: Colors.orange);
+              msg: 'fileTypeNotAllowed'.tr(), backgroundColor: Colors.orange);
         }
         if (files.isEmpty) {
           return;
@@ -522,8 +520,8 @@ class _ChatPageState extends State<ChatPage> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.send),
                       );
@@ -656,9 +654,8 @@ class _ChatPageState extends State<ChatPage> {
   /// Reversed list: offset 0 is the newest message, so the chat opens at the
   /// bottom and growing bubbles or the keyboard never strand it mid-list.
   Widget _getContent(List<PrivateMessage> messages) {
-    final start = messages.length > _visibleCount
-        ? messages.length - _visibleCount
-        : 0;
+    final start =
+        messages.length > _visibleCount ? messages.length - _visibleCount : 0;
     final visible = messages.sublist(start);
     final hasOlder = start > 0;
     final itemCount = visible.length + 1;
@@ -691,9 +688,8 @@ class _ChatPageState extends State<ChatPage> {
         final message = visible[visible.length - 1 - index];
         final position = visible.length - 1 - index;
         final older = position > 0 ? visible[position - 1] : null;
-        final newer = position < visible.length - 1
-            ? visible[position + 1]
-            : null;
+        final newer =
+            position < visible.length - 1 ? visible[position + 1] : null;
         return ChatBubble(older, message, newer, widget.user);
       },
     );
@@ -740,7 +736,7 @@ class _ChatPageState extends State<ChatPage> {
                   backgroundColor: Theme.of(context)
                       .colorScheme
                       .surface
-                      .withValues(alpha: 0.2),
+                      .withValues(alpha: 0.5),
                   leading: Row(
                     children: [
                       IconButton(

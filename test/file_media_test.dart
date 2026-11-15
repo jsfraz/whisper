@@ -121,4 +121,35 @@ void main() {
     expect(find.text('2.0 KB'), findsOneWidget);
     expect(find.byIcon(Icons.picture_as_pdf), findsOneWidget);
   });
+
+  testWidgets('pending voice and file bubbles are not square', (tester) async {
+    PrivateMessage pending(String type, {String? fileName}) => PrivateMessage(
+        '1', '', DateTime(2026, 11, 13), DateTime(2026, 11, 13), false,
+        mediaTypeStr: type,
+        mediaSize: 2048,
+        fileName: fileName,
+        downloadStatus: MediaDownloadStatus.pending);
+
+    Widget bubble(PrivateMessage message) => MaterialApp(
+          home: Scaffold(
+            body: MediaBubble(
+              message: message,
+              bubbleColor: Colors.blue,
+              textColor: Colors.white,
+              onRetry: () {},
+              canRetry: false,
+              conversationUserId: '1',
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(bubble(pending('voice')));
+    expect(tester.getSize(find.byType(MediaBubble)), const Size(236, 56));
+
+    await tester.pumpWidget(bubble(pending('file', fileName: 'invoice.pdf')));
+    expect(find.text('invoice.pdf'), findsOneWidget);
+    final fileSize = tester.getSize(find.byType(MediaBubble));
+    expect(fileSize.width, greaterThan(fileSize.height));
+    expect(fileSize.height, lessThan(100));
+  });
 }

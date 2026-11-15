@@ -166,6 +166,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                   ),
                 ),
 
+              Divider(thickness: 1, indent: 10, endIndent: 10),
+
               // Shared media
               if (_media.isNotEmpty) ...[
                 Padding(
@@ -190,6 +192,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                     onTap: () => _openMedia(_media[index]),
                   ),
                 ),
+                Divider(thickness: 1, indent: 10, endIndent: 10),
               ],
 
               // Delete chat
