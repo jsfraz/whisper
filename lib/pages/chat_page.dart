@@ -530,9 +530,9 @@ class _ChatPageState extends State<ChatPage> {
               decoration: InputDecoration(
                 hintText: 'yourMessage'.tr(),
                 filled: true,
-                fillColor: Theme.of(context).brightness == Brightness.dark
-                    ? Theme.of(context).colorScheme.surfaceBright
-                    : Theme.of(context).colorScheme.surfaceDim,
+                fillColor: chatTheme.brightness == Brightness.dark
+                    ? chatTheme.colorScheme.surfaceBright
+                    : chatTheme.colorScheme.surfaceDim,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: BorderSide.none,
@@ -601,14 +601,13 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Bar shown while recording a voice message.
   Widget _buildRecordingBar() {
-    final color =
-        _cancelRecording ? Colors.red : Theme.of(context).colorScheme.primary;
+    final color = _cancelRecording ? Colors.red : chatTheme.colorScheme.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? Theme.of(context).colorScheme.surfaceBright
-            : Theme.of(context).colorScheme.surfaceDim,
+        color: chatTheme.brightness == Brightness.dark
+            ? chatTheme.colorScheme.surfaceBright
+            : chatTheme.colorScheme.surfaceDim,
         borderRadius: BorderRadius.circular(30),
       ),
       child: Row(
@@ -749,6 +748,23 @@ class _ChatPageState extends State<ChatPage> {
     return Color.alphaBlend(accent.withValues(alpha: alpha), scheme.surface);
   }
 
+  /// The chat's own theme. [build] and its helpers run above the chat `Theme`,
+  /// so `Theme.of(context)` there is the app theme, not this conversation's.
+  ThemeData get chatTheme => ThemeUtils.chatTheme(context, _chatThemeColor);
+
+  /// Repeating doodle pattern behind the messages, recolored by the theme so it
+  /// reads on a light and on a dark background.
+  DecorationImage chatPattern() {
+    return DecorationImage(
+      image: const AssetImage('assets/images/chat_bg.png'),
+      repeat: ImageRepeat.repeat,
+      scale: 3,
+      colorFilter: ColorFilter.mode(
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.07),
+          BlendMode.srcIn),
+    );
+  }
+
   /// AppBar color: a stronger tint, kept translucent so the blur still shows.
   Color appBarBackground() {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
@@ -828,34 +844,37 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
           ),
-          body: Column(
-            children: [
-              // Messages and avatar list
-              Expanded(
-                child: _firstLoad
-                    ? Center(
-                        child: Transform.scale(
-                          scale: 1.5,
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    : _getContent(_messages),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      _buildInputBar(),
-                      if (_isRecording)
-                        Positioned.fill(child: _buildRecordingBar()),
-                    ],
+          body: Container(
+            decoration: BoxDecoration(image: chatPattern()),
+            child: Column(
+              children: [
+                // Messages and avatar list
+                Expanded(
+                  child: _firstLoad
+                      ? Center(
+                          child: Transform.scale(
+                            scale: 1.5,
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      : _getContent(_messages),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        _buildInputBar(),
+                        if (_isRecording)
+                          Positioned.fill(child: _buildRecordingBar()),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

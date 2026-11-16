@@ -64,5 +64,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    # - assets/images/
+    # Only the raster: the SVG source stays out of the bundle.
+    - assets/images/chat_bg.png
     - assets/translations/
