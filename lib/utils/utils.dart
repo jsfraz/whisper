@@ -592,9 +592,12 @@ class Utils {
 
     try {
       // Attempt to get WebSocket access token
+      // A refused handshake is retried by the backoff loop; a toast per attempt
+      // would spam the user of a revoked device.
       var wsAuthResponse = await Utils.callApi(
         () => Singleton().wsAuthApi.webSocketAuth(),
         useSecurity: true,
+        showError: false,
       ).timeout(
         Duration(seconds: 10), // Add timeout for API calls
         onTimeout: () => null,
