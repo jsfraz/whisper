@@ -172,6 +172,10 @@ class MessageNotifier extends ChangeNotifier {
         await CacheUtils.getPrivateMessages(userId, markAsRead: true);
     await NotificationService().removeNotificationsById(
         messages.map((x) => x.notificationId).toList());
+    // The read flags just changed in the cache. Nothing else tells the Home
+    // list, so the unread row would stay bold after leaving the chat. The chat
+    // page's own listener is skipped: it is still inside `_loadMessages`.
+    notifyListeners();
     return messages;
   }
 
