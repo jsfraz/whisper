@@ -10,85 +10,34 @@ class MessageHit {
   final PrivateMessage message;
 }
 
-/// What to look for in the local message store.
+/// What to look for in one conversation's local history.
 ///
 /// The store holds decrypted text, so a search is a local scan: nothing leaves
 /// the device and no server round-trip happens.
 class MessageSearchQuery {
-  const MessageSearchQuery({
-    this.text = '',
-    this.conversationId,
-    this.from,
-    this.to,
-    this.type,
-  });
+  const MessageSearchQuery({this.text = '', this.conversationId});
 
-  /// Case-insensitive substring of the message text (or of an attachment name).
+  /// Case-insensitive substring of the message text (or of a file name).
   final String text;
 
   /// Restricts the search to one conversation.
   final String? conversationId;
 
-  /// Inclusive start of the date range.
-  final DateTime? from;
-
-  /// Inclusive end of the date range: the whole [to] day counts.
-  final DateTime? to;
-
-  /// `text`, or a [MediaType.name]; null matches everything.
-  final String? type;
-
-  /// Value of [type] for messages without an attachment.
-  static const String textType = 'text';
-
   /// Whether this query filters anything out at all.
-  bool get isEmpty =>
-      text.trim().isEmpty &&
-      type == null &&
-      from == null &&
-      to == null &&
-      conversationId == null;
+  bool get isEmpty => text.trim().isEmpty;
 
   bool matches(MessageHit hit) {
-    final message = hit.message;
     if (conversationId != null && hit.conversationId != conversationId) {
       return false;
-    }
-    if (!_matchesType(message)) {
-      return false;
-    }
-    final time = message.sentAt;
-    if (from != null && time.isBefore(from!)) {
-      return false;
-    }
-    if (to != null) {
-      final endOfDay = DateTime(to!.year, to!.month, to!.day, 23, 59, 59, 999);
-      if (time.isAfter(endOfDay)) {
-        return false;
-      }
     }
     final needle = text.trim().toLowerCase();
     if (needle.isEmpty) {
       return true;
     }
+    final message = hit.message;
     // An attachment without a caption is still findable by its file name.
     return message.message.toLowerCase().contains(needle) ||
         (message.fileName ?? '').toLowerCase().contains(needle);
-  }
-
-  bool _matchesType(PrivateMessage message) {
-    final wanted = type;
-    if (wanted == null) {
-      return true;
-    }
-    if (wanted == textType) {
-      return !message.isMedia;
-    }
-    if (message.mediaTypeStr == wanted) {
-      return true;
-    }
-    // An album matches when any of its attachments has the type.
-    return message.album.any((item) => item.type == wanted);
   }
 }
 

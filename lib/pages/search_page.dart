@@ -2,25 +2,20 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
 import '../models/user.dart';
 import '../utils/cache_utils.dart';
-import '../utils/message_notifier.dart';
 import '../utils/message_search.dart';
-import '../utils/nav_transitions.dart';
-import 'chat_page.dart';
 
-/// Searches the local message store. Messages are stored decrypted, so this is
-/// a local scan: nothing is sent anywhere.
+/// Searches one conversation's local history. Messages are stored decrypted,
+/// so this is a local scan: nothing is sent anywhere.
 ///
-/// With [peer] the search is scoped to that conversation and the picked
-/// message is returned as a timestamp (the caller jumps to it). Without [peer]
-/// the results span every conversation and open the chat at the hit.
+/// The page returns the timestamp of the picked message; the chat it belongs to
+/// jumps there.
 class MessageSearchPage extends StatefulWidget {
-  const MessageSearchPage({this.peer, super.key});
+  const MessageSearchPage(this.peer, {super.key});
 
-  final User? peer;
+  final User peer;
 
   @override
   State<MessageSearchPage> createState() => _MessageSearchPageState();
@@ -33,25 +28,6 @@ class _MessageSearchPageState extends State<MessageSearchPage> {
   bool _loading = false;
   bool _searched = false;
 
-  /// Media type name, or [MessageSearchQuery.textType]; null matches any.
-  String? _type;
-  DateTimeRange? _range;
-
-  /// Sender (conversation) filter, only offered in the global search.
-  String? _conversationId;
-  List<User> _conversations = [];
-  final Map<String, User?> _users = {};
-
-  bool get _global => widget.peer == null;
-
-  @override
-  void initState() {
-    super.initState();
-    if (_global) {
-      _loadConversations();
-    }
-  }
-
   @override
   void dispose() {
     _debounce?.cancel();
@@ -59,31 +35,16 @@ class _MessageSearchPageState extends State<MessageSearchPage> {
     super.dispose();
   }
 
-  Future<void> _loadConversations() async {
-    final chats = await MessageNotifier().getLatestPrivateMessages();
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _conversations = chats.keys.toList();
-    });
-  }
-
-  MessageSearchQuery get _query => MessageSearchQuery(
-        text: _controller.text,
-        conversationId: widget.peer?.id ?? _conversationId,
-        from: _range?.start,
-        to: _range?.end,
-        type: _type,
-      );
-
   void _onTextChanged(String _) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 250), _run);
   }
 
   Future<void> _run() async {
-    final query = _query;
+    final query = MessageSearchQuery(
+      text: _controller.text,
+      conversationId: widget.peer.id,
+    );
     if (query.isEmpty) {
       setState(() {
         _hits = [];
@@ -98,16 +59,6 @@ class _MessageSearchPageState extends State<MessageSearchPage> {
     if (!mounted) {
       return;
     }
-    for (final hit in hits) {
-      if (_users.containsKey(hit.conversationId)) {
-        continue;
-      }
-      _users[hit.conversationId] =
-          await CacheUtils.getUserById(hit.conversationId);
-    }
-    if (!mounted) {
-      return;
-    }
     setState(() {
       _hits = hits;
       _loading = false;
@@ -115,161 +66,14 @@ class _MessageSearchPageState extends State<MessageSearchPage> {
     });
   }
 
-  Future<void> _pickRange() async {
-    // Tapping the active chip clears it, which is the only way back to "any
-    // date" without reopening the picker.
-    if (_range != null) {
-      setState(() {
-        _range = null;
-      });
-      await _run();
-      return;
-    }
-    final now = DateTime.now();
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(now.year - 10),
-      lastDate: now,
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    setState(() {
-      _range = picked;
-    });
-    await _run();
-  }
-
-  Future<void> _open(MessageHit hit) async {
-    final peer = widget.peer;
-    if (peer != null) {
-      // The chat page jumps to the picked message.
-      Navigator.pop(context, hit.message.sentAt);
-      return;
-    }
-    final user = _users[hit.conversationId];
-    if (user == null) {
-      return;
-    }
-    await Navigator.of(context)
-        .push(stepRoute(ChatPage(user, jumpTo: hit.message.sentAt)));
-  }
-
-  String _displayName(String conversationId) {
-    final user = _users[conversationId];
-    if (user == null || user.username.isEmpty) {
-      return '?';
-    }
-    return user.username;
-  }
-
-  Widget _typeSelector() {
-    return DropdownButton<String?>(
-      value: _type,
-      underline: const SizedBox.shrink(),
-      borderRadius: BorderRadius.circular(12),
-      hint: Text('anyType'.tr()),
-      items: [
-        DropdownMenuItem<String?>(value: null, child: Text('anyType'.tr())),
-        DropdownMenuItem<String?>(
-            value: MessageSearchQuery.textType, child: Text('textOnly'.tr())),
-        for (final type in [
-          MediaType.image,
-          MediaType.video,
-          MediaType.voice,
-          MediaType.file,
-          MediaType.gif,
-        ])
-          DropdownMenuItem<String?>(
-              value: type.name, child: Text('media${_typeLabel(type)}'.tr())),
-      ],
-      onChanged: (value) async {
-        setState(() {
-          _type = value;
-        });
-        await _run();
-      },
-    );
-  }
-
-  /// Suffix of the existing media label keys (mediaPhoto, mediaVideo, ...).
-  String _typeLabel(MediaType type) {
-    switch (type) {
-      case MediaType.image:
-        return 'Photo';
-      case MediaType.video:
-        return 'Video';
-      case MediaType.voice:
-        return 'Voice';
-      case MediaType.file:
-        return 'File';
-      case MediaType.gif:
-        return 'Gif';
-    }
-  }
-
-  Widget _senderSelector() {
-    return DropdownButton<String?>(
-      value: _conversationId,
-      underline: const SizedBox.shrink(),
-      borderRadius: BorderRadius.circular(12),
-      hint: Text('anySender'.tr()),
-      items: [
-        DropdownMenuItem<String?>(value: null, child: Text('anySender'.tr())),
-        for (final user in _conversations)
-          DropdownMenuItem<String?>(
-            value: user.id,
-            child: SizedBox(
-              width: 140,
-              child: Text(
-                user.username.isEmpty ? '?' : user.username,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-      ],
-      onChanged: (value) async {
-        setState(() {
-          _conversationId = value;
-        });
-        await _run();
-      },
-    );
-  }
-
-  Widget _filters() {
-    final label = _range == null
-        ? 'anyDate'.tr()
-        : '${DateFormat.MMMd().format(_range!.start)}'
-            ' – ${DateFormat.MMMd().format(_range!.end)}';
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          _typeSelector(),
-          FilterChip(
-            label: Text(label),
-            selected: _range != null,
-            avatar: const Icon(Icons.date_range, size: 18),
-            onSelected: (_) => _pickRange(),
-          ),
-          if (_global && _conversations.isNotEmpty) _senderSelector(),
-        ],
-      ),
-    );
-  }
-
   /// A result line with the found text highlighted.
-  Widget _snippetText(String text, {int? maxLines}) {
+  Widget _snippetText(String text) {
     final scheme = Theme.of(context).colorScheme;
+    final needle = _controller.text;
     return Text.rich(
       TextSpan(
         children: [
-          for (final part in highlightParts(
-              snippet(text, _controller.text), _controller.text))
+          for (final part in highlightParts(snippet(text, needle), needle))
             TextSpan(
               text: part.text,
               style: part.match
@@ -283,51 +87,30 @@ class _MessageSearchPageState extends State<MessageSearchPage> {
             ),
         ],
       ),
-      maxLines: maxLines,
-      overflow: maxLines == null ? null : TextOverflow.ellipsis,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
   Widget _resultTile(MessageHit hit) {
     final message = hit.message;
-    final user = _users[hit.conversationId];
     final time = DateFormat.MMMd().add_Hm().format(message.sentAt.toLocal());
-    final text = message.preview;
     return ListTile(
-      leading: _global
-          ? CircleAvatar(
-              radius: 20,
-              backgroundColor:
-                  user?.avatarColor ?? Theme.of(context).colorScheme.primary,
-              child: Text(
-                _displayName(hit.conversationId)[0].toUpperCase(),
-                style: TextStyle(
-                  fontSize: 16,
-                  color: user?.avatarTextColor ?? Colors.white,
-                ),
-              ),
-            )
-          : null,
-      title: _global
-          ? Text(_displayName(hit.conversationId))
-          : _snippetText(text, maxLines: 2),
-      subtitle: _global ? _snippetText(text, maxLines: 2) : null,
+      title: _snippetText(message.preview),
       trailing: Text(
         time,
         style: TextStyle(
             fontSize: 12,
             color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
-      onTap: () => _open(hit),
+      onTap: () => Navigator.pop(context, message.sentAt),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_global ? 'searchMessages'.tr() : widget.peer!.username),
-      ),
+      appBar: AppBar(title: Text('searchInChat'.tr())),
       body: SafeArea(
         child: Column(
           children: [
@@ -360,7 +143,6 @@ class _MessageSearchPageState extends State<MessageSearchPage> {
                 ),
               ),
             ),
-            _filters(),
             if (_loading) const LinearProgressIndicator(),
             Expanded(child: _body()),
           ],

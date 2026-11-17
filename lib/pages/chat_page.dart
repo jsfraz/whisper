@@ -24,14 +24,10 @@ import '../widgets/attachment_confirm_sheet.dart';
 import '../widgets/chat_bubble.dart';
 import 'chat_info_page.dart';
 import 'forward_page.dart';
-import 'search_page.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage(this.user, {this.jumpTo, super.key});
+  const ChatPage(this.user, {super.key});
   final User user;
-
-  /// Opens the conversation at this message instead of the newest one.
-  final DateTime? jumpTo;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -127,10 +123,6 @@ class _ChatPageState extends State<ChatPage> {
     await _loadMessages();
     // Then top the conversation up from the server archive
     _loadHistory();
-    final jumpTo = widget.jumpTo;
-    if (jumpTo != null) {
-      await _jumpToMessage(jumpTo);
-    }
   }
 
   /// Keeps the newest message on screen when the keyboard opens.
@@ -385,18 +377,14 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _openChatInfo() async {
-    await Navigator.of(context).push(stepRoute(ChatInfoPage(widget.user.id)));
+    // The info page hands back a timestamp when a search hit was picked there.
+    final jumpTo = await Navigator.of(context)
+        .push<DateTime>(stepRoute(ChatInfoPage(widget.user.id)));
     // The theme (and possibly the user) may have changed while it was open.
     await _loadChatTheme();
     await _loadMessages();
-  }
-
-  /// Search this conversation; the picked result is jumped to.
-  Future<void> _openSearch() async {
-    final picked = await Navigator.of(context)
-        .push<DateTime>(stepRoute(MessageSearchPage(peer: widget.user)));
-    if (picked != null && mounted) {
-      await _jumpToMessage(picked);
+    if (jumpTo != null && mounted) {
+      await _jumpToMessage(jumpTo);
     }
   }
 
@@ -1380,37 +1368,10 @@ class _ChatPageState extends State<ChatPage> {
       ),
       // Action buttons
       actions: [
-        PopupMenuButton<String>(
-          tooltip: 'moreActions'.tr(),
-          onSelected: (value) {
-            if (value == 'search') {
-              _openSearch();
-            } else {
-              _jumpToDate();
-            }
-          },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'search',
-              child: Row(
-                children: [
-                  const Icon(Icons.search),
-                  const SizedBox(width: 12),
-                  Text('searchInChat'.tr()),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'jumpDate',
-              child: Row(
-                children: [
-                  const Icon(Icons.event),
-                  const SizedBox(width: 12),
-                  Text('jumpToDate'.tr()),
-                ],
-              ),
-            ),
-          ],
+        IconButton(
+          icon: const Icon(Icons.event),
+          tooltip: 'jumpToDate'.tr(),
+          onPressed: _jumpToDate,
         ),
         IconButton(
           icon: const Icon(Icons.info),

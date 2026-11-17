@@ -14,6 +14,7 @@ import '../widgets/media_bubble.dart';
 import '../widgets/settings_tile.dart';
 import 'home_page.dart';
 import 'media_viewer_page.dart';
+import 'search_page.dart';
 
 class ChatInfoPage extends StatefulWidget {
   const ChatInfoPage(this.userId, {super.key});
@@ -98,6 +99,20 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     );
   }
 
+  /// Search this conversation. A picked hit is handed back to the chat page,
+  /// which jumps to it.
+  Future<void> _openSearch() async {
+    final user = await CacheUtils.getUserById(widget.userId);
+    if (user == null || !mounted) {
+      return;
+    }
+    final picked = await Navigator.of(context)
+        .push<DateTime>(stepRoute(MessageSearchPage(user)));
+    if (picked != null && mounted) {
+      Navigator.pop(context, picked);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Theme(
@@ -112,6 +127,12 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
               SliverToBoxAdapter(
                 child: Column(
                   children: [
+                    // Search in this conversation
+                    SettingsTile(
+                      icon: Icons.search,
+                      label: 'searchInChat'.tr(),
+                      onPressed: _openSearch,
+                    ),
                     // Chat theme
                     SettingsTile(
                       icon: Icons.palette,

@@ -1,23 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whisper/models/private_message.dart';
 import 'package:whisper/utils/message_search.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
 PrivateMessage text(String body, DateTime sentAt, {String? fileName}) {
   return PrivateMessage('peer', body, sentAt, sentAt, true, fileName: fileName);
-}
-
-PrivateMessage media(String type, DateTime sentAt) {
-  return PrivateMessage('peer', '', sentAt, sentAt, true, mediaTypeStr: type);
-}
-
-PrivateMessage album(List<String> types, DateTime sentAt) {
-  final message = PrivateMessage('peer', '', sentAt, sentAt, true);
-  message.setAlbum([
-    for (var i = 0; i < types.length; i++)
-      AlbumItem(mediaId: '$i', type: types[i], size: 1),
-  ]);
-  return message;
 }
 
 MessageHit hit(String conversation, PrivateMessage message) =>
@@ -47,8 +33,7 @@ void main() {
 
     test('an attachment is findable by its file name', () {
       final query = MessageSearchQuery(text: 'smlouva');
-      final message = media(MediaType.file.name, base)
-        ..fileName = 'Smlouva-2026.pdf';
+      final message = text('', base, fileName: 'Smlouva-2026.pdf');
       expect(query.matches(hit('a', message)), isTrue);
     });
 
@@ -56,50 +41,6 @@ void main() {
       final query = MessageSearchQuery(text: 'ahoj', conversationId: 'b');
       expect(query.matches(hit('a', text('ahoj', base))), isFalse);
       expect(query.matches(hit('b', text('ahoj', base))), isTrue);
-    });
-  });
-
-  group('date range', () {
-    test('both ends are inclusive', () {
-      final query = MessageSearchQuery(
-        from: DateTime(2026, 6, 1),
-        to: DateTime(2026, 6, 1),
-      );
-      expect(query.matches(hit('a', text('x', DateTime(2026, 6, 1)))), isTrue);
-      expect(query.matches(hit('a', text('x', DateTime(2026, 6, 1, 23, 59)))),
-          isTrue);
-      expect(query.matches(hit('a', text('x', DateTime(2026, 6, 2)))), isFalse);
-      expect(
-          query.matches(hit('a', text('x', DateTime(2026, 5, 31)))), isFalse);
-    });
-  });
-
-  group('type filter', () {
-    test('text means no attachment', () {
-      final query = MessageSearchQuery(type: MessageSearchQuery.textType);
-      expect(query.matches(hit('a', text('ahoj', base))), isTrue);
-      expect(
-          query.matches(hit('a', media(MediaType.image.name, base))), isFalse);
-    });
-
-    test('a media type matches its messages', () {
-      final query = MessageSearchQuery(type: MediaType.image.name);
-      expect(
-          query.matches(hit('a', media(MediaType.image.name, base))), isTrue);
-      expect(
-          query.matches(hit('a', media(MediaType.video.name, base))), isFalse);
-    });
-
-    test('an album matches when any attachment has the type', () {
-      final query = MessageSearchQuery(type: MediaType.video.name);
-      expect(
-          query.matches(hit(
-              'a', album([MediaType.image.name, MediaType.video.name], base))),
-          isTrue);
-      expect(
-          query.matches(hit(
-              'a', album([MediaType.image.name, MediaType.gif.name], base))),
-          isFalse);
     });
   });
 
