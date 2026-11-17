@@ -289,21 +289,38 @@ class _ChatBubbleState extends State<ChatBubble> {
       ],
     );
 
-    // Emoji-only messages drop the bubble chrome and read large.
+    // Emoji-only messages drop the bubble chrome and read large; an attachment
+    // is the bubble, so it is clipped to the corners instead of sitting inside
+    // a coloured frame.
+    final isMedia = widget.message.isMedia;
     final bubbleBox = Container(
       decoration: BoxDecoration(
-        color: _isLargeEmoji ? null : bubbleBackground(),
+        // A reply needs a surface for its quote; the attachment below fills the
+        // rest of the bubble.
+        color: isMedia
+            ? (widget.message.isReply ? bubbleBackground() : null)
+            : (_isLargeEmoji ? null : bubbleBackground()),
         borderRadius: BorderRadius.circular(20),
-        border: widget.selected
-            ? Border.all(
+      ),
+      // Above the child: a border in the decoration would sit under an
+      // attachment that fills the bubble.
+      foregroundDecoration: widget.selected
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
                 color: Theme.of(context).colorScheme.primary,
                 width: 2,
-              )
-            : null,
-      ),
-      padding: _isLargeEmoji
-          ? EdgeInsets.zero
-          : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+            )
+          : null,
+      clipBehavior: isMedia ? Clip.antiAlias : Clip.none,
+      padding: isMedia
+          ? (widget.message.isReply
+              ? const EdgeInsets.fromLTRB(8, 8, 8, 0)
+              : EdgeInsets.zero)
+          : (_isLargeEmoji
+              ? EdgeInsets.zero
+              : const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
       child: bubble,
     );
 

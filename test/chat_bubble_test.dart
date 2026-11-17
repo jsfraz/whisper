@@ -10,6 +10,8 @@ import 'package:whisper/models/user.dart';
 import 'package:whisper/utils/singleton.dart';
 import 'package:whisper/utils/text_envelope.dart';
 import 'package:whisper/widgets/chat_bubble.dart';
+import 'package:whisper/widgets/media_bubble.dart';
+import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
 /// Plain text of everything the bubble rendered, spans included.
 String renderedText(WidgetTester tester) => tester
@@ -168,5 +170,28 @@ void main() {
           TextDecorationStyle.solid,
           reason: tappable);
     }
+
+    // An attachment is the bubble: no coloured frame or padding around it.
+    await show(ChatBubble(
+      null,
+      PrivateMessage(
+        '2',
+        '',
+        DateTime(2026),
+        DateTime(2026),
+        true,
+        mediaTypeStr: MediaType.image.name,
+        downloadStatus: MediaDownloadStatus.failed,
+      ),
+      null,
+      peer,
+      accentColor: Colors.blue,
+    ));
+    final mediaFrame = tester.widget<Container>(find
+        .ancestor(
+            of: find.byType(MediaBubble), matching: find.byType(Container))
+        .first);
+    expect(mediaFrame.padding, EdgeInsets.zero);
+    expect((mediaFrame.decoration as BoxDecoration?)?.color, isNull);
   });
 }
