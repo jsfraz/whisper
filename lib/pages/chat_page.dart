@@ -377,47 +377,34 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _openChatInfo() async {
-    // The info page hands back a timestamp when a search hit was picked there.
-    final jumpTo = await Navigator.of(context)
+    // The info page hands back a timestamp when a search hit or a date was
+    // picked there.
+    final target = await Navigator.of(context)
         .push<DateTime>(stepRoute(ChatInfoPage(widget.user.id)));
     // The theme (and possibly the user) may have changed while it was open.
     await _loadChatTheme();
     await _loadMessages();
-    if (jumpTo != null && mounted) {
-      await _jumpToMessage(jumpTo);
+    if (target != null && mounted) {
+      await _jumpTo(target);
     }
   }
 
-  /// Jump to the first message of a picked day (or the first one after it).
-  Future<void> _jumpToDate() async {
+  /// Jumps to [target], or to the first message after it: a search hit is an
+  /// exact instant, a picked day is midnight.
+  Future<void> _jumpTo(DateTime target) async {
     if (_messages.isEmpty) {
       return;
     }
-    final oldest = _messages.first.sentAt.toLocal();
-    final firstDay = DateTime(oldest.year, oldest.month, oldest.day);
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: firstDay.isBefore(DateTime(2000)) ? DateTime(2000) : firstDay,
-      lastDate: now,
-    );
-    if (picked == null || !mounted) {
-      return;
+    var index = _messages.indexWhere((message) => message.sentAt == target);
+    if (index < 0) {
+      index = _messages.indexWhere((message) => message.sentAt.isAfter(target));
     }
-    DateTime? target;
-    for (final message in _messages) {
-      if (!message.sentAt.isBefore(picked)) {
-        target = message.sentAt;
-        break;
-      }
-    }
-    if (target == null) {
+    if (index < 0) {
       await Fluttertoast.showToast(
           msg: 'noMessagesOnDate'.tr(), backgroundColor: Colors.orange);
       return;
     }
-    await _jumpToMessage(target);
+    await _jumpToMessage(_messages[index].sentAt);
   }
 
   // ---------------------------------------------------------------------------
@@ -1368,11 +1355,6 @@ class _ChatPageState extends State<ChatPage> {
       ),
       // Action buttons
       actions: [
-        IconButton(
-          icon: const Icon(Icons.event),
-          tooltip: 'jumpToDate'.tr(),
-          onPressed: _jumpToDate,
-        ),
         IconButton(
           icon: const Icon(Icons.info),
           tooltip: 'infoButton'.tr(),
