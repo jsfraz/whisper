@@ -801,6 +801,33 @@ class CacheUtils {
     return filterMessages(hits, query);
   }
 
+  /// Whether the attachment [mediaId] already sits on this device, either as a
+  /// single attachment or as one item of an album.
+  ///
+  /// The server deletes its copy once delivery is confirmed, so downloading a
+  /// media that is already here can only fail with 404 and would overwrite a
+  /// healthy attachment with an error state. A history page or a sync
+  /// redelivers messages that are already stored, which is exactly when this
+  /// check matters.
+  static Future<bool> hasMediaLocally(String userId, String mediaId) async {
+    final box = await _openPrivateMessagesBox();
+    for (final key in _conversationKeys(box, userId)) {
+      final value = box.get(key);
+      if (value is! PrivateMessage) {
+        continue;
+      }
+      if (value.mediaId == mediaId && value.localPath != null) {
+        return true;
+      }
+      for (final item in value.album) {
+        if (item.mediaId == mediaId && item.localPath != null) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   /// Oldest unread message of a conversation: the anchor of the "new messages"
   /// divider, taken before the chat marks everything read.
   static Future<DateTime?> firstUnreadSentAt(String userId) async {

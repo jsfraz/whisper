@@ -137,25 +137,10 @@ class _MediaBubbleState extends State<MediaBubble> {
     final insideBubble = type == MediaType.voice || type == MediaType.file;
 
     Widget media;
-    if (insideBubble &&
-        widget.message.downloadStatus == MediaDownloadStatus.pending) {
-      media = type == MediaType.voice
-          ? SizedBox(
-              width: 220,
-              height: 48,
-              child: Center(
-                child: CircularProgressIndicator(color: widget.textColor),
-              ),
-            )
-          : _fileWidget();
-    } else if (widget.message.downloadStatus == MediaDownloadStatus.pending) {
-      media = _placeholder(child: const CircularProgressIndicator());
-    } else if (widget.message.downloadStatus == MediaDownloadStatus.failed ||
-        widget.message.downloadStatus == MediaDownloadStatus.expired) {
-      media = _failed();
-    } else if (widget.message.localPath == null) {
-      media = _placeholder(child: const CircularProgressIndicator());
-    } else {
+    if (widget.message.localPath != null) {
+      // The file on disk is the truth. A failed/expired status can be stale: a
+      // redelivered message used to re-try a download the server had already
+      // confirmed, which flipped a working attachment to expired.
       switch (type) {
         case MediaType.image:
         case MediaType.gif:
@@ -173,6 +158,24 @@ class _MediaBubbleState extends State<MediaBubble> {
         case null:
           media = _placeholder(child: const Icon(Icons.broken_image));
       }
+    } else if (insideBubble &&
+        widget.message.downloadStatus == MediaDownloadStatus.pending) {
+      media = type == MediaType.voice
+          ? SizedBox(
+              width: 220,
+              height: 48,
+              child: Center(
+                child: CircularProgressIndicator(color: widget.textColor),
+              ),
+            )
+          : _fileWidget();
+    } else if (widget.message.downloadStatus == MediaDownloadStatus.pending) {
+      media = _placeholder(child: const CircularProgressIndicator());
+    } else if (widget.message.downloadStatus == MediaDownloadStatus.failed ||
+        widget.message.downloadStatus == MediaDownloadStatus.expired) {
+      media = _failed();
+    } else {
+      media = _placeholder(child: const CircularProgressIndicator());
     }
 
     // Voice and file messages live inside the coloured bubble.

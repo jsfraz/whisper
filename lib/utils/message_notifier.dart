@@ -87,6 +87,13 @@ class MessageNotifier extends ChangeNotifier {
   /// thus deleted); on failure the message is marked as failed for retry.
   Future<void> downloadMediaMessage(
       String conversationUserId, MediaReference reference) async {
+    // A redelivery (history page, sync, reconnect) must not re-fetch an
+    // attachment we already hold: the server deleted its copy on confirm, so
+    // the attempt would 404 and mark a working attachment as failed.
+    if (await CacheUtils.hasMediaLocally(
+        conversationUserId, reference.mediaId)) {
+      return;
+    }
     _pendingMediaRefs[reference.mediaId] = reference;
     try {
       final blob = await Utils.callApi(
