@@ -17,7 +17,6 @@ import '../utils/message_notifier.dart';
 import '../utils/notification_service.dart';
 import 'search_user_page.dart';
 import 'settings_page.dart';
-import 'search_page.dart';
 import '../utils/dialog_utils.dart';
 import '../widgets/invite_list_item.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
@@ -484,15 +483,6 @@ class _HomePageState extends State<HomePage>
                     title: Text('msgPage'.tr()),
                     // Action buttons
                     actions: [
-                      // Search across every locally stored conversation
-                      IconButton(
-                        icon: const Icon(Icons.search),
-                        tooltip: 'searchMessages'.tr(),
-                        onPressed: () {
-                          Navigator.of(context)
-                              .push(stepRoute(const MessageSearchPage()));
-                        },
-                      ),
                       // Settings
                       IconButton(
                         icon: const Icon(Icons.settings),
