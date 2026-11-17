@@ -18,7 +18,7 @@ void main() async {
     var keyPair = await CryptoUtils.getRSAKeyPair();
     final token = await CryptoUtils.generateRsaJwt(
         '1', keyPair.privateKey as bu.RSAPrivateKey,
-        nonce: 'test-challenge');
+        nonce: 'test-challenge', deviceId: 'device');
     debugPrint(token);
   });
 
@@ -26,17 +26,18 @@ void main() async {
     var keyPair = await CryptoUtils.getRSAKeyPair();
     final token = await CryptoUtils.generateRsaJwt(
         '1', keyPair.privateKey as bu.RSAPrivateKey,
-        nonce: 'test-challenge');
+        nonce: 'test-challenge', deviceId: 'device');
 
-    final payload = jsonDecode(
-            utf8.decode(base64Url.decode(base64Url.normalize(token.split('.')[1]))))
+    final payload = jsonDecode(utf8
+            .decode(base64Url.decode(base64Url.normalize(token.split('.')[1]))))
         as Map<String, dynamic>;
-    final notBefore = DateTime.fromMillisecondsSinceEpoch(
-        (payload['nbf'] as int) * 1000);
+    final notBefore =
+        DateTime.fromMillisecondsSinceEpoch((payload['nbf'] as int) * 1000);
     // A token whose nbf is "now" is rejected by a server whose clock is a
     // little behind; it must already be valid.
     expect(notBefore.isBefore(DateTime.now()), isTrue);
-    expect(notBefore.isAfter(DateTime.now().subtract(const Duration(minutes: 1))),
+    expect(
+        notBefore.isAfter(DateTime.now().subtract(const Duration(minutes: 1))),
         isTrue);
   });
 }

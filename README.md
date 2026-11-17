@@ -10,14 +10,26 @@ Also see [Wiki](https://github.com/jsfraz/whisper/wiki)!
 |---|---|---|
 |![Screenshot 1](screenshots/1.png)|![Screenshot 2](screenshots/2.png)|![Screenshot 3](screenshots/3.png)|
 
-## Delivery model
+## Delivery, history and devices
 
-One account is one device, and the server keeps an encrypted copy of a message
-only until the receiver acknowledges that it stored it. A message that was sent
-but never acknowledged is re-sent on the next connect; the server drops the
-duplicates. Media is deleted from the server when the receiver confirms the
-download, so an attachment that was never fetched before its TTL (or before a
-reinstall) shows as expired rather than being re-downloadable.
+The server keeps one encrypted copy of each message in a PostgreSQL archive:
+that row is the history, the offline buffer and the delta a reconnecting device
+fetches. Nothing is pushed on connect — the app sends the highest `seq` it has
+stored and receives only what it missed, so a phone that was offline for a week
+syncs in one round trip. A resend of the same message is deduplicated by
+(sender, receiver, timestamp).
+
+How long the ciphertext stays is a per-account setting (7, 30, 90 or 365 days);
+the shorter setting of the two participants wins, and an hourly sweeper deletes
+what expired. Media is deleted from the server when the receiver confirms the
+download, so an attachment that was never fetched before its TTL shows as
+expired rather than being re-downloadable.
+
+Every installation registers a device (id, label, platform). Revoking one in
+Settings locks it out immediately: it loses its socket, its refresh sessions and
+every API call, even though it still holds the account key. A new login warns
+the other devices. The app reports its version (`X-Client-Version`) and refuses
+to sign in to a server that requires a newer client.
 
 ## Download
 

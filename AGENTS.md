@@ -43,7 +43,7 @@ not in this repository). Use them for the fast loop, but the shell gates below s
 ## Where it hurts
 
 - **Media upload**: `uploadMedia(file, receiverId)` — the argument order comes from the generator, not from logic. Verify call sites after regenerating the client.
-- **Path dependencies**: `pubspec.yaml` pulls both clients via `path:`, so CI cannot see which client version the app actually uses. Pinning to a tag is phase 2 debt.
+- **Pinned clients**: `pubspec.yaml` pulls both Dart clients from their `v0.1.0` tags, so the build records the contract it was made against. `pubspec_overrides.yaml` (gitignored) points at the sibling checkouts for local work; never commit it.
 - **Firebase**: analysis fails without `lib/firebase_options.dart`. CI decodes it from a secret.
 - **Login needs a challenge**: `CryptoUtils.generateRsaJwt` requires a `nonce`
   fetched from `AuthenticationApi.authChallenge()`; the server spends it on use.

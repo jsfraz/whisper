@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:sprintf/sprintf.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:whisper_openapi_client_dart/api.dart';
 import '../utils/biometric_auth.dart';
 import '../utils/cache_utils.dart';
 import '../utils/singleton.dart';
@@ -15,6 +16,7 @@ import '../utils/utils.dart';
 import 'scan_invite_button_page.dart';
 import '../widgets/change_password_dialog.dart';
 import '../utils/nav_transitions.dart';
+import 'devices_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -37,6 +39,56 @@ class _SettingsPageState extends State<SettingsPage> {
     _isBiometryEnabled = await CacheUtils.isBiometryEnabled();
     _notificationPreview = await CacheUtils.getNotificationPreview();
     setState(() {});
+  }
+
+  /// Server-side retention of the ciphertext archive. The shorter setting of
+  /// the two participants wins, so this is a limit, not a promise.
+  Future<void> _showRetentionDialog() async {
+    final current =
+        await Utils.callApi(() => Singleton().userApi.getRetention());
+    if (!mounted) {
+      return;
+    }
+    final selected = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text('retentionTitle'.tr()),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text('retentionExplain'.tr()),
+          ),
+          for (final days in const [7, 30, 90, 365])
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(dialogContext).pop(days),
+              child: Row(
+                children: [
+                  Icon(
+                    current?.days == days
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    size: 20,
+                    color: Theme.of(dialogContext).colorScheme.secondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text('retentionDays'.tr(args: [days.toString()])),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (selected == null || !mounted) {
+      return;
+    }
+    await Utils.callApi(() => Singleton()
+        .userApi
+        .setRetention(setRetentionInput: SetRetentionInput(days: selected)));
+    if (!mounted) {
+      return;
+    }
+    await Fluttertoast.showToast(
+        msg: 'retentionSaved'.tr(), backgroundColor: Colors.grey);
   }
 
   Future<void> _toggleBiometry(bool switchValue) async {
@@ -201,6 +253,51 @@ class _SettingsPageState extends State<SettingsPage> {
                       value: _isBiometryEnabled,
                       onChanged: _toggleBiometry,
                     )
+                  ],
+                ),
+              ),
+
+              // Devices signed into this account
+              TextButton(
+                onPressed: () async {
+                  await Navigator.push(context, stepRoute(const DevicesPage()));
+                },
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.devices,
+                      size: 24,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(left: 5),
+                      child: Text(
+                        'devicesSettings'.tr(),
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.secondary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Server retention of the ciphertext archive
+              TextButton(
+                onPressed: _showRetentionDialog,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.storage,
+                      size: 24,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(left: 5),
+                      child: Text(
+                        'retentionSettings'.tr(),
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.secondary),
+                      ),
+                    ),
                   ],
                 ),
               ),

@@ -74,9 +74,14 @@ void main() {
     final challenge = await authApi.authChallenge();
     final jwt = await CryptoUtils.generateRsaJwt(
         '1', keys.privateKey as bu.RSAPrivateKey,
-        nonce: challenge!.challenge);
+        nonce: challenge!.challenge, deviceId: 'e2e-device');
     final auth = await authApi.authUser(
-      authUserInput: AuthUserInput(token: jwt),
+      authUserInput: AuthUserInput(
+        token: jwt,
+        deviceId: 'e2e-device',
+        label: 'e2e',
+        platform: 'linux',
+      ),
     );
 
     expect(auth!.accessToken, isNotEmpty);

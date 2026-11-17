@@ -90,13 +90,29 @@ class _HomePageState extends State<HomePage>
     // Enable FCM notifications
     FirebaseMessaging.instance.setAutoInitEnabled(true);
 
+    // A foreground push is not shown by the OS; show it ourselves.
+    _fcmSubscription = FirebaseMessaging.onMessage.listen((message) {
+      final notification = message.notification;
+      if (notification == null) {
+        return;
+      }
+      NotificationService().showSecurityNotification(
+        notification.title ?? 'newLoginTitle'.tr(),
+        notification.body ?? '',
+      );
+    });
+
     // Register with FCM, the FID arrives via onRegistered
     _registerForPush();
-
   }
+
+  /// Foreground pushes: the server warns the other devices about a new login,
+  /// and a foreground app has to show that itself.
+  StreamSubscription<RemoteMessage>? _fcmSubscription;
 
   @override
   void dispose() {
+    _fcmSubscription?.cancel();
     _adminTabController.dispose();
     MessageNotifier().removeListener(_onMessagesChanged);
     if (NotificationService.onChatSelected == _openChat) {

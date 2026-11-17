@@ -55,6 +55,32 @@ void main() {
       const MethodChannel('plugins.flutter.io/path_provider'),
       (call) async => dir.path,
     );
+    // The login now registers the installation, and the device id lives in
+    // secure storage. Keep it in memory for the test.
+    final secureStorage = <String, String>{};
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+      (call) async {
+        final args = (call.arguments as Map?) ?? const {};
+        switch (call.method) {
+          case 'read':
+            return secureStorage[args['key']];
+          case 'write':
+            secureStorage[args['key'] as String] = args['value'] as String;
+            return null;
+          case 'delete':
+            secureStorage.remove(args['key']);
+            return null;
+          case 'readAll':
+            return Map<String, String>.from(secureStorage);
+          case 'deleteAll':
+            secureStorage.clear();
+            return null;
+        }
+        return null;
+      },
+    );
   });
 
   setUp(() async {
@@ -65,8 +91,7 @@ void main() {
       'http://localhost',
       User('user', 'tester', 'public-key', false),
       'public-key',
-      bu.CryptoUtils.encodeRSAPrivateKeyToPem(
-          keys.privateKey as RSAPrivateKey),
+      bu.CryptoUtils.encodeRSAPrivateKeyToPem(keys.privateKey as RSAPrivateKey),
       tokenExpiring(inFuture: const Duration(minutes: 10)),
       tokenExpiring(inFuture: const Duration(days: 6), typ: 'refresh'),
       true,
@@ -98,8 +123,8 @@ void main() {
       } else if (request.uri.path == '/api/auth') {
         expect(body, contains('token'));
         // The signed login token must carry the one-time challenge.
-        final token = (jsonDecode(body) as Map<String, dynamic>)['token']
-            as String;
+        final token =
+            (jsonDecode(body) as Map<String, dynamic>)['token'] as String;
         final payload = jsonDecode(utf8.decode(
                 base64Url.decode(base64Url.normalize(token.split('.')[1]))))
             as Map<String, dynamic>;
@@ -108,6 +133,8 @@ void main() {
         request.response.write(jsonEncode({
           'accessToken': 'fresh-access',
           'refreshToken': 'fresh-refresh',
+          // The login answer names the server build now; the model requires it.
+          'serverVersion': '0.1.0',
         }));
       } else {
         request.response.statusCode = 404;
@@ -115,8 +142,7 @@ void main() {
       }
       await request.response.close();
     });
-    Singleton().api =
-        ApiClient(basePath: 'http://127.0.0.1:${server.port}');
+    Singleton().api = ApiClient(basePath: 'http://127.0.0.1:${server.port}');
   }
 
   test('a refused refresh falls back to the RSA login', () async {
@@ -155,7 +181,8 @@ void main() {
     await startServer(refreshStatus: 200);
     Singleton().profile.accessToken = tokenExpiring(inFuture: Duration.zero);
 
-    await Future.wait([Utils.authCheck(), Utils.authCheck(), Utils.authCheck()]);
+    await Future.wait(
+        [Utils.authCheck(), Utils.authCheck(), Utils.authCheck()]);
 
     expect(requestedPaths, ['/api/auth/refresh']);
     expect(Singleton().profile.accessToken, 'refreshed-access');

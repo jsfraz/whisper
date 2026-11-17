@@ -13,9 +13,9 @@ import '../pages/chat_page.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:whisper_websocket_client_dart/models/delivery_ack.dart';
+import 'package:whisper_websocket_client_dart/models/synced.dart';
 import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/private_message.dart';
-import 'package:whisper_websocket_client_dart/models/ws_message.dart';
 import 'package:whisper_websocket_client_dart/models/ws_response.dart';
 import 'package:whisper_websocket_client_dart/models/ws_response_type.dart';
 import 'cache_utils.dart';
@@ -25,6 +25,7 @@ import 'media_utils.dart';
 import 'message_notifier.dart';
 import 'singleton.dart';
 import '../models/private_message.dart' as pm;
+import '../models/user.dart';
 
 class Utils {
   /// Localized text for a server error code (the server only sends camelCase
@@ -177,13 +178,20 @@ class Utils {
           useSecurity: false,
           showError: false);
       if (challenge != null) {
-        final token = await CryptoUtils.generateRsaJwt(
-            profile.user.id,
+        // The device id is created once per installation, signed into the
+        // login JWT and registered by the server, so it can be revoked.
+        final deviceId = await CacheUtils.getOrCreateDeviceId();
+        final token = await CryptoUtils.generateRsaJwt(profile.user.id,
             bu.CryptoUtils.rsaPrivateKeyFromPem(profile.privateKey),
-            nonce: challenge.challenge);
+            nonce: challenge.challenge, deviceId: deviceId);
         final authResponse = await Utils.callApi(
             () => Singleton().authApi.authUser(
-                authUserInput: AuthUserInput(token: token)),
+                    authUserInput: AuthUserInput(
+                  token: token,
+                  deviceId: deviceId,
+                  label: CacheUtils.deviceLabel,
+                  platform: CacheUtils.devicePlatform,
+                )),
             useSecurity: false,
             showError: false);
         if (authResponse != null) {
@@ -264,199 +272,237 @@ class Utils {
     return '$wsUrl/ws';
   }
 
+  /// Decrypt, store and optionally announce a batch of messages.
+  ///
+  /// Live frames are announced (a notification per conversation) and their
+  /// older echoes are dropped; history from a sync is stored silently.
+  static Future<void> _storeMessages(List<PrivateMessage> messages,
+      {required bool notify}) async {
+    messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
+    List<pm.PrivateMessage> decryptedMessages = [];
+    // Media references of each conversation that still need a download.
+    final pendingMediaRefs = <String, List<MediaReference>>{};
+
+    try {
+      // One isolate for the whole batch: a per-message decrypt used to
+      // cost an RSA key parse and an isolate spawn each.
+      List<Uint8List?> decryptedBatch;
+      try {
+        decryptedBatch = await CryptoUtils.decryptMessageBatch(
+            messages
+                .map((message) => {
+                      'data': message.content,
+                      'key': message.key,
+                      'nonce': message.nonce,
+                      'mac': message.mac,
+                    })
+                .toList(),
+            Singleton().profile.privateKey);
+      } catch (_) {
+        // A batch failure must not drop the messages: they become visible
+        // placeholders below instead of disappearing.
+        decryptedBatch = List<Uint8List?>.filled(messages.length, null);
+      }
+
+      final decryptionTasks = messages.asMap().entries.map((entry) async {
+        final index = entry.key;
+        final message = entry.value;
+        try {
+          final decryptedMessage = decryptedBatch[index];
+          if (decryptedMessage == null) {
+            throw const FormatException('message decryption failed');
+          }
+          // Media message: decode the envelope and create a placeholder.
+          final envelope = MediaUtils.tryParseMediaEnvelope(decryptedMessage);
+          if (envelope != null) {
+            if (envelope.references.length > 1) {
+              // Album: one bubble, one download per attachment.
+              final albumMsg = pm.PrivateMessage(
+                message.senderId,
+                envelope.caption,
+                message.sentAt,
+                DateTime.now(),
+                false,
+                downloadStatus: pm.MediaDownloadStatus.pending,
+              );
+              albumMsg.setAlbum(envelope.references
+                  .map((ref) => pm.AlbumItem(
+                        mediaId: ref.mediaId,
+                        type: ref.type.name,
+                        size: ref.size,
+                        width: ref.width,
+                        height: ref.height,
+                        durationMs: ref.durationMs,
+                        fileName: ref.fileName,
+                        status: pm.MediaDownloadStatus.pending,
+                      ))
+                  .toList());
+              return (albumMsg, envelope.references, message.peerId);
+            }
+            final ref = envelope.references.single;
+            final mediaMsg = pm.PrivateMessage(
+              message.senderId,
+              envelope.caption,
+              message.sentAt,
+              DateTime.now(),
+              false,
+              mediaId: ref.mediaId,
+              mediaTypeStr: ref.type.name,
+              mediaSize: ref.size,
+              width: ref.width,
+              height: ref.height,
+              durationMs: ref.durationMs,
+              fileName: ref.fileName,
+              downloadStatus: pm.MediaDownloadStatus.pending,
+            );
+            return (mediaMsg, [ref], message.peerId);
+          }
+          // Plain text message (legacy/unchanged path).
+          final textMsg = pm.PrivateMessage(
+              message.senderId,
+              utf8.decode(decryptedMessage),
+              message.sentAt,
+              DateTime.now(),
+              false);
+          return (textMsg, const <MediaReference>[], message.peerId);
+        } catch (e) {
+          // Log individual message decryption errors
+          if (kDebugMode) {
+            debugPrint(
+                'Failed to decrypt message from ${message.senderId}: $e');
+          }
+          // Keep a visible placeholder: dropping the message hides the loss
+          // from the user and from the server (which still has the entry).
+          return (
+            pm.PrivateMessage(
+              message.senderId,
+              pm.PrivateMessage.undecryptableMarker,
+              message.sentAt,
+              DateTime.now(),
+              false,
+            ),
+            const <MediaReference>[],
+            message.peerId
+          );
+        }
+      });
+
+      final results = await Future.wait(decryptionTasks);
+
+      // Filter out failed decryptions (null values)
+      final valid = results
+          .whereType<(pm.PrivateMessage, List<MediaReference>, String)>()
+          .toList();
+      decryptedMessages = valid.map((e) => e.$1).toList();
+      for (final (message, refs, _) in valid) {
+        if (refs.isNotEmpty) {
+          pendingMediaRefs.putIfAbsent(message.senderId, () => []).addAll(refs);
+        }
+      }
+
+      // Show toast only if all messages failed to decrypt
+      if (decryptedMessages.isEmpty && messages.isNotEmpty) {
+        await Fluttertoast.showToast(
+            msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
+      }
+    } catch (_) {
+      await Fluttertoast.showToast(
+          msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
+    }
+    // Self-sent messages are stored locally before sending; dropping the live
+    // server echo prevents a duplicate bubble in the debug self-chat. The
+    // archive copy is kept, because it is what a fresh device syncs.
+    if (notify) {
+      decryptedMessages.removeWhere(
+          (message) => message.senderId == Singleton().profile.user.id);
+    }
+
+    if (decryptedMessages.isEmpty) {
+      return;
+    }
+    // A batch can hold messages from several peers: store each conversation
+    // under its own key. The peer id and not the sender is the conversation:
+    // an archived message we sent has our own id as the sender.
+    final byPeer = <String, List<pm.PrivateMessage>>{};
+    final peerOfMessage = <String, String>{};
+    for (final message in messages) {
+      peerOfMessage[
+              '${message.senderId}|${message.sentAt.toUtc().toIso8601String()}'] =
+          message.peerId;
+    }
+    for (final message in decryptedMessages) {
+      final peer = peerOfMessage[
+              '${message.senderId}|${message.sentAt.toUtc().toIso8601String()}'] ??
+          message.senderId;
+      byPeer.putIfAbsent(peer, () => []).add(message);
+    }
+    for (final entry in byPeer.entries) {
+      await MessageNotifier().addMessages(entry.key, entry.value);
+      // Kick off media downloads now that placeholders are persisted.
+      for (final ref in pendingMediaRefs[entry.key] ?? const []) {
+        // Fire-and-forget; updates the message + notifies on completion.
+        MessageNotifier().downloadMediaMessage(entry.key, ref);
+      }
+    }
+
+    if (!notify) {
+      return;
+    }
+
+    // Remove messages from notifications if user was not online when they were sent
+    decryptedMessages.removeWhere((x) => !messages
+        .where((y) => y.sentAt == x.sentAt && y.senderId == x.senderId)
+        .first
+        .recipientOnline);
+
+    bool homePageOpened = false;
+    var currentRoute = Singleton().currentRoute;
+    if (currentRoute is PageTransition) {
+      if (currentRoute.child is ChatPage) {
+        var chatPage = currentRoute.child as ChatPage;
+        // Delete messages of current open user chat from notifications
+        decryptedMessages.removeWhere((x) => x.senderId == chatPage.user.id);
+      }
+    } else {
+      // Home page is opened
+      homePageOpened = true;
+    }
+    // Show notification if there are messages to announce and HomePage is not opened
+    if (decryptedMessages.isNotEmpty && !homePageOpened) {
+      if (Singleton().profile.enableNotifications) {
+        await NotificationService().showMessagesNotification(decryptedMessages);
+      }
+    } else {
+      // Vibrate if all messages were for currently opened user
+      Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
+    }
+  }
+
   /// Handle WebSocket message
   static Future<void> onWsMessageReceived(WsResponse wsResponse) async {
     switch (wsResponse.type) {
       // More messages
       case WsResponseType.messages:
-        var messages = wsResponse.payload as List<PrivateMessage>;
-        messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
-        List<pm.PrivateMessage> decryptedMessages = [];
-        // Media references of each conversation that still need a download.
-        final pendingMediaRefs = <String, List<MediaReference>>{};
+        await _storeMessages(wsResponse.payload as List<PrivateMessage>,
+            notify: true);
+        break;
 
-        try {
-          // One isolate for the whole batch: a per-message decrypt used to
-          // cost an RSA key parse and an isolate spawn each.
-          List<Uint8List?> decryptedBatch;
-          try {
-            decryptedBatch = await CryptoUtils.decryptMessageBatch(
-                messages
-                    .map((message) => {
-                          'data': message.content,
-                          'key': message.key,
-                          'nonce': message.nonce,
-                          'mac': message.mac,
-                        })
-                    .toList(),
-                Singleton().profile.privateKey);
-          } catch (_) {
-            // A batch failure must not drop the messages: they become visible
-            // placeholders below instead of disappearing.
-            decryptedBatch = List<Uint8List?>.filled(messages.length, null);
-          }
-
-          final decryptionTasks = messages.asMap().entries.map((entry) async {
-            final index = entry.key;
-            final message = entry.value;
-            try {
-              final decryptedMessage = decryptedBatch[index];
-              if (decryptedMessage == null) {
-                throw const FormatException('message decryption failed');
-              }
-              // Media message: decode the envelope and create a placeholder.
-              final envelope =
-                  MediaUtils.tryParseMediaEnvelope(decryptedMessage);
-              if (envelope != null) {
-                if (envelope.references.length > 1) {
-                  // Album: one bubble, one download per attachment.
-                  final albumMsg = pm.PrivateMessage(
-                    message.senderId,
-                    envelope.caption,
-                    message.sentAt,
-                    DateTime.now(),
-                    false,
-                    downloadStatus: pm.MediaDownloadStatus.pending,
-                  );
-                  albumMsg.setAlbum(envelope.references
-                      .map((ref) => pm.AlbumItem(
-                            mediaId: ref.mediaId,
-                            type: ref.type.name,
-                            size: ref.size,
-                            width: ref.width,
-                            height: ref.height,
-                            durationMs: ref.durationMs,
-                            fileName: ref.fileName,
-                            status: pm.MediaDownloadStatus.pending,
-                          ))
-                      .toList());
-                  return (albumMsg, envelope.references);
-                }
-                final ref = envelope.references.single;
-                final mediaMsg = pm.PrivateMessage(
-                  message.senderId,
-                  envelope.caption,
-                  message.sentAt,
-                  DateTime.now(),
-                  false,
-                  mediaId: ref.mediaId,
-                  mediaTypeStr: ref.type.name,
-                  mediaSize: ref.size,
-                  width: ref.width,
-                  height: ref.height,
-                  durationMs: ref.durationMs,
-                  fileName: ref.fileName,
-                  downloadStatus: pm.MediaDownloadStatus.pending,
-                );
-                return (mediaMsg, [ref]);
-              }
-              // Plain text message (legacy/unchanged path).
-              final textMsg = pm.PrivateMessage(
-                  message.senderId,
-                  utf8.decode(decryptedMessage),
-                  message.sentAt,
-                  DateTime.now(),
-                  false);
-              return (textMsg, const <MediaReference>[]);
-            } catch (e) {
-              // Log individual message decryption errors
-              if (kDebugMode) {
-                debugPrint(
-                    'Failed to decrypt message from ${message.senderId}: $e');
-              }
-              // Keep a visible placeholder: dropping the message hides the loss
-              // from the user and from the server (which still has the entry).
-              return (
-                pm.PrivateMessage(
-                  message.senderId,
-                  pm.PrivateMessage.undecryptableMarker,
-                  message.sentAt,
-                  DateTime.now(),
-                  false,
-                ),
-                const <MediaReference>[]
-              );
-            }
-          });
-
-          final results = await Future.wait(decryptionTasks);
-
-          // Filter out failed decryptions (null values)
-          final valid = results
-              .whereType<(pm.PrivateMessage, List<MediaReference>)>()
-              .toList();
-          decryptedMessages = valid.map((e) => e.$1).toList();
-          for (final (message, refs) in valid) {
-            if (refs.isNotEmpty) {
-              pendingMediaRefs
-                  .putIfAbsent(message.senderId, () => [])
-                  .addAll(refs);
-            }
-          }
-
-          // Show toast only if all messages failed to decrypt
-          if (decryptedMessages.isEmpty && messages.isNotEmpty) {
-            await Fluttertoast.showToast(
-                msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
-          }
-        } catch (_) {
-          await Fluttertoast.showToast(
-              msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
+      // Archive delta after a reconnect
+      case WsResponseType.synced:
+        final synced = wsResponse.payload as Synced;
+        for (final peer in synced.peers) {
+          // A fresh device learns the accounts it is talking to from the batch.
+          await CacheUtils.addUser(
+              User(peer.id, peer.username, peer.publicKey, false));
         }
-        // Self-sent messages are stored locally before sending; dropping the
-        // server echo prevents a duplicate bubble in the debug self-chat.
-        decryptedMessages.removeWhere(
-            (message) => message.senderId == Singleton().profile.user.id);
-
-        if (decryptedMessages.isNotEmpty) {
-          // A batch can hold messages from several senders: store each
-          // conversation under its own key.
-          final bySender = <String, List<pm.PrivateMessage>>{};
-          for (final message in decryptedMessages) {
-            bySender.putIfAbsent(message.senderId, () => []).add(message);
-          }
-          for (final entry in bySender.entries) {
-            await MessageNotifier().addMessages(entry.key, entry.value);
-            // Kick off media downloads now that placeholders are persisted.
-            for (final ref in pendingMediaRefs[entry.key] ?? const []) {
-              // Fire-and-forget; updates the message + notifies on completion.
-              MessageNotifier().downloadMediaMessage(entry.key, ref);
-            }
-          }
-
-          // Everything is stored (placeholders included): the server may drop
-          // these entries from the offline queue.
-          _ackReceived(messages);
-
-          // Remove messages from notifications if user was not online when they were sent
-          decryptedMessages.removeWhere((x) => !messages
-              .where((y) => y.sentAt == x.sentAt && y.senderId == x.senderId)
-              .first
-              .recipientOnline);
-
-          bool homePageOpened = false;
-          var currentRoute = Singleton().currentRoute;
-          if (currentRoute is PageTransition) {
-            if (currentRoute.child is ChatPage) {
-              var chatPage = currentRoute.child as ChatPage;
-              // Delete messages of current open user chat from notifications
-              decryptedMessages
-                  .removeWhere((x) => x.senderId == chatPage.user.id);
-            }
-          } else {
-            // Home page is opened
-            homePageOpened = true;
-          }
-          // Show notification if there are messages to announce and HomePage is not opened
-          if (decryptedMessages.isNotEmpty && !homePageOpened) {
-            if (Singleton().profile.enableNotifications) {
-              await NotificationService()
-                  .showMessagesNotification(decryptedMessages);
-            }
-          } else {
-            // Vibrate if all messages were for currently opened user
-            Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
-          }
+        await CacheUtils.setSyncSeq(synced.syncedThrough);
+        if (synced.messages.isNotEmpty) {
+          // History is silent: a week offline must not ring once per old
+          // message.
+          await _storeMessages(synced.messages, notify: false);
+        }
+        if (synced.hasMore && Singleton().wsClient.isConnected) {
+          Singleton().wsClient.sendSync(synced.syncedThrough);
         }
         break;
 
@@ -483,27 +529,43 @@ class Utils {
     }
   }
 
-  /// Tells the server the received messages are stored, so it can drop them
-  /// from the offline queue. Batched, the server accepts at most 100 per ack.
-  static void _ackReceived(List<PrivateMessage> messages) {
-    if (messages.isEmpty || !Singleton().wsClient.isConnected) {
+  /// Decrypt and store a page from the history endpoint.
+  ///
+  /// History is silent: no notifications and no vibration, the messages are
+  /// older than anything the device already has.
+  static Future<void> storeHistoryPage(
+      List<ModelsPrivateMessage> messages) async {
+    if (messages.isEmpty) {
       return;
     }
-    final acked = messages
-        .map((message) => AckedMessage(message.senderId, message.sentAt))
+    final wire = messages
+        .map((message) => PrivateMessage.fromJson({
+              'id': message.id,
+              'seq': message.seq,
+              'senderId': message.senderId,
+              'peerId': message.peerId,
+              'content': message.content,
+              'key': message.key,
+              'nonce': message.nonce,
+              'mac': message.mac,
+              'sentAt': message.sentAt.toIso8601String(),
+              'recipientOnline': false,
+            }))
         .toList();
-    const batchSize = 100;
-    for (var i = 0; i < acked.length; i += batchSize) {
-      final end =
-          i + batchSize < acked.length ? i + batchSize : acked.length;
-      try {
-        Singleton()
-            .wsClient
-            .sendMessage(WsMessage.ack(acked.sublist(i, end)));
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('ack failed: $e');
-        }
+    await _storeMessages(wire, notify: false);
+  }
+
+  /// Ask the server for the archive delta above the cursor stored on this
+  /// device. Nothing is pushed on connect, so this is what catches a client up.
+  static Future<void> syncArchive() async {
+    if (!Singleton().wsClient.isConnected) {
+      return;
+    }
+    try {
+      Singleton().wsClient.sendSync(await CacheUtils.getSyncSeq());
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('sync request failed: $e');
       }
     }
   }
@@ -569,6 +631,9 @@ class Utils {
       // Messages that never got a delivery ack are retried now; the server
       // deduplicates them by (receiver, sentAt).
       await ChatSender.resendPending();
+      // Nothing is pushed on connect: ask for the archive delta above the last
+      // seq stored here. A phone away for a week fetches only that week.
+      await syncArchive();
       final onConnected = Utils.onConnected;
       if (onConnected != null) {
         await onConnected();

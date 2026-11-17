@@ -7,6 +7,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:whisper_websocket_client_dart/ws_client.dart';
 import '../models/app_theme.dart';
+import 'version.dart';
 import '../models/profile.dart';
 import 'package:flutter/foundation.dart';
 
@@ -56,7 +57,9 @@ class Singleton {
       ..connectionTimeout = const Duration(seconds: 15)
       ..idleTimeout = const Duration(seconds: 30);
     return ApiClient(basePath: basePath, authentication: authentication)
-      ..client = IOClient(httpClient);
+      ..client = IOClient(httpClient)
+      // Every request names the app version; the login gate reads it.
+      ..addDefaultHeader('X-Client-Version', appVersion);
   }
 
   set offlineMode(bool offline) {
@@ -85,6 +88,8 @@ class Singleton {
   FirebaseApi get firebaseApi => FirebaseApi(_api);
 
   MediaApi get mediaApi => MediaApi(_api);
+
+  MessagesApi get messagesApi => MessagesApi(_api);
 
   bool get offlineMode => _offlineMode;
 }

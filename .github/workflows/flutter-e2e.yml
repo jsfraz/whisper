@@ -19,19 +19,8 @@ jobs:
         with:
           path: whisper
 
-      - name: Checkout OpenAPI client
-        uses: actions/checkout@v7
-        with:
-          repository: jsfraz/whisper_openapi_client_dart
-          ref: ${{ github.ref_name }}
-          path: whisper_openapi_client_dart
-
-      - name: Checkout WebSocket client
-        uses: actions/checkout@v7
-        with:
-          repository: jsfraz/whisper_websocket_client_dart
-          ref: ${{ github.ref_name }}
-          path: whisper_websocket_client_dart
+      # Both Dart clients come from their release tags (pubspec.yaml), so no
+      # sibling checkouts are needed.
 
       - name: Install Linux desktop dependencies
         run: |

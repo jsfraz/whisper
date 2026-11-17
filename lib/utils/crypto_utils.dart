@@ -132,16 +132,26 @@ class CryptoUtils {
   ///
   /// [nonce] is the one-time challenge from the server: it is signed into the
   /// token and spent on use, so a captured token cannot be replayed.
-  static Future<String> generateRsaJwt(
-      String userId, RSAPrivateKey privateKey,
-      {required String nonce}) async {
-    return await compute(_generateRsaJwt,
-        {'userId': userId, 'privateKey': privateKey, 'nonce': nonce});
+  ///
+  /// [deviceId] is signed too (`did`), so the request body cannot name a
+  /// different device than the one that proved the account key.
+  static Future<String> generateRsaJwt(String userId, RSAPrivateKey privateKey,
+      {required String nonce, required String deviceId}) async {
+    return await compute(_generateRsaJwt, {
+      'userId': userId,
+      'privateKey': privateKey,
+      'nonce': nonce,
+      'deviceId': deviceId,
+    });
   }
 
   /// Generate JWT token synchronously.
   static String _generateRsaJwt(Map<String, dynamic> data) {
-    final jwt = djwt.JWT({'sub': data['userId'], 'nonce': data['nonce']});
+    final jwt = djwt.JWT({
+      'sub': data['userId'],
+      'did': data['deviceId'],
+      'nonce': data['nonce'],
+    });
     Duration expiresIn = Duration(seconds: 5);
     // dart_jsonwebtoken writes `nbf = now + notBefore`, so a negative value
     // backdates the token and a server clock a few seconds behind the phone no

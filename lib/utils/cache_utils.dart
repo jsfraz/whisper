@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' show Color;
 
 import 'package:bcrypt/bcrypt.dart';
+import 'package:uuid/uuid.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive/hive.dart';
 import '../utils/biometric_auth.dart';
@@ -29,8 +30,64 @@ class CacheUtils {
   static const _biometry = 'biometry';
   static const _playbackSpeed = 'playbackSpeed';
   static const String _saltStorageKey = 'whisper_pbkdf2_salt';
+  static const String _deviceIdKey = 'whisper_device_id';
+  static const String _syncSeqKey = 'syncSeq';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static const _chatThemeKeyPrefix = 'chatTheme:';
+
+  /// Id of this installation, created once and kept in secure storage.
+  ///
+  /// It is the device the server registers, revokes and reports in the login
+  /// JWT. Losing it (a reinstall) is deliberately the same as a new device.
+  static Future<String> getOrCreateDeviceId() async {
+    final stored = await _secureStorage.read(key: _deviceIdKey);
+    if (stored != null && stored.isNotEmpty) {
+      return stored;
+    }
+    final id = const Uuid().v4();
+    await _secureStorage.write(key: _deviceIdKey, value: id);
+    return id;
+  }
+
+  /// Human readable name of this platform, shown in the device list.
+  static String get deviceLabel {
+    if (Platform.isAndroid) {
+      return 'Android';
+    }
+    if (Platform.isIOS) {
+      return 'iOS';
+    }
+    if (Platform.isLinux) {
+      return 'Linux';
+    }
+    if (Platform.isMacOS) {
+      return 'macOS';
+    }
+    if (Platform.isWindows) {
+      return 'Windows';
+    }
+    return Platform.operatingSystem;
+  }
+
+  /// Server platform tag of this installation.
+  static String get devicePlatform => Platform.operatingSystem;
+
+  /// Highest archive `seq` stored on this device. A reconnect asks the server
+  /// for everything above it instead of receiving a full queue dump.
+  static Future<int> getSyncSeq() async {
+    Box box = await Hive.openBox(_settingsKey);
+    return box.get(_syncSeqKey) as int? ?? 0;
+  }
+
+  /// Advances the archive cursor. It never moves backwards: a sync page can
+  /// arrive out of order after two overlapping requests.
+  static Future<void> setSyncSeq(int seq) async {
+    Box box = await Hive.openBox(_settingsKey);
+    final stored = box.get(_syncSeqKey) as int? ?? 0;
+    if (seq > stored) {
+      await box.put(_syncSeqKey, seq);
+    }
+  }
 
   /// Opens box with password hash
   static Future<Box> _openPasswordHashBox() async {

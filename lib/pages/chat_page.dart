@@ -14,6 +14,7 @@ import '../utils/chat_sender.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
+import '../utils/utils.dart' as utils;
 import '../utils/theme_utils.dart';
 import '../widgets/attachment_confirm_sheet.dart';
 import '../widgets/chat_bubble.dart';
@@ -47,6 +48,12 @@ class _ChatPageState extends State<ChatPage> {
   bool _firstLoad = true;
   // Guards against overlapping cache reads
   bool _loading = false;
+  // Guards against overlapping history requests
+  bool _historyLoading = false;
+  // Whether the newest archive page was already asked for
+  bool _historyLoaded = false;
+  // Cursor for the next (older) archive page, null when the archive ends
+  String? _historyCursor;
   // Voice recording state
   bool _isRecording = false;
   bool _recordingStarting = false;
@@ -65,6 +72,8 @@ class _ChatPageState extends State<ChatPage> {
     _scrollController.addListener(_onScroll);
     // Load messages from cache
     _loadMessages();
+    // Then top the conversation up from the server archive
+    _loadHistory();
     // Load concept message
     getConceptMessage();
     // Load per-chat theme
@@ -129,11 +138,60 @@ class _ChatPageState extends State<ChatPage> {
     if (!_scrollController.hasClients) {
       return;
     }
-    if (_scrollController.position.extentAfter < 200 &&
-        _visibleCount < _messages.length) {
-      setState(() {
-        _visibleCount += _pageSize;
-      });
+    if (_scrollController.position.extentAfter < 200) {
+      if (_visibleCount < _messages.length) {
+        setState(() {
+          _visibleCount += _pageSize;
+        });
+      } else if (_historyCursor != null) {
+        // The cache ran out: ask the server for the page below it.
+        _loadHistory(older: true);
+      }
+    }
+  }
+
+  /// Fetch one page of the conversation from the server archive.
+  ///
+  /// The first call fills a chat this device never had (a fresh install, or a
+  /// message older than anything local); later calls walk backwards when the
+  /// user scrolls past the oldest message.
+  Future<void> _loadHistory({bool older = false}) async {
+    if (_historyLoading || (older && _historyCursor == null)) {
+      return;
+    }
+    if (!older && _historyLoaded) {
+      return;
+    }
+    if (!utils.Utils.isOnline) {
+      return;
+    }
+    _historyLoading = true;
+    try {
+      final page = await utils.Utils.callApi(
+          () => Singleton().messagesApi.getHistory(widget.user.id,
+              before: older ? _historyCursor : null, limit: _pageSize),
+          showError: false);
+      if (page == null || !mounted) {
+        return;
+      }
+      _historyLoaded = true;
+      _historyCursor = page.nextCursor;
+      for (final peer in page.peers) {
+        await CacheUtils.addUser(
+            User(peer.id, peer.username, peer.publicKey, peer.admin));
+      }
+      if (page.messages.isEmpty) {
+        return;
+      }
+      await utils.Utils.storeHistoryPage(page.messages);
+      if (mounted) {
+        // Show the page that just arrived without making the user scroll again.
+        setState(() {
+          _visibleCount += page.messages.length;
+        });
+      }
+    } finally {
+      _historyLoading = false;
     }
   }
 

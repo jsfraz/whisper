@@ -1,6 +1,6 @@
 # 0002 - Pin clients to tags once releases exist
 
-Status: accepted (2026-11-11); supersedes the `path:` setup once a server tag exists
+Status: superseded by [0003](0003-client-pinning.md) (2026-11-17)
 
 ## Context
 `pubspec.yaml` pulls both Dart clients through `path: ../...`. CI must check out

@@ -200,6 +200,32 @@ class NotificationService {
     );
   }
 
+  /// Show a server-side security notice, e.g. a login from another device.
+  ///
+  /// It carries no message content and no payload: tapping it only opens the
+  /// app, the device list is where the action happens.
+  Future<void> showSecurityNotification(String title, String body) async {
+    AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'whisperLocalNotificationSecurity',
+      'whisperLocalNotificationSecurity'.tr(),
+      channelDescription: 'notificationChannelDesc'.tr(),
+      importance: Importance.high,
+      priority: Priority.high,
+      ticker: 'tickerLocalNotification'.tr(),
+      enableVibration: true,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('notification'),
+    );
+    await _flutterLocalNotificationsPlugin.show(
+      id: title.hashCode & 0x7fffffff,
+      title: title,
+      body: body,
+      notificationDetails:
+          NotificationDetails(android: androidPlatformChannelSpecifics),
+    );
+  }
+
   /// Remove notifications by ID
   Future<void> removeNotificationsById(List<int> ids) async {
     final activeNotifications =
