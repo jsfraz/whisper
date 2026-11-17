@@ -7,6 +7,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../models/private_message.dart';
 import '../pages/forward_page.dart';
 import 'cache_utils.dart';
+import 'chat_sender.dart';
 import 'dialog_utils.dart';
 import 'media_utils.dart';
 import 'message_notifier.dart';
@@ -21,6 +22,7 @@ class MessageActions {
   static const IconData forwardIcon = Icons.forward;
   static const IconData saveIcon = Icons.download;
   static const IconData deleteIcon = Icons.delete;
+  static const IconData resendIcon = Icons.refresh;
 
   /// Whether [message] can be saved or forwarded (the file must be on disk).
   static bool canSave(PrivateMessage message) =>
@@ -38,6 +40,15 @@ class MessageActions {
         return SafeArea(
           child: Wrap(
             children: [
+              if (message.isMe && message.sendStatus == SendStatus.failed)
+                ListTile(
+                  leading: const Icon(resendIcon),
+                  title: Text('resendMessage'.tr()),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    ChatSender.resend(conversationUserId, message);
+                  },
+                ),
               if (message.message.isNotEmpty)
                 ListTile(
                   leading: const Icon(copyIcon),

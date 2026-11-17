@@ -96,7 +96,8 @@ void main() {
     expect(byId['b'], 'other');
   });
 
-  test('a legacy conversation list is migrated into per-message keys', () async {
+  test('a legacy conversation list is migrated into per-message keys',
+      () async {
     // Format written by older versions: one list under the user id.
     await Hive.box('privateMessages').put('legacy', [
       message('legacy', 'first', DateTime(2026, 3, 1)),
@@ -109,15 +110,18 @@ void main() {
 
     final box = Hive.box('privateMessages');
     expect(box.containsKey('legacy'), isFalse);
-    expect(box.keys.whereType<String>().every(
-        (key) => CacheUtils.conversationOfKey(key) == 'legacy'), isTrue);
+    expect(
+        box.keys
+            .whereType<String>()
+            .every((key) => CacheUtils.conversationOfKey(key) == 'legacy'),
+        isTrue);
   });
 
   test('the delivery ack flips the message to sent and clears the marker',
       () async {
     final sentAt = DateTime(2026, 4, 1);
-    final outgoing = message('peer', 'pending', sentAt,
-        sendStatus: SendStatus.sending);
+    final outgoing =
+        message('peer', 'pending', sentAt, sendStatus: SendStatus.sending);
     await CacheUtils.addPrivateMessages('peer', [outgoing]);
     await CacheUtils.addPendingSend('peer', sentAt);
 
@@ -131,11 +135,32 @@ void main() {
     expect(Hive.box('pendingSends').isEmpty, isTrue);
   });
 
+  test('a retried message gets a fresh timestamp and keeps its content',
+      () async {
+    final oldSentAt = DateTime(2026, 4, 3);
+    final failed =
+        message('peer', 'retry me', oldSentAt, sendStatus: SendStatus.failed);
+    await CacheUtils.addPrivateMessages('peer', [failed]);
+    await CacheUtils.addPendingSend('peer', oldSentAt);
+
+    final moved = await CacheUtils.retimestampMessage('peer', failed);
+
+    expect(moved, isNotNull);
+    expect(moved!.sentAt.isAfter(oldSentAt), isTrue);
+    final box = Hive.box('privateMessages');
+    expect(box.containsKey(CacheUtils.messageKey('peer', oldSentAt)), isFalse,
+        reason: 'the old key is gone, the message is not stored twice');
+    final stored = await CacheUtils.getPrivateMessages('peer');
+    expect(stored.single.message, 'retry me');
+    expect(stored.single.sentAt, moved.sentAt);
+    // The marker under the old key is dropped; ChatSender adds it back.
+    expect(Hive.box('pendingSends').isEmpty, isTrue);
+  });
+
   test('an unacknowledged message stays pending for a resend', () async {
     final sentAt = DateTime(2026, 4, 2);
-    await CacheUtils.addPrivateMessages('peer', [
-      message('peer', 'no ack', sentAt, sendStatus: SendStatus.sending)
-    ]);
+    await CacheUtils.addPrivateMessages('peer',
+        [message('peer', 'no ack', sentAt, sendStatus: SendStatus.sending)]);
     await CacheUtils.addPendingSend('peer', sentAt);
 
     final pending = await CacheUtils.getPendingSends();

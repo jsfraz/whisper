@@ -239,18 +239,9 @@ class ChatSender {
       }
       for (final message in entry.value) {
         try {
-          if (message.isMedia) {
-            final references = _outgoingReferences[
-                CacheUtils.messageKey(entry.key, message.sentAt)];
-            if (references == null || references.isEmpty) {
-              continue;
-            }
-            final envelope = message.isAlbum
-                ? MediaUtils.buildAlbumEnvelope(references, message.message)
-                : MediaUtils.buildMediaEnvelope(references.first, message.message);
-            await _sendEnvelope(recipient, envelope, message.sentAt);
-          } else {
-            await _sendText(recipient, message);
+          final fresh = await _withAcceptedSentAt(entry.key, message);
+          if (fresh != null) {
+            await _sendStored(recipient, fresh);
           }
         } catch (e) {
           if (kDebugMode) {
@@ -261,6 +252,66 @@ class ChatSender {
     }
   }
 
+  /// Resend a single stored message after its send failed (bubble long-press).
+  ///
+  /// The original timestamp is kept while the server still accepts it, so the
+  /// server deduplicates against the failed attempt and the bubble stays put.
+  static Future<bool> resend(String receiverId, PrivateMessage message) async {
+    final recipient = await CacheUtils.getUserById(receiverId);
+    if (recipient == null || recipient.publicKey.isEmpty) {
+      Fluttertoast.showToast(
+          msg: 'userNotFound'.tr(), backgroundColor: Colors.red);
+      return false;
+    }
+    final fresh = await _withAcceptedSentAt(receiverId, message);
+    if (fresh == null) {
+      return false;
+    }
+    await CacheUtils.updateStoredMessage(receiverId, fresh, (stored) {
+      stored.sendStatus = SendStatus.sending;
+    });
+    fresh.sendStatus = SendStatus.sending;
+    await CacheUtils.addPendingSend(receiverId, fresh.sentAt);
+    MessageNotifier().notify();
+    try {
+      if (!await _ensureConnected()) {
+        return await _fail(receiverId, fresh);
+      }
+      await _sendStored(recipient, fresh);
+      // No ack yet: the message stays `sending` until the server confirms.
+      return true;
+    } catch (e) {
+      Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+      return await _fail(receiverId, fresh);
+    }
+  }
+
+  /// How old a client timestamp may be and still be accepted by the server
+  /// (`models.MaxSentAtSkew`, minus a minute for clock drift between the two).
+  static const Duration _maxSentAtAge = Duration(minutes: 4);
+
+  /// The stored message to send again, with a timestamp the server will take.
+  ///
+  /// Returns null when the message is gone. A timestamp older than the server
+  /// accepts is replaced with now, which moves the bubble to the end of the
+  /// chat.
+  ///
+  /// shortcut: a retry that late cannot dedupe against the first attempt, so a
+  /// message that did arrive with a lost ack is delivered twice; upgrade by
+  /// keeping the server-side dedup key separate from the display time.
+  static Future<PrivateMessage?> _withAcceptedSentAt(
+      String receiverId, PrivateMessage message) async {
+    if (DateTime.now().difference(message.sentAt) <= _maxSentAtAge) {
+      return message;
+    }
+    final moved = await CacheUtils.retimestampMessage(receiverId, message);
+    if (moved != null) {
+      // The old marker is gone with the old key; keep the new one watchable.
+      await CacheUtils.addPendingSend(receiverId, moved.sentAt);
+    }
+    return moved;
+  }
+
   /// Mark a message as sent after the server acknowledged it.
   static Future<void> confirmSent(String receiverId, DateTime sentAt) async {
     await CacheUtils.markMessageSent(receiverId, sentAt);
@@ -268,17 +319,92 @@ class ChatSender {
     MessageNotifier().notify();
   }
 
+  /// Hand an already stored message to the WebSocket again.
+  ///
+  /// Media needs its transport references; when this session no longer holds
+  /// them (an offline send, or a restart), the copies on disk are re-encrypted
+  /// and uploaded once more.
+  static Future<void> _sendStored(
+      User recipient, PrivateMessage message) async {
+    if (!message.isMedia) {
+      await _sendText(recipient, message);
+      return;
+    }
+    final key = CacheUtils.messageKey(recipient.id, message.sentAt);
+    final references = _outgoingReferences[key] ??
+        await _uploadLocalCopies(recipient, message);
+    if (references == null || references.isEmpty) {
+      throw Exception('mediaUploadFailed'.tr());
+    }
+    _outgoingReferences[key] = references;
+    final envelope = message.isAlbum
+        ? MediaUtils.buildAlbumEnvelope(references, message.message)
+        : MediaUtils.buildMediaEnvelope(references.first, message.message);
+    await _sendEnvelope(recipient, envelope, message.sentAt);
+  }
+
+  /// Re-upload the attachments stored on this device. Null when a local copy
+  /// is missing or the upload failed.
+  static Future<List<MediaReference>?> _uploadLocalCopies(
+      User recipient, PrivateMessage message) async {
+    Future<MediaReference?> upload(String? path, MediaType? type,
+        {int? width, int? height, int? durationMs, String? fileName}) async {
+      if (path == null || type == null) {
+        return null;
+      }
+      final bytes = await MediaUtils.decryptAtRest(path);
+      if (!MediaUtils.uploadFits(bytes.length)) {
+        _toastTooLarge();
+        return null;
+      }
+      final transport = await MediaUtils.encryptForTransport(bytes);
+      return _uploadReference(recipient, type, transport.key, transport.blob,
+          width: width,
+          height: height,
+          durationMs: durationMs,
+          fileName: fileName);
+    }
+
+    final references = <MediaReference>[];
+    if (message.isAlbum) {
+      for (final item in message.album) {
+        final reference = await upload(item.localPath, item.mediaType,
+            width: item.width,
+            height: item.height,
+            durationMs: item.durationMs,
+            fileName: item.fileName);
+        if (reference == null) {
+          return null;
+        }
+        references.add(reference);
+      }
+    } else {
+      final reference = await upload(message.localPath, message.mediaType,
+          width: message.width,
+          height: message.height,
+          durationMs: message.durationMs,
+          fileName: message.fileName);
+      if (reference == null) {
+        return null;
+      }
+      references.add(reference);
+    }
+    return references;
+  }
+
   /// Encrypt [message] for [recipient] and hand it to the WebSocket. The
   /// original timestamp is kept so a resend maps onto the same server entry.
-  static Future<void> _sendText(
-      User recipient, PrivateMessage message) async {
+  static Future<void> _sendText(User recipient, PrivateMessage message) async {
     final data = await CryptoUtils.encryptMessageData(
         utf8.encode(message.message),
         bu.CryptoUtils.rsaPublicKeyFromPem(recipient.publicKey));
-    Singleton().wsClient.sendMessage(WsMessage.privateMessage(
-        NewPrivateMessage(recipient.id, data['encryptedData']!,
-            data['encryptedKey']!, data['nonce']!, data['mac']!,
-            sentAt: message.sentAt)));
+    Singleton().wsClient.sendMessage(WsMessage.privateMessage(NewPrivateMessage(
+        recipient.id,
+        data['encryptedData']!,
+        data['encryptedKey']!,
+        data['nonce']!,
+        data['mac']!,
+        sentAt: message.sentAt)));
   }
 
   /// Upload one already transport-encrypted attachment and build its reference.
@@ -321,10 +447,13 @@ class ChatSender {
       User recipient, Uint8List envelope, DateTime sentAt) async {
     final data = await CryptoUtils.encryptMessageData(
         envelope, bu.CryptoUtils.rsaPublicKeyFromPem(recipient.publicKey));
-    Singleton().wsClient.sendMessage(WsMessage.privateMessage(
-        NewPrivateMessage(recipient.id, data['encryptedData']!,
-            data['encryptedKey']!, data['nonce']!, data['mac']!,
-            sentAt: sentAt)));
+    Singleton().wsClient.sendMessage(WsMessage.privateMessage(NewPrivateMessage(
+        recipient.id,
+        data['encryptedData']!,
+        data['encryptedKey']!,
+        data['nonce']!,
+        data['mac']!,
+        sentAt: sentAt)));
   }
 
   /// Connect the WebSocket if needed; toasts and reports false when offline.

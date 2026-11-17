@@ -343,8 +343,7 @@ class CacheUtils {
 
   /// Older versions stored a whole conversation under the user id. Move those
   /// messages into per-message keys once, then drop the old entry.
-  static Future<void> _migrateLegacyConversation(
-      Box box, String userId) async {
+  static Future<void> _migrateLegacyConversation(Box box, String userId) async {
     if (!box.containsKey(userId)) {
       return;
     }
@@ -548,7 +547,32 @@ class CacheUtils {
     await box.put(key, stored);
   }
 
+  /// Move a stored message to a fresh client timestamp and key, and return the
+  /// stored copy. Used when a failed send is retried too long after it was
+  /// written for the server to accept the original timestamp.
+  static Future<PrivateMessage?> retimestampMessage(
+      String userId, PrivateMessage message) async {
+    Box box = await _openPrivateMessagesBox();
+    await _migrateLegacyConversation(box, userId);
+    final oldKey = messageKey(userId, message.sentAt);
+    final stored = box.get(oldKey);
+    if (stored is! PrivateMessage) {
+      return null;
+    }
+    final oldSentAt = stored.sentAt;
+    // Never collide with the key it already occupies.
+    do {
+      stored.sentAt = DateTime.now();
+    } while (messageKey(userId, stored.sentAt) == oldKey);
+    // Hive refuses one object under two keys, so the old entry goes first.
+    await box.delete(oldKey);
+    await box.put(messageKey(userId, stored.sentAt), stored);
+    await _deletePendingSend(userId, oldSentAt);
+    return stored;
+  }
+
   /// Marks the message the server acknowledged as sent.
+
   ///
   /// [receiverId] and [sentAt] are the values the server echoes back; the pair
   /// identifies the stored message without keeping a client message id.
@@ -568,8 +592,7 @@ class CacheUtils {
 
   /// Remembers a message that is waiting for its delivery ack, so a reconnect
   /// can resend exactly those.
-  static Future<void> addPendingSend(
-      String receiverId, DateTime sentAt) async {
+  static Future<void> addPendingSend(String receiverId, DateTime sentAt) async {
     Box box = await _openPendingSendsBox();
     await box.put(messageKey(receiverId, sentAt), receiverId);
   }

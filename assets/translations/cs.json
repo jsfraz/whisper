@@ -149,6 +149,7 @@
   "mediaAlbum": "Album",
   "messageSending": "Odesílá se",
   "messageSendFailed": "Odeslání se nezdařilo",
+  "resendMessage": "Odeslat znovu",
   "messageUndecryptable": "Tuto zprávu se nepodařilo dešifrovat",
   "mediaExpired": "Příloha už není na serveru dostupná",
   "notificationPreview": "Zobrazovat text zpráv v notifikacích",

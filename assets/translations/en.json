@@ -149,6 +149,7 @@
   "mediaAlbum": "Album",
   "messageSending": "Sending",
   "messageSendFailed": "Sending failed",
+  "resendMessage": "Send again",
   "messageUndecryptable": "This message could not be decrypted",
   "mediaExpired": "The attachment is no longer available on the server",
   "notificationPreview": "Show message text in notifications",

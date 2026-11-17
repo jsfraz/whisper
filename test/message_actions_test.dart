@@ -5,13 +5,19 @@ import 'package:flutter_test/flutter_test.dart';
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whisper/models/private_message.dart';
+import 'package:whisper/models/profile.dart';
+import 'package:whisper/models/user.dart';
 import 'package:whisper/utils/message_actions.dart';
+import 'package:whisper/utils/singleton.dart';
 
 void main() {
   setUpAll(() async {
     // easy_localization reads the locale from shared_preferences
     SharedPreferences.setMockInitialValues({});
     await EasyLocalization.ensureInitialized();
+    // isMe compares against the signed-in user, needed by the resend action.
+    Singleton().profile =
+        Profile('', User('1', 'me', '', false), '', '', '', '', false);
   });
 
   testWidgets('the sheet offers only the actions that apply', (tester) async {
@@ -33,7 +39,8 @@ void main() {
             return Scaffold(
               body: Center(
                 child: ElevatedButton(
-                  onPressed: () => MessageActions.showSheet(inner, message, '5'),
+                  onPressed: () =>
+                      MessageActions.showSheet(inner, message, '5'),
                   child: const Text('open'),
                 ),
               ),
@@ -65,5 +72,26 @@ void main() {
     expect(find.text('Forward'), findsOneWidget);
     expect(find.text('Delete for me'), findsOneWidget);
     expect(find.text('Copy'), findsNothing);
+
+    // Close the sheet
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    // Resend is offered only for my own message whose send failed.
+    message = PrivateMessage('1', 'hello', DateTime(2026), DateTime(2026), true,
+        sendStatus: SendStatus.failed);
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Send again'), findsOneWidget);
+
+    // Close the sheet
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    message =
+        PrivateMessage('1', 'hello', DateTime(2026), DateTime(2026), true);
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Send again'), findsNothing);
   });
 }
