@@ -27,22 +27,23 @@ class MessageNotifier extends ChangeNotifier {
   /// items are expanded into one entry per attachment.
   static List<PrivateMessage> viewableMedia(List<PrivateMessage> messages) {
     final media = <PrivateMessage>[];
+    // A local file is what makes an attachment viewable, not its status: a
+    // stale failed/expired flag (an old redelivery) used to hide attachments
+    // that the bubbles and the viewer can still open.
+    bool viewable(PrivateMessage message) =>
+        message.localPath != null &&
+        message.mediaType != null &&
+        message.mediaType != MediaType.voice;
     for (final message in messages) {
       if (message.isAlbum) {
         for (final item in albumMedia(message)) {
-          if (item.localPath != null &&
-              item.mediaType != null &&
-              item.mediaType != MediaType.voice &&
-              item.downloadStatus == MediaDownloadStatus.ready) {
+          if (viewable(item)) {
             media.add(item);
           }
         }
         continue;
       }
-      if (message.localPath != null &&
-          message.mediaType != null &&
-          message.mediaType != MediaType.voice &&
-          message.downloadStatus == MediaDownloadStatus.ready) {
+      if (viewable(message)) {
         media.add(message);
       }
     }
