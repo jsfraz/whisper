@@ -18,6 +18,7 @@ import 'crypto_utils.dart';
 import 'media_utils.dart';
 import 'message_notifier.dart';
 import 'singleton.dart';
+import 'text_envelope.dart';
 import 'utils.dart';
 
 /// One attachment of an outgoing album (or a single media message).
@@ -56,12 +57,14 @@ class ChatSender {
   /// upgrade by persisting the transport key inside the encrypted profile box.
   static final Map<String, List<MediaReference>> _outgoingReferences = {};
 
-  /// Send a text message to [recipient].
-  static Future<bool> sendText(User recipient, String text) async {
+  /// Send a text message to [recipient], optionally quoting [reply].
+  static Future<bool> sendText(User recipient, String text,
+      {ReplyRef? reply}) async {
     final now = DateTime.now();
     final message = PrivateMessage(
         Singleton().profile.user.id, text, now, now, true,
-        sendStatus: SendStatus.sending);
+        sendStatus: SendStatus.sending)
+      ..setReplyTo(reply);
     try {
       await _persist(recipient, [message]);
       if (!await _ensureConnected()) {
@@ -395,9 +398,14 @@ class ChatSender {
   /// Encrypt [message] for [recipient] and hand it to the WebSocket. The
   /// original timestamp is kept so a resend maps onto the same server entry.
   static Future<void> _sendText(User recipient, PrivateMessage message) async {
+    // A reply needs the quote next to the body; everything else stays raw text
+    // so an older client can still read it.
+    final reply = message.replyTo;
+    final plaintext = reply == null
+        ? utf8.encode(message.message)
+        : buildTextEnvelope(message.message, reply);
     final data = await CryptoUtils.encryptMessageData(
-        utf8.encode(message.message),
-        bu.CryptoUtils.rsaPublicKeyFromPem(recipient.publicKey));
+        plaintext, bu.CryptoUtils.rsaPublicKeyFromPem(recipient.publicKey));
     Singleton().wsClient.sendMessage(WsMessage.privateMessage(NewPrivateMessage(
         recipient.id,
         data['encryptedData']!,
