@@ -191,12 +191,16 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
                     final completed = stateSnapshot.data?.processingState ==
                         ProcessingState.completed;
                     // The speed control appears with playback and is gone
-                    // again once the message finished.
+                    // again once the message finished. It sits under the time,
+                    // so the track gets an equal spacer above it to stay
+                    // centred on the play button instead of drifting up.
                     final started = position > Duration.zero && !completed;
+                    const double speedLine = 16;
                     return Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (started) const SizedBox(height: speedLine),
                         Row(
                           children: [
                             Expanded(
@@ -234,20 +238,23 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
                           ],
                         ),
                         if (started)
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: Semantics(
-                              button: true,
-                              child: InkWell(
-                                onTap: _cycleSpeed,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(right: 4),
-                                  child: Text(
-                                    speedLabel(_speed),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: widget.color,
+                          SizedBox(
+                            height: speedLine,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Semantics(
+                                button: true,
+                                child: InkWell(
+                                  onTap: _cycleSpeed,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 4),
+                                    child: Text(
+                                      speedLabel(_speed),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: widget.color,
+                                      ),
                                     ),
                                   ),
                                 ),
