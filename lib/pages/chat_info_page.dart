@@ -11,6 +11,7 @@ import '../utils/media_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/theme_utils.dart';
 import '../widgets/media_bubble.dart';
+import '../widgets/settings_tile.dart';
 import 'home_page.dart';
 import 'media_viewer_page.dart';
 
@@ -112,23 +113,14 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                 child: Column(
                   children: [
                     // Chat theme
-                    TextButton(
+                    SettingsTile(
+                      icon: Icons.palette,
+                      label: 'chatTheme'.tr(),
                       onPressed: _pickChatTheme,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.palette,
-                            size: 24,
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(left: 5),
-                            child: Text(
-                              'chatTheme'.tr(),
-                            ),
-                          ),
-                          if (_chatThemeColor != null)
-                            Padding(
-                              padding: EdgeInsets.only(left: 10),
+                      extra: _chatThemeColor == null
+                          ? null
+                          : Padding(
+                              padding: const EdgeInsets.only(left: 10),
                               child: Container(
                                 width: 16,
                                 height: 16,
@@ -138,33 +130,13 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                                 ),
                               ),
                             ),
-                          SizedBox(
-                            width: 24,
-                          ),
-                        ],
-                      ),
                     ),
                     // Drop the override
                     if (_chatThemeColor != null)
-                      TextButton(
+                      SettingsTile(
+                        icon: Icons.restart_alt,
+                        label: 'useGlobalTheme'.tr(),
                         onPressed: _clearChatTheme,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.restart_alt,
-                              size: 24,
-                            ),
-                            Padding(
-                              padding: EdgeInsets.only(left: 5),
-                              child: Text(
-                                'useGlobalTheme'.tr(),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 24,
-                            ),
-                          ],
-                        ),
                       ),
 
                     Divider(thickness: 1, indent: 10, endIndent: 10),
@@ -208,7 +180,10 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                       Divider(thickness: 1, indent: 10, endIndent: 10),
 
                     // Delete chat
-                    TextButton(
+                    SettingsTile(
+                      icon: Icons.delete_forever,
+                      label: 'deleteChat'.tr(),
+                      color: Colors.red,
                       onPressed: () async {
                         await DialogUtils.yesNoDialog(
                             context,
@@ -223,25 +198,6 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                           );
                         });
                       },
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_forever,
-                            size: 24,
-                            color: Colors.red,
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(left: 5),
-                            child: Text(
-                              'deleteChat'.tr(),
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 24,
-                          ),
-                        ],
-                      ),
                     ),
                   ],
                 ),
