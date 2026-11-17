@@ -99,6 +99,21 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     );
   }
 
+  /// Pick a day and hand it back to the chat page, which jumps to the first
+  /// message of that day (or the first one after it).
+  Future<void> _jumpToDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year - 10),
+      lastDate: now,
+    );
+    if (picked != null && mounted) {
+      Navigator.pop(context, picked);
+    }
+  }
+
   /// Search this conversation. A picked hit is handed back to the chat page,
   /// which jumps to it.
   Future<void> _openSearch() async {
@@ -132,6 +147,12 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                       icon: Icons.search,
                       label: 'searchInChat'.tr(),
                       onPressed: _openSearch,
+                    ),
+                    // Jump to a day
+                    SettingsTile(
+                      icon: Icons.event,
+                      label: 'jumpToDate'.tr(),
+                      onPressed: _jumpToDate,
                     ),
                     // Chat theme
                     SettingsTile(
