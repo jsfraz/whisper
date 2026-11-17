@@ -83,7 +83,9 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
       return;
     }
     setState(() {
-      _media = media.isEmpty ? [widget.message] : media;
+      // Never fall back to the first page when the tapped attachment is not in
+      // the list: that opens a different attachment than the one clicked.
+      _media = index < 0 ? [widget.message] : media;
       _index = index < 0 ? 0 : index;
       _controller = PageController(initialPage: _index);
     });
