@@ -29,6 +29,9 @@ enum MessageKind {
   /// Opens in the browser.
   link,
 
+  /// Opens the mail client.
+  email,
+
   /// Tapped to copy.
   phone,
 
@@ -214,7 +217,8 @@ void _flushPlain(StringBuffer buffer, List<MessagePiece> out) {
   buffer.clear();
 }
 
-/// Splits plain text into links, phone numbers, addresses and leftover text.
+/// Splits plain text into links, e-mail addresses, phone numbers, addresses and
+/// leftover text.
 List<MessagePiece> _splitEntities(String text) {
   final pieces = <MessagePiece>[];
   for (final link in splitLinks(text)) {
@@ -222,40 +226,58 @@ List<MessagePiece> _splitEntities(String text) {
       pieces.add(MessagePiece(link.text, MessageStyle.plain, MessageKind.link));
       continue;
     }
-    pieces.addAll(_splitAddressesAndPhones(link.text));
+    pieces.addAll(_splitTappable(link.text));
   }
   return pieces;
 }
 
-List<MessagePiece> _splitAddressesAndPhones(String text) {
+/// Splits plain text into the things a tap can act on. When two patterns start
+/// at the same character the one listed first wins.
+List<MessagePiece> _splitTappable(String text) {
+  final patterns = <(RegExp, MessageKind)>[
+    (_emailPattern, MessageKind.email),
+    (_addressPattern, MessageKind.address),
+    (_phonePattern, MessageKind.phone),
+  ];
   final pieces = <MessagePiece>[];
   var index = 0;
   while (index < text.length) {
-    final address = _addressPattern.firstMatch(text.substring(index));
-    final phone = _phonePattern.firstMatch(text.substring(index));
-    Match? match;
+    final rest = text.substring(index);
+    Match? best;
     var kind = MessageKind.text;
-    if (address != null && (phone == null || address.start <= phone.start)) {
-      match = address;
-      kind = MessageKind.address;
-    } else if (phone != null && _isPhoneNumber(phone.group(0)!)) {
-      match = phone;
-      kind = MessageKind.phone;
+    for (final (pattern, candidateKind) in patterns) {
+      final match = pattern.firstMatch(rest);
+      if (match == null) {
+        continue;
+      }
+      if (candidateKind == MessageKind.phone &&
+          !_isPhoneNumber(match.group(0)!)) {
+        continue;
+      }
+      if (best == null || match.start < best.start) {
+        best = match;
+        kind = candidateKind;
+      }
     }
-    if (match == null) {
+    if (best == null) {
       pieces.add(MessagePiece(
           text.substring(index), MessageStyle.plain, MessageKind.text));
       break;
     }
-    if (match.start > 0) {
-      pieces.add(MessagePiece(text.substring(index, index + match.start),
+    if (best.start > 0) {
+      pieces.add(MessagePiece(text.substring(index, index + best.start),
           MessageStyle.plain, MessageKind.text));
     }
-    pieces.add(MessagePiece(match.group(0)!, MessageStyle.plain, kind));
-    index += match.end;
+    pieces.add(MessagePiece(best.group(0)!, MessageStyle.plain, kind));
+    index += best.end;
   }
   return pieces;
 }
+
+/// A single address, no display name and no surrounding punctuation.
+final RegExp _emailPattern = RegExp(
+  r'(?<![\w.+\-])[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+',
+);
 
 /// `Street 12, City` — a house number followed by a named place. Requiring the
 /// comma keeps ordinary "version 2" text from turning into an address.

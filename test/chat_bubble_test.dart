@@ -17,6 +17,24 @@ String renderedText(WidgetTester tester) => tester
     .map((widget) => widget.text.toPlainText())
     .join('\n');
 
+/// Style of the span that renders exactly [text], null when it is not there.
+TextStyle? spanStyle(WidgetTester tester, String text) {
+  for (final widget in tester.widgetList<RichText>(find.byType(RichText))) {
+    TextStyle? found;
+    widget.text.visitChildren((span) {
+      if (span is TextSpan && span.text == text) {
+        found = span.style;
+        return false;
+      }
+      return true;
+    });
+    if (found != null) {
+      return found;
+    }
+  }
+  return null;
+}
+
 void main() {
   final peer = User('2', 'peer', '', false);
 
@@ -132,5 +150,23 @@ void main() {
     await tester.tap(find.text('Show full message'));
     await tester.pumpAndSettle();
     expect(find.text('Show less'), findsOneWidget);
+
+    // Phone numbers and e-mails are underlined like a link.
+    await show(ChatBubble(
+      null,
+      PrivateMessage('2', 'volej +420 123 456 789 nebo piš na jan@example.com',
+          DateTime(2026), DateTime(2026), true),
+      null,
+      peer,
+      accentColor: Colors.blue,
+    ));
+    for (final tappable in ['+420 123 456 789', 'jan@example.com']) {
+      final style = spanStyle(tester, tappable);
+      expect(style, isNotNull, reason: tappable);
+      expect(style!.decoration, TextDecoration.underline, reason: tappable);
+      expect(style.decorationStyle ?? TextDecorationStyle.solid,
+          TextDecorationStyle.solid,
+          reason: tappable);
+    }
   });
 }

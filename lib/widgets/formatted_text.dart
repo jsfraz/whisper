@@ -96,27 +96,42 @@ class _FormattedTextState extends State<FormattedText> {
           text: piece.text,
           recognizer:
               _recognizer('link:${piece.text}', () => openLink(piece.text)),
-          style: TextStyle(
-            decoration: TextDecoration.underline,
-            decorationColor: _color,
-          ),
+          style: _inlineLink(TextDecorationStyle.solid),
+        );
+      case MessageKind.email:
+        return TextSpan(
+          text: piece.text,
+          recognizer: _recognizer(
+              'mail:${piece.text}', () => openLink('mailto:${piece.text}')),
+          style: _inlineLink(TextDecorationStyle.solid),
         );
       case MessageKind.phone:
+        // Underlined like a link: it is something the user taps, not just text.
+        return TextSpan(
+          text: piece.text,
+          recognizer: _recognizer(
+              'copy:${piece.kind.name}:${piece.text}', () => _copy(piece.text)),
+          style: _inlineLink(TextDecorationStyle.solid),
+        );
       case MessageKind.address:
         return TextSpan(
           text: piece.text,
           recognizer: _recognizer(
               'copy:${piece.kind.name}:${piece.text}', () => _copy(piece.text)),
-          style: TextStyle(
-            decoration: TextDecoration.underline,
-            decorationStyle: TextDecorationStyle.dotted,
-            decorationColor: _color,
-          ),
+          style: _inlineLink(TextDecorationStyle.dotted),
         );
       case MessageKind.text:
         return TextSpan(text: piece.text);
     }
   }
+
+  /// Underline for everything tappable. Links, e-mails and phone numbers read
+  /// as a link; an address is dotted because a tap only copies it.
+  TextStyle _inlineLink(TextDecorationStyle style) => TextStyle(
+        decoration: TextDecoration.underline,
+        decorationStyle: style,
+        decorationColor: _color,
+      );
 
   Future<void> _copy(String value) async {
     await Clipboard.setData(ClipboardData(text: value));

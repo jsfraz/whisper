@@ -81,6 +81,22 @@ void main() {
       expect(pieces.any((p) => p.kind == MessageKind.address), isFalse);
     });
 
+    test('an e-mail address is detected', () {
+      final pieces = parseMessage('napiš na jan.novak@example.com prosím');
+      final email = pieces.singleWhere((p) => p.kind == MessageKind.email);
+      expect(email.text, 'jan.novak@example.com');
+    });
+
+    test('an @ without a dotted domain is not an e-mail', () {
+      final pieces = parseMessage('jsem @doma');
+      expect(pieces.any((p) => p.kind == MessageKind.email), isFalse);
+    });
+
+    test('a link beats an e-mail that starts at the same place', () {
+      final pieces = parseMessage('https://example.com/a');
+      expect(pieces.single.kind, MessageKind.link);
+    });
+
     test('formatting and links combine', () {
       final pieces = parseMessage('**přečti** https://example.com');
       expect(styled(pieces, MessageStyle.bold).single.text, 'přečti');
