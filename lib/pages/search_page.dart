@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../models/user.dart';
 import '../utils/cache_utils.dart';
+import '../utils/chat_date.dart';
 import '../utils/message_search.dart';
 
 /// Searches one conversation's local history. Messages are stored decrypted,
@@ -94,14 +95,34 @@ class _MessageSearchPageState extends State<MessageSearchPage> {
 
   Widget _resultTile(MessageHit hit) {
     final message = hit.message;
-    final time = DateFormat.MMMd().add_Hm().format(message.sentAt.toLocal());
     return ListTile(
+      leading: CircleAvatar(
+        radius: 20,
+        backgroundColor: widget.peer.avatarColor,
+        child: Text(
+          widget.peer.username.isNotEmpty
+              ? widget.peer.username[0].toUpperCase()
+              : '?',
+          style: TextStyle(
+            fontSize: 16,
+            color: widget.peer.avatarTextColor,
+          ),
+        ),
+      ),
       title: _snippetText(message.preview),
-      trailing: Text(
-        time,
-        style: TextStyle(
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: Text(
+          chatDateLabel(
+            message.sentAt,
+            todayLabel: 'todayText'.tr(),
+            yesterdayLabel: 'yesterdayText'.tr(),
+          ),
+          style: TextStyle(
             fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
       onTap: () => Navigator.pop(context, message.sentAt),
     );

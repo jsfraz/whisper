@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../models/private_message.dart';
 import '../models/user.dart';
+import '../utils/chat_date.dart';
 
 class ChatListItem extends StatefulWidget {
   const ChatListItem(this.user, this.lastMessage, this.onPressed,
@@ -22,35 +23,6 @@ class ChatListItem extends StatefulWidget {
 }
 
 class _ChatListItemState extends State<ChatListItem> {
-  String formatDate() {
-    final DateTime now = DateTime.now().toLocal();
-    final DateTime messageDate = widget.lastMessage.receivedAt.toLocal();
-    final int daysDifference = messageDate.difference(now).inDays;
-
-    // Today
-    if (messageDate.day == now.day &&
-        messageDate.month == now.month &&
-        messageDate.year == now.year) {
-      return '${'todayText'.tr()} ${DateFormat.Hm().format(messageDate)}';
-    }
-    // Yesterday
-    else if (daysDifference == -1) {
-      return '${'yesterdayText'.tr()} ${DateFormat.Hm().format(messageDate)}';
-    }
-    // Last week
-    else if (daysDifference >= -7) {
-      return '${DateFormat.EEEE().format(messageDate)} ${DateFormat.Hm().format(messageDate)}';
-    }
-    // This year
-    else if (messageDate.year == now.year) {
-      return DateFormat.MMMMd().format(messageDate);
-    }
-    // Different year
-    else {
-      return DateFormat.yMMMMd().format(messageDate);
-    }
-  }
-
   /// Rounded counter, capped the way every messenger does it.
   Widget _unreadBadge() {
     final scheme = Theme.of(context).colorScheme;
@@ -133,7 +105,11 @@ class _ChatListItemState extends State<ChatListItem> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            formatDate(),
+            chatDateLabel(
+              widget.lastMessage.receivedAt,
+              todayLabel: 'todayText'.tr(),
+              yesterdayLabel: 'yesterdayText'.tr(),
+            ),
             style: unread
                 ? TextStyle(
                     fontWeight: FontWeight.bold,
