@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:sprintf/sprintf.dart';
+import '../utils/dialog_utils.dart';
 import '../utils/nav_transitions.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
@@ -12,13 +14,16 @@ import '../models/user.dart';
 import '../utils/cache_utils.dart';
 import '../utils/chat_sender.dart';
 import '../utils/media_utils.dart';
+import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
+import '../utils/text_envelope.dart';
 import '../utils/utils.dart' as utils;
 import '../utils/theme_utils.dart';
 import '../widgets/attachment_confirm_sheet.dart';
 import '../widgets/chat_bubble.dart';
 import 'chat_info_page.dart';
+import 'forward_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage(this.user, {super.key});
@@ -42,7 +47,7 @@ class _ChatPageState extends State<ChatPage> {
   int _visibleCount = _pageSize;
   // Buttons
   bool _isSending = false;
-  // ScrollController for content (list is reversed: offset 0 is the newest)
+  // ScrollController for content
   final ScrollController _scrollController = ScrollController();
   // Indicates whether messages are being load for the first time
   bool _firstLoad = true;
@@ -50,6 +55,8 @@ class _ChatPageState extends State<ChatPage> {
   bool _loading = false;
   // Guards against overlapping history requests
   bool _historyLoading = false;
+  // Guards against overlapping "grow the window upwards" passes
+  bool _growing = false;
   // Whether the newest archive page was already asked for
   bool _historyLoaded = false;
   // Cursor for the next (older) archive page, null when the archive ends
@@ -65,24 +72,74 @@ class _ChatPageState extends State<ChatPage> {
   // Per-chat theme override, null means the global theme
   Color? _chatThemeColor;
 
+  /// The message the composer is quoting, null when not replying.
+  PrivateMessage? _replyTo;
+
+  /// Oldest message that was unread when the chat opened: the "new messages"
+  /// divider. Captured before this page marks everything read.
+  DateTime? _unreadAnchor;
+  final GlobalKey _unreadDividerKey = GlobalKey();
+
+  /// Client timestamps (microseconds) of the messages picked in multi-select.
+  final Set<int> _selected = {};
+
+  /// Bubble keys by client timestamp, for jumping to a quoted message.
+  final Map<int, GlobalKey> _messageKeys = {};
+
+  /// Newest message the viewport has already shown at the bottom; anything
+  /// after it while scrolled up counts as unseen.
+  int _newestSeenSentAt = 0;
+  int _unseenCount = 0;
+
+  bool get _selectionMode => _selected.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
     MessageNotifier().addListener(_onMessagesChanged);
     _scrollController.addListener(_onScroll);
-    // Load messages from cache
-    _loadMessages();
-    // Then top the conversation up from the server archive
-    _loadHistory();
+    _metricsObserver = _KeyboardObserver(() {
+      if (_atBottom) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToBottom());
+      }
+    });
+    WidgetsBinding.instance.addObserver(_metricsObserver);
+    _start();
     // Load concept message
     getConceptMessage();
     // Load per-chat theme
     _loadChatTheme();
   }
 
+  /// The read state must be captured before the chat marks it read, otherwise
+  /// there is no divider left to draw.
+  Future<void> _start() async {
+    final firstUnread = await CacheUtils.firstUnreadSentAt(widget.user.id);
+    if (mounted && firstUnread != null) {
+      setState(() {
+        _unreadAnchor = firstUnread;
+      });
+    }
+    await _loadMessages();
+    // Then top the conversation up from the server archive
+    _loadHistory();
+  }
+
+  /// Keeps the newest message on screen when the keyboard opens.
+  late final _KeyboardObserver _metricsObserver;
+
   /// Reload the conversation from the cache when messages or media state change.
   void _onMessagesChanged() {
     _loadMessages();
+  }
+
+  /// Whether the viewport sits at the newest message.
+  bool get _atBottom {
+    if (!_scrollController.hasClients) {
+      return true;
+    }
+    final position = _scrollController.position;
+    return position.pixels >= position.maxScrollExtent - 40;
   }
 
   /// Load the conversation once per change instead of once per build.
@@ -91,6 +148,8 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     _loading = true;
+    final first = _firstLoad;
+    final wasAtBottom = _atBottom;
     try {
       final messages = await MessageNotifier().getMessages(widget.user.id);
       if (!mounted) {
@@ -98,16 +157,40 @@ class _ChatPageState extends State<ChatPage> {
       }
       // The first content frame decrypts every visible attachment, so keep it
       // out of the push animation and let the spinner ride along instead.
-      if (_firstLoad) {
+      if (first) {
         await _waitForRouteAnimation();
       }
       if (!mounted) {
         return;
       }
+      final newest =
+          messages.isEmpty ? 0 : messages.last.sentAt.microsecondsSinceEpoch;
       setState(() {
         _messages = messages;
+        if (!first) {
+          if (wasAtBottom) {
+            _unseenCount = 0;
+          } else if (newest > _newestSeenSentAt) {
+            _unseenCount += messages
+                .where((message) =>
+                    !message.isMe &&
+                    message.sentAt.microsecondsSinceEpoch > _newestSeenSentAt)
+                .length;
+          }
+        }
+        _newestSeenSentAt = newest;
         _firstLoad = false;
       });
+      if (first || wasAtBottom) {
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) {
+          return;
+        }
+        _jumpToBottom();
+        if (first) {
+          await _jumpToFirstUnread();
+        }
+      }
     } finally {
       _loading = false;
     }
@@ -133,21 +216,85 @@ class _ChatPageState extends State<ChatPage> {
     await done.future;
   }
 
+  void _jumpToBottom({bool animate = false}) {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    final target = _scrollController.position.maxScrollExtent;
+    if (animate) {
+      _scrollController.animateTo(target,
+          duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    } else {
+      _scrollController.jumpTo(target);
+    }
+    if (_unseenCount != 0) {
+      setState(() {
+        _unseenCount = 0;
+      });
+    }
+  }
+
+  /// Opens the chat on the first message the user has not read yet.
+  Future<void> _jumpToFirstUnread() async {
+    if (_unreadAnchor == null) {
+      return;
+    }
+    await WidgetsBinding.instance.endOfFrame;
+    final context = _unreadDividerKey.currentContext;
+    if (context == null || !context.mounted) {
+      return;
+    }
+    await Scrollable.ensureVisible(context,
+        alignment: 0.15, duration: const Duration(milliseconds: 250));
+  }
+
   /// Extend the rendered window when the user scrolls towards older messages.
   void _onScroll() {
     if (!_scrollController.hasClients) {
       return;
     }
-    if (_scrollController.position.extentAfter < 200) {
-      if (_visibleCount < _messages.length) {
-        setState(() {
-          _visibleCount += _pageSize;
-        });
-      } else if (_historyCursor != null) {
-        // The cache ran out: ask the server for the page below it.
-        _loadHistory(older: true);
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 40 && _unseenCount != 0) {
+      setState(() {
+        _unseenCount = 0;
+      });
+    }
+    // Older messages are above: the window grows near the top of the list.
+    if (position.pixels > 200) {
+      return;
+    }
+    if (_visibleCount < _messages.length) {
+      _growWindow(_pageSize);
+    } else if (_historyCursor != null) {
+      // The cache ran out: ask the server for the page above it.
+      _loadHistory(older: true);
+    }
+  }
+
+  /// Renders more messages above the viewport without moving what is on screen.
+  Future<void> _growWindow(int by) async {
+    if (_growing || !mounted) {
+      return;
+    }
+    _growing = true;
+    final before = _scrollController.hasClients
+        ? _scrollController.position.maxScrollExtent
+        : 0.0;
+    setState(() {
+      _visibleCount += by;
+    });
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      _growing = false;
+      return;
+    }
+    if (_scrollController.hasClients) {
+      final delta = _scrollController.position.maxScrollExtent - before;
+      if (delta > 0) {
+        _scrollController.jumpTo(_scrollController.offset + delta);
       }
     }
+    _growing = false;
   }
 
   /// Fetch one page of the conversation from the server archive.
@@ -166,6 +313,9 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     _historyLoading = true;
+    final before = _scrollController.hasClients
+        ? _scrollController.position.maxScrollExtent
+        : 0.0;
     try {
       final page = await utils.Utils.callApi(
           () => Singleton().messagesApi.getHistory(widget.user.id,
@@ -184,11 +334,20 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       await utils.Utils.storeHistoryPage(page.messages);
-      if (mounted) {
-        // Show the page that just arrived without making the user scroll again.
-        setState(() {
-          _visibleCount += page.messages.length;
-        });
+      if (!mounted) {
+        return;
+      }
+      // Show the page that just arrived without making the user scroll again.
+      setState(() {
+        _visibleCount += page.messages.length;
+      });
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+      final delta = _scrollController.position.maxScrollExtent - before;
+      if (delta > 0) {
+        _scrollController.jumpTo(_scrollController.offset + delta);
       }
     } finally {
       _historyLoading = false;
@@ -224,17 +383,131 @@ class _ChatPageState extends State<ChatPage> {
     await _loadMessages();
   }
 
+  // ---------------------------------------------------------------------------
+  // Reply and multi-select
+  // ---------------------------------------------------------------------------
+
+  /// Quote [message] in the composer.
+  void _startReply(PrivateMessage message) {
+    if (_selectionMode) {
+      return;
+    }
+    setState(() {
+      _replyTo = message;
+    });
+  }
+
+  /// Adds or removes [message] from the selection; leaving it empty closes the
+  /// selection mode.
+  void _toggleSelected(PrivateMessage message) {
+    final micros = message.sentAt.microsecondsSinceEpoch;
+    setState(() {
+      if (!_selected.remove(micros)) {
+        _selected.add(micros);
+      }
+    });
+  }
+
+  void _clearSelection() {
+    setState(_selected.clear);
+  }
+
+  /// Messages currently picked, oldest first.
+  List<PrivateMessage> get _selectedMessages => _messages
+      .where((message) =>
+          _selected.contains(message.sentAt.microsecondsSinceEpoch))
+      .toList();
+
+  Future<void> _copySelected() async {
+    final text = _selectedMessages
+        .map((message) => message.message)
+        .where((text) => text.isNotEmpty)
+        .join('\n');
+    _clearSelection();
+    if (text.isEmpty) {
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: text));
+    Fluttertoast.showToast(msg: 'copiedText'.tr());
+  }
+
+  Future<void> _forwardSelected() async {
+    final messages = _selectedMessages;
+    if (messages.isEmpty) {
+      return;
+    }
+    _clearSelection();
+    await Navigator.of(context).push(stepRoute(ForwardPage(messages)));
+  }
+
+  void _deleteSelected() {
+    final messages = _selectedMessages;
+    if (messages.isEmpty) {
+      return;
+    }
+    DialogUtils.yesNoDialog(
+        context, 'deleteMessageConfirm'.tr(), 'deleteMessageConfirmText'.tr(),
+        () async {
+      for (final message in messages) {
+        await CacheUtils.deletePrivateMessage(widget.user.id, message);
+      }
+      _clearSelection();
+      MessageNotifier().notify();
+    });
+  }
+
+  /// Scrolls to the message a reply quotes, widening the window when it is
+  /// older than what is rendered.
+  Future<void> _jumpToMessage(DateTime sentAt) async {
+    final micros = sentAt.microsecondsSinceEpoch;
+    final context = _messageKeys[micros]?.currentContext;
+    if (context != null) {
+      await Scrollable.ensureVisible(context,
+          alignment: 0.3, duration: const Duration(milliseconds: 250));
+      return;
+    }
+    // Not rendered: open the window up to it, then try once more.
+    final index = _messages.indexWhere((message) => message.sentAt == sentAt);
+    if (index < 0) {
+      return;
+    }
+    final needed = _messages.length - index + 5;
+    if (needed > _visibleCount) {
+      await _growWindow(needed - _visibleCount);
+    }
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      return;
+    }
+    final retry = _messageKeys[micros]?.currentContext;
+    if (retry != null && retry.mounted) {
+      await Scrollable.ensureVisible(retry,
+          alignment: 0.3, duration: const Duration(milliseconds: 250));
+    }
+  }
+
   /// Send the typed text.
   Future<void> _sendMessage() async {
     final text = _controllerMessage.text;
     if (text.isEmpty) {
       return;
     }
+    final quoted = _replyTo;
+    final reply = quoted == null
+        ? null
+        : ReplyRef(
+            senderId: quoted.senderId,
+            sentAt: quoted.sentAt,
+            preview: ReplyRef.previewOf(quoted.preview),
+          );
     setState(() {
       _isSending = true;
     });
-    if (await ChatSender.sendText(widget.user, text)) {
+    if (await ChatSender.sendText(widget.user, text, reply: reply)) {
       _controllerMessage.text = '';
+      setState(() {
+        _replyTo = null;
+      });
       await CacheUtils.deleteMessageConcept(widget.user.id);
     }
     if (mounted) {
@@ -657,6 +930,63 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  /// Quoted message above the composer, dismissable.
+  Widget _buildReplyBar() {
+    final reply = _replyTo!;
+    final author = reply.isMe
+        ? 'meText'.tr()
+        : (widget.user.username.isNotEmpty ? widget.user.username : '?');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(left: 10),
+      decoration: BoxDecoration(
+        color: chatTheme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+        border: Border(
+          left: BorderSide(color: chatTheme.colorScheme.primary, width: 3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  author,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: chatTheme.colorScheme.primary,
+                  ),
+                ),
+                Text(
+                  reply.preview,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: chatTheme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'cancel'.tr(),
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: () {
+              setState(() {
+                _replyTo = null;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Bar shown while recording a voice message.
   Widget _buildRecordingBar() {
     final color = _cancelRecording ? Colors.red : chatTheme.colorScheme.primary;
@@ -736,49 +1066,142 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// Reversed list: offset 0 is the newest message, so the chat opens at the
-  /// bottom and growing bubbles or the keyboard never strand it mid-list.
+  /// The "new messages" divider, drawn above the first unread message.
+  Widget _buildUnreadDivider() {
+    final color = Theme.of(context).colorScheme.primary;
+    return Padding(
+      key: _unreadDividerKey,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: color)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              'newMessages'.tr(),
+              style: TextStyle(
+                  fontSize: 12, color: color, fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(child: Divider(color: color)),
+        ],
+      ),
+    );
+  }
+
+  /// Calendar day a message belongs to, in the timezone the bubble shows.
+  DateTime _dayOf(PrivateMessage message) {
+    final time = (message.isMe ? message.sentAt : message.receivedAt).toLocal();
+    return DateTime(time.year, time.month, time.day);
+  }
+
+  String _dayLabel(DateTime day) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final days = today.difference(day).inDays;
+    if (days <= 0) {
+      return 'todayText'.tr();
+    }
+    if (days == 1) {
+      return 'yesterdayText'.tr();
+    }
+    if (days < 7) {
+      return DateFormat.EEEE().format(day);
+    }
+    if (day.year == now.year) {
+      return DateFormat.MMMMd().format(day);
+    }
+    return DateFormat.yMMMMd().format(day);
+  }
+
+  Widget _buildBubble(
+      PrivateMessage message, PrivateMessage? older, PrivateMessage? newer) {
+    final micros = message.sentAt.microsecondsSinceEpoch;
+    final key = _messageKeys.putIfAbsent(micros, () => GlobalKey());
+    final showsDivider = _unreadAnchor?.microsecondsSinceEpoch == micros;
+    final bubble = ChatBubble(
+      older,
+      message,
+      newer,
+      widget.user,
+      key: key,
+      // The picked chat color itself, not a tonal derivative of it.
+      accentColor: _chatThemeColor ?? Singleton().appTheme.color,
+      selectionMode: _selectionMode,
+      selected: _selected.contains(micros),
+      onSelect: () => _toggleSelected(message),
+      onReply: () => _startReply(message),
+      onTapQuote: message.isReply
+          ? () => _jumpToMessage(message.replyTo!.sentAt)
+          : null,
+    );
+    if (!showsDivider) {
+      return bubble;
+    }
+    // The divider sits above its message and goes away once the day header
+    // does not repeat it.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [_buildUnreadDivider(), bubble],
+    );
+  }
+
+  /// Messages, grouped by day: each day gets a sticky header.
   Widget _getContent(List<PrivateMessage> messages) {
     final start =
         messages.length > _visibleCount ? messages.length - _visibleCount : 0;
     final visible = messages.sublist(start);
     final hasOlder = start > 0;
-    final itemCount = visible.length + 1;
 
-    return ListView.builder(
+    final days = <DateTime, List<int>>{};
+    for (var i = 0; i < visible.length; i++) {
+      days.putIfAbsent(_dayOf(visible[i]), () => []).add(i);
+    }
+    final orderedDays = days.keys.toList()..sort();
+
+    return CustomScrollView(
+      controller: _scrollController,
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
-      controller: _scrollController,
-      reverse: true,
-      itemCount: itemCount,
-      itemBuilder: (context, index) {
-        // Last item is the conversation header (top of the screen).
-        if (index == visible.length) {
-          if (hasOlder) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            );
-          }
-          return _buildHeader();
-        }
-        // index 0 is the newest message; older messages have higher indices.
-        final message = visible[visible.length - 1 - index];
-        final position = visible.length - 1 - index;
-        final older = position > 0 ? visible[position - 1] : null;
-        final newer =
-            position < visible.length - 1 ? visible[position + 1] : null;
-        return ChatBubble(older, message, newer, widget.user,
-            // The picked chat color itself, not a tonal derivative of it.
-            accentColor: _chatThemeColor ?? Singleton().appTheme.color);
-      },
+      slivers: [
+        SliverToBoxAdapter(
+          child: hasOlder
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
+              : _buildHeader(),
+        ),
+        for (final day in orderedDays) ...[
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _DayHeader(
+              label: _dayLabel(day),
+              textColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              background: chatBackground(tintAlpha: 0.35),
+            ),
+          ),
+          SliverList.builder(
+            itemCount: days[day]!.length,
+            itemBuilder: (context, index) {
+              final position = days[day]![index];
+              final message = visible[position];
+              return _buildBubble(
+                message,
+                position > 0 ? visible[position - 1] : null,
+                position < visible.length - 1 ? visible[position + 1] : null,
+              );
+            },
+          ),
+        ],
+      ],
     );
   }
 
@@ -786,6 +1209,7 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     MessageNotifier().removeListener(_onMessagesChanged);
     _scrollController.removeListener(_onScroll);
+    WidgetsBinding.instance.removeObserver(_metricsObserver);
     _recordTimer?.cancel();
     _recorderController?.dispose();
     _controllerMessage.dispose();
@@ -830,6 +1254,92 @@ class _ChatPageState extends State<ChatPage> {
         .withValues(alpha: 0.85);
   }
 
+  /// Chat AppBar, or the selection AppBar while messages are picked.
+  Widget _buildAppBarContent() {
+    if (_selectionMode) {
+      final single =
+          _selectedMessages.length == 1 ? _selectedMessages.first : null;
+      return AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: appBarBackground(),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: 'cancel'.tr(),
+          onPressed: _clearSelection,
+        ),
+        title: Text(sprintf('selectedCount'.tr(), [_selected.length])),
+        actions: [
+          IconButton(
+            icon: Icon(MessageActions.copyIcon),
+            tooltip: 'copyMessage'.tr(),
+            onPressed: _copySelected,
+          ),
+          IconButton(
+            icon: Icon(MessageActions.forwardIcon),
+            tooltip: 'forwardMessage'.tr(),
+            onPressed: _forwardSelected,
+          ),
+          IconButton(
+            icon: Icon(MessageActions.deleteIcon),
+            tooltip: 'deleteMessageForMe'.tr(),
+            onPressed: _deleteSelected,
+          ),
+          // Save, resend and the rest still live in the single-message sheet.
+          if (single != null)
+            IconButton(
+              icon: const Icon(Icons.more_vert),
+              tooltip: 'moreActions'.tr(),
+              onPressed: () =>
+                  MessageActions.showSheet(context, single, widget.user.id),
+            ),
+        ],
+      );
+    }
+    return AppBar(
+      automaticallyImplyLeading: false,
+      backgroundColor: appBarBackground(),
+      leading: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context),
+          ),
+          GestureDetector(
+            onTap: _openChatInfo,
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: widget.user.avatarColor,
+              child: Text(
+                widget.user.username.isNotEmpty
+                    ? widget.user.username[0].toUpperCase()
+                    : '?',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: widget.user.avatarTextColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      leadingWidth: 96, // Increase width to accommodate both icons
+      // Title
+      title: GestureDetector(
+        onTap: _openChatInfo,
+        behavior: HitTestBehavior.opaque,
+        child: Text(widget.user.username),
+      ),
+      // Action buttons
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.info),
+          tooltip: 'infoButton'.tr(),
+          onPressed: _openChatInfo,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -856,49 +1366,7 @@ class _ChatPageState extends State<ChatPage> {
             child: ClipRRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                child: AppBar(
-                  automaticallyImplyLeading: false,
-                  backgroundColor: appBarBackground(),
-                  leading: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      GestureDetector(
-                        onTap: _openChatInfo,
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: widget.user.avatarColor,
-                          child: Text(
-                            widget.user.username.isNotEmpty
-                                ? widget.user.username[0].toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: widget.user.avatarTextColor,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  leadingWidth: 96, // Increase width to accommodate both icons
-                  // Title
-                  title: GestureDetector(
-                    onTap: _openChatInfo,
-                    behavior: HitTestBehavior.opaque,
-                    child: Text(widget.user.username),
-                  ),
-                  // Action buttons
-                  actions: [
-                    IconButton(
-                      icon: const Icon(Icons.info),
-                      tooltip: 'infoButton'.tr(),
-                      onPressed: _openChatInfo,
-                    ),
-                  ],
-                ),
+                child: _buildAppBarContent(),
               ),
             ),
           ),
@@ -908,25 +1376,59 @@ class _ChatPageState extends State<ChatPage> {
               children: [
                 // Messages and avatar list
                 Expanded(
-                  child: _firstLoad
-                      ? Center(
-                          child: Transform.scale(
-                            scale: 1.5,
-                            child: CircularProgressIndicator(),
+                  child: Stack(
+                    children: [
+                      _firstLoad
+                          ? Center(
+                              child: Transform.scale(
+                                scale: 1.5,
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          : _getContent(_messages),
+                      // Floating "down" button with the count of messages that
+                      // arrived while the user was reading further up.
+                      if (!_firstLoad && _unseenCount > 0)
+                        Positioned(
+                          right: 16,
+                          bottom: 16,
+                          child: FloatingActionButton.small(
+                            heroTag: 'jumpToBottom',
+                            tooltip: 'jumpToLatest'.tr(),
+                            onPressed: () => _jumpToBottom(animate: true),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.arrow_downward, size: 16),
+                                if (_unseenCount > 1)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 2),
+                                    child: Text('$_unseenCount',
+                                        style: const TextStyle(fontSize: 11)),
+                                  ),
+                              ],
+                            ),
                           ),
-                        )
-                      : _getContent(_messages),
+                        ),
+                    ],
+                  ),
                 ),
                 SafeArea(
                   top: false,
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: Stack(
-                      alignment: Alignment.center,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildInputBar(),
-                        if (_isRecording)
-                          Positioned.fill(child: _buildRecordingBar()),
+                        if (_replyTo != null) _buildReplyBar(),
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            _buildInputBar(),
+                            if (_isRecording)
+                              Positioned.fill(child: _buildRecordingBar()),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -937,5 +1439,64 @@ class _ChatPageState extends State<ChatPage> {
         ),
       ),
     );
+  }
+}
+
+/// Sticky day label above the messages of one calendar day.
+class _DayHeader extends SliverPersistentHeaderDelegate {
+  _DayHeader({
+    required this.label,
+    required this.textColor,
+    required this.background,
+  });
+
+  final String label;
+  final Color textColor;
+  final Color background;
+
+  @override
+  double get minExtent => 34;
+
+  @override
+  double get maxExtent => 34;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: textColor,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _DayHeader oldDelegate) =>
+      oldDelegate.label != label ||
+      oldDelegate.textColor != textColor ||
+      oldDelegate.background != background;
+}
+
+/// Fires [onMetricsChanged] when the keyboard opens or closes.
+class _KeyboardObserver extends WidgetsBindingObserver {
+  _KeyboardObserver(this.onMetricsChanged);
+
+  final VoidCallback onMetricsChanged;
+
+  @override
+  void didChangeMetrics() {
+    onMetricsChanged();
   }
 }

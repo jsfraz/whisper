@@ -24,6 +24,7 @@ import 'crypto_utils.dart';
 import 'media_utils.dart';
 import 'message_notifier.dart';
 import 'singleton.dart';
+import 'text_envelope.dart';
 import '../models/private_message.dart' as pm;
 import '../models/user.dart';
 
@@ -357,13 +358,16 @@ class Utils {
             );
             return (mediaMsg, [ref], message.peerId);
           }
-          // Plain text message (legacy/unchanged path).
+          // Plain text message (legacy/unchanged path), or a reply that carries
+          // its quote in a text envelope.
+          final textEnvelope = tryParseTextEnvelope(decryptedMessage);
           final textMsg = pm.PrivateMessage(
               message.senderId,
-              utf8.decode(decryptedMessage),
+              textEnvelope?.body ?? utf8.decode(decryptedMessage),
               message.sentAt,
               DateTime.now(),
-              false);
+              false)
+            ..setReplyTo(textEnvelope?.reply);
           return (textMsg, const <MediaReference>[], message.peerId);
         } catch (e) {
           // Log individual message decryption errors

@@ -40,6 +40,12 @@ class _HomePageState extends State<HomePage>
   int _currentPageIndex = 0;
   List<ModelsInvite> _serverInvites = [];
   List<MapEntry<User, PrivateMessage>> _chatEntries = [];
+
+  /// Unread incoming messages per conversation id, for the list badges.
+  Map<String, int> _unreadCounts = {};
+
+  /// Conversation ids pinned to the top of the list.
+  Set<String> _pinnedChats = {};
   bool _firstLoad = true;
   String? _pendingFid; // Store pending FID
 
@@ -184,13 +190,47 @@ class _HomePageState extends State<HomePage>
   /// Get all conversations with their last messages
   Future<void> _getConversations() async {
     final chats = await CacheUtils.getLatestPrivateMessages();
+    final unread = await CacheUtils.getUnreadCounts();
+    final pinned = await CacheUtils.getPinnedConversations();
     if (!mounted) {
       return;
     }
     setState(() {
       _chatEntries = chats.entries.toList();
+      _unreadCounts = unread;
+      _pinnedChats = pinned;
       _firstLoad = false;
     });
+  }
+
+  /// Pin or unpin a conversation. Local only: nothing is sent to the server.
+  Future<void> _togglePin(User user) async {
+    final pinned = _pinnedChats.contains(user.id);
+    await CacheUtils.setConversationPinned(user.id, !pinned);
+    if (!mounted) {
+      return;
+    }
+    Fluttertoast.showToast(
+        msg: pinned ? 'chatUnpinned'.tr() : 'chatPinned'.tr());
+    await _getConversations();
+  }
+
+  /// Delete a conversation after the confirmation dialog confirmed it.
+  void _deleteChat(User user) {
+    DialogUtils.yesNoDialog(
+        context, 'deleteChatConfirm'.tr(), 'deleteChatConfirmText'.tr(),
+        () async {
+      await MessageNotifier().deleteChat(user.id);
+    });
+  }
+
+  /// Icon shown under a swiped chat row.
+  Widget _swipeBackground(Alignment alignment, IconData icon, Color color) {
+    return Container(
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Icon(icon, color: color),
+    );
   }
 
   /// Get server users
@@ -305,12 +345,37 @@ class _HomePageState extends State<HomePage>
         // Indexed access: `Map.entries.elementAt` is O(n) and made the list
         // build O(n^2).
         final chat = chats[index];
+        final scheme = Theme.of(context).colorScheme;
         return Padding(
           padding: EdgeInsets.only(right: 5, left: 5, bottom: 3),
-          child: ChatListItem(chat.key, chat.value, () {
-            // Push to chat
-            Navigator.of(context).push(slideUpRoute(ChatPage(chat.key)));
-          }),
+          // Swipe right pins, swipe left deletes. Both spring back: the gesture
+          // opens an action, it never removes a row on its own.
+          child: Dismissible(
+            key: ValueKey('chat|${chat.key.id}'),
+            direction: DismissDirection.horizontal,
+            background: _swipeBackground(
+                Alignment.centerLeft, Icons.push_pin, scheme.primary),
+            secondaryBackground: _swipeBackground(
+                Alignment.centerRight, Icons.delete, scheme.error),
+            confirmDismiss: (direction) async {
+              if (direction == DismissDirection.startToEnd) {
+                await _togglePin(chat.key);
+              } else {
+                _deleteChat(chat.key);
+              }
+              return false;
+            },
+            child: ChatListItem(
+              chat.key,
+              chat.value,
+              () {
+                // Push to chat
+                Navigator.of(context).push(slideUpRoute(ChatPage(chat.key)));
+              },
+              unreadCount: _unreadCounts[chat.key.id] ?? 0,
+              pinned: _pinnedChats.contains(chat.key.id),
+            ),
+          ),
         );
       },
     );

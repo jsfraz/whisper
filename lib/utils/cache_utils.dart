@@ -495,6 +495,9 @@ class CacheUtils {
     Box userBox = await _openUserBox();
     await userBox.delete(userId);
     await deleteMessageConcept(userId);
+    // Pin state goes with the conversation.
+    final conversationsBox = await _openConversationsBox();
+    await conversationsBox.delete(userId);
   }
 
   /// Delete the encrypted-at-rest media files of all messages with [userId].
@@ -713,10 +716,90 @@ class CacheUtils {
     await box.put(user.id, user);
   }
 
+  /// Local-only chat list state (pinned, and later archived). Nothing here
+  /// reaches the server: until F8 syncs it, it is this device's business.
+  static const String _conversationsKey = 'conversations';
+
+  static Future<Box> _openConversationsBox() async {
+    return Hive.openBox(_conversationsKey);
+  }
+
+  static Map _metaOf(Box box, String userId) {
+    final stored = box.get(userId);
+    return stored is Map ? Map.from(stored) : <String, dynamic>{};
+  }
+
+  /// Whether [userId] is pinned to the top of the chat list.
+  static Future<bool> isConversationPinned(String userId) async {
+    final box = await _openConversationsBox();
+    return _metaOf(box, userId)['pinned'] == true;
+  }
+
+  /// Pins or unpins a conversation. The entry is dropped once it is empty, so
+  /// the box only holds chats that differ from the default.
+  static Future<void> setConversationPinned(String userId, bool pinned) async {
+    final box = await _openConversationsBox();
+    final meta = _metaOf(box, userId);
+    if (pinned) {
+      meta['pinned'] = true;
+    } else {
+      meta.remove('pinned');
+    }
+    if (meta.isEmpty) {
+      await box.delete(userId);
+    } else {
+      await box.put(userId, meta);
+    }
+  }
+
+  /// Ids of the pinned conversations.
+  static Future<Set<String>> getPinnedConversations() async {
+    final box = await _openConversationsBox();
+    return {
+      for (final entry in box.toMap().entries)
+        if (entry.value is Map && (entry.value as Map)['pinned'] == true)
+          entry.key as String,
+    };
+  }
+
+  /// Unread incoming messages per conversation, for the chat list badge.
+  static Future<Map<String, int>> getUnreadCounts() async {
+    final box = await _openPrivateMessagesBox();
+    final counts = <String, int>{};
+    for (final key in box.keys.whereType<String>()) {
+      final userId = conversationOfKey(key);
+      if (userId == null) {
+        continue;
+      }
+      final value = box.get(key);
+      if (value is PrivateMessage && !value.read) {
+        counts[userId] = (counts[userId] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
+  /// Oldest unread message of a conversation: the anchor of the "new messages"
+  /// divider, taken before the chat marks everything read.
+  static Future<DateTime?> firstUnreadSentAt(String userId) async {
+    final box = await _openPrivateMessagesBox();
+    DateTime? first;
+    for (final key in _conversationKeys(box, userId)) {
+      final value = box.get(key);
+      if (value is! PrivateMessage || value.read) {
+        continue;
+      }
+      if (first == null || value.sentAt.isBefore(first)) {
+        first = value.sentAt;
+      }
+    }
+    return first;
+  }
+
   /// Get Map of all conversations with their last messages.
   ///
   /// Only the newest message of each conversation is deserialized, so the list
-  /// does not pay for the whole history.
+  /// does not pay for the whole history. Pinned conversations come first.
   static Future<Map<User, PrivateMessage>> getLatestPrivateMessages() async {
     Box box = await _openPrivateMessagesBox();
     await _migrateLegacyMessages(box);
@@ -744,9 +827,17 @@ class CacheUtils {
       User? user = await getUserById(entry.key);
       conversations[user ?? User(entry.key, '', '', false)] = message;
     }
-    // Sort conversations by last message date
+    // Pinned conversations first, then by last message date
+    final pinnedIds = await getPinnedConversations();
     var sortedEntries = conversations.entries.toList()
-      ..sort((a, b) => b.value.receivedAt.compareTo(a.value.receivedAt));
+      ..sort((a, b) {
+        final aPinned = pinnedIds.contains(a.key.id);
+        final bPinned = pinnedIds.contains(b.key.id);
+        if (aPinned != bPinned) {
+          return aPinned ? -1 : 1;
+        }
+        return b.value.receivedAt.compareTo(a.value.receivedAt);
+      });
     return Map.fromEntries(sortedEntries);
   }
 
@@ -756,10 +847,12 @@ class CacheUtils {
     Box userBox = await _openUserBox();
     Box conceptBox = await _openMessageConceptBox();
     Box pendingBox = await _openPendingSendsBox();
+    Box conversationsBox = await _openConversationsBox();
     await userBox.clear();
     await messageBox.clear();
     await conceptBox.clear();
     await pendingBox.clear();
+    await conversationsBox.clear();
     // Remove every locally stored media file.
     await MediaUtils.clearMediaDir();
   }

@@ -5,6 +5,7 @@ import 'package:hive/hive.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
 import '../utils/singleton.dart';
+import '../utils/text_envelope.dart';
 
 part 'private_message.g.dart';
 
@@ -162,6 +163,19 @@ class PrivateMessage extends HiveObject {
   @HiveField(15)
   String? albumJson;
 
+  /// Sender of the message this one quotes, null when it is not a reply.
+  @HiveField(16)
+  String? replyToSenderId;
+
+  /// Client timestamp of the quoted message, null when it is not a reply.
+  @HiveField(17)
+  DateTime? replyToSentAt;
+
+  /// Preview of the quoted message, kept here so the quote survives its
+  /// original being deleted on this device.
+  @HiveField(18)
+  String? replyToPreview;
+
   /// Cache for [album], keyed by the [albumJson] it was decoded from.
   String? _albumCacheJson;
   List<AlbumItem>? _albumCache;
@@ -183,7 +197,34 @@ class PrivateMessage extends HiveObject {
     this.fileName,
     this.sendStatus = SendStatus.sent,
     this.albumJson,
+    this.replyToSenderId,
+    this.replyToSentAt,
+    this.replyToPreview,
   });
+
+  /// The quoted message, or null when this message is not a reply.
+  ReplyRef? get replyTo {
+    final senderId = replyToSenderId;
+    final sentAt = replyToSentAt;
+    if (senderId == null || sentAt == null) {
+      return null;
+    }
+    return ReplyRef(
+      senderId: senderId,
+      sentAt: sentAt,
+      preview: replyToPreview ?? '',
+    );
+  }
+
+  /// Stores (or clears) the message this one quotes.
+  void setReplyTo(ReplyRef? reply) {
+    replyToSenderId = reply?.senderId;
+    replyToSentAt = reply?.sentAt;
+    replyToPreview = reply?.preview;
+  }
+
+  /// Whether this message quotes another one.
+  bool get isReply => replyToSentAt != null;
 
   /// Stored instead of the text when a message cannot be decrypted. It keeps a
   /// visible gap in the chat, and the receiver only acks what it stored, so the

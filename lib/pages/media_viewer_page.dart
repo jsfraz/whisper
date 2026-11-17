@@ -106,7 +106,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
             MessageActions.save(_current);
             break;
           case 'forward':
-            MessageActions.forward(context, _current);
+            MessageActions.forward(context, [_current]);
             break;
           case 'delete':
             MessageActions.delete(context, _current, widget.conversationUserId,

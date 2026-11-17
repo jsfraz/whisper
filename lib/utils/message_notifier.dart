@@ -201,10 +201,9 @@ class MessageNotifier extends ChangeNotifier {
         newMessages[e.key] = e.value;
       }
     }
-    // Sort conversations by last message date
-    var sortedEntries = newMessages.entries.toList()
-      ..sort((a, b) => b.value.receivedAt.compareTo(a.value.receivedAt));
-    return Map.fromEntries(sortedEntries);
+    // The cache already ordered this map (pinned chats first, then by the
+    // newest message), so the entries are kept in the order they came in.
+    return newMessages;
   }
 
   /// Delete all chats
