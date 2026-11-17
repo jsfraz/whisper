@@ -70,17 +70,6 @@ void main() {
       expect(pieces.any((p) => p.kind == MessageKind.phone), isFalse);
     });
 
-    test('a street address with a city is detected', () {
-      final pieces = parseMessage('bydlím Karlova 12, Praha');
-      final address = pieces.singleWhere((p) => p.kind == MessageKind.address);
-      expect(address.text, 'Karlova 12, Praha');
-    });
-
-    test('a word followed by a number is not an address', () {
-      final pieces = parseMessage('Dnes 3 zprávy');
-      expect(pieces.any((p) => p.kind == MessageKind.address), isFalse);
-    });
-
     test('an e-mail address is detected', () {
       final pieces = parseMessage('napiš na jan.novak@example.com prosím');
       final email = pieces.singleWhere((p) => p.kind == MessageKind.email);

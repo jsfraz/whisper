@@ -34,9 +34,6 @@ enum MessageKind {
 
   /// Tapped to copy.
   phone,
-
-  /// Tapped to copy.
-  address,
 }
 
 /// One run of message text with one style and one tap action.
@@ -217,8 +214,8 @@ void _flushPlain(StringBuffer buffer, List<MessagePiece> out) {
   buffer.clear();
 }
 
-/// Splits plain text into links, e-mail addresses, phone numbers, addresses and
-/// leftover text.
+/// Splits plain text into links, e-mail addresses, phone numbers and leftover
+/// text.
 List<MessagePiece> _splitEntities(String text) {
   final pieces = <MessagePiece>[];
   for (final link in splitLinks(text)) {
@@ -236,7 +233,6 @@ List<MessagePiece> _splitEntities(String text) {
 List<MessagePiece> _splitTappable(String text) {
   final patterns = <(RegExp, MessageKind)>[
     (_emailPattern, MessageKind.email),
-    (_addressPattern, MessageKind.address),
     (_phonePattern, MessageKind.phone),
   ];
   final pieces = <MessagePiece>[];
@@ -274,16 +270,9 @@ List<MessagePiece> _splitTappable(String text) {
   return pieces;
 }
 
-/// A single address, no display name and no surrounding punctuation.
+/// A single e-mail address, no display name and no surrounding punctuation.
 final RegExp _emailPattern = RegExp(
   r'(?<![\w.+\-])[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+',
-);
-
-/// `Street 12, City` — a house number followed by a named place. Requiring the
-/// comma keeps ordinary "version 2" text from turning into an address.
-final RegExp _addressPattern = RegExp(
-  r'[\p{Lu}][\p{L}.]{1,}(?:\s+[\p{L}.]+){0,3}\s+\d+[a-zA-Z]?(?:/\d+)?,\s*[\p{Lu}][\p{L}]*(?:\s+[\p{L}]+)*',
-  unicode: true,
 );
 
 /// Digits with the usual grouping separators. Filtered by digit count below,

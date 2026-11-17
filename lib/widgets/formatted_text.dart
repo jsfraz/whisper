@@ -7,8 +7,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../utils/link_utils.dart';
 import '../utils/message_format.dart';
 
-/// Message text with inline formatting, tappable links, phone numbers and
-/// addresses, and spoilers that stay covered until tapped.
+/// Message text with inline formatting, tappable links, phone numbers,
+/// e-mail addresses and spoilers that stay covered until tapped.
 class FormattedText extends StatefulWidget {
   const FormattedText(
     this.text, {
@@ -113,26 +113,18 @@ class _FormattedTextState extends State<FormattedText> {
               'copy:${piece.kind.name}:${piece.text}', () => _copy(piece.text)),
           style: _inlineLink(TextDecorationStyle.solid),
         );
-      case MessageKind.address:
-        return TextSpan(
-          text: piece.text,
-          recognizer: _recognizer(
-              'copy:${piece.kind.name}:${piece.text}', () => _copy(piece.text)),
-          style: _inlineLink(TextDecorationStyle.dotted),
-        );
       case MessageKind.text:
         return TextSpan(text: piece.text);
     }
   }
 
-  /// Underline for everything tappable. Links, e-mails and phone numbers read
-  /// as a link; an address is dotted because a tap only copies it.
+  /// Underline for everything tappable: links, e-mails and phone numbers read
+  /// as a link.
   TextStyle _inlineLink(TextDecorationStyle style) => TextStyle(
         decoration: TextDecoration.underline,
         decorationStyle: style,
         decorationColor: _color,
       );
-
   Future<void> _copy(String value) async {
     await Clipboard.setData(ClipboardData(text: value));
     Fluttertoast.showToast(msg: 'copiedText'.tr());
