@@ -54,6 +54,12 @@ class WhisperPage extends StatelessWidget {
     return MaterialApp(
       navigatorObservers: [PageNavigatorObserver()],
       debugShowCheckedModeBanner: true,
+      // Every DateFormat in the app (chat rows, bubbles, day headers, search)
+      // follows the selected language instead of the platform default.
+      builder: (context, child) {
+        Intl.defaultLocale = context.locale.toString();
+        return child ?? const SizedBox.shrink();
+      },
       // Light theme
       theme: ThemeData.from(
               colorScheme: ColorScheme.fromSeed(

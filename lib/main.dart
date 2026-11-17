@@ -1,6 +1,10 @@
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
+// intl is pinned through easy_localization; declaring it a second time would
+// only duplicate that pin.
+// ignore: depend_on_referenced_packages
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -48,6 +52,11 @@ void main() async {
 
   // Load locale (the notification service needs it for the channel texts)
   await EasyLocalization.ensureInitialized();
+  // Date patterns and month names for the languages the app ships with. Without
+  // them DateFormat falls back to English for everything.
+  for (final locale in ['en', 'cs']) {
+    await initializeDateFormatting(locale);
+  }
 
   // Local notifications. A failure here must not block the app.
   try {
