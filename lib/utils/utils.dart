@@ -277,7 +277,7 @@ class Utils {
   /// Live frames are announced (a notification per conversation) and their
   /// older echoes are dropped; history from a sync is stored silently.
   static Future<void> _storeMessages(List<PrivateMessage> messages,
-      {required bool notify}) async {
+      {required bool notify, bool advanceCursor = false}) async {
     messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
     List<pm.PrivateMessage> decryptedMessages = [];
     // Media references of each conversation that still need a download.
@@ -444,6 +444,21 @@ class Utils {
         MessageNotifier().downloadMediaMessage(entry.key, ref);
       }
     }
+    // A live message would otherwise come back on the next sync and overwrite
+    // a downloaded attachment with its placeholder. Only live frames may move
+    // the cursor: a history page is one conversation and says nothing about
+    // the messages of the others.
+    if (advanceCursor) {
+      var highestSeq = 0;
+      for (final message in messages) {
+        if (message.seq > highestSeq) {
+          highestSeq = message.seq;
+        }
+      }
+      if (highestSeq > 0) {
+        await CacheUtils.setSyncSeq(highestSeq);
+      }
+    }
 
     if (!notify) {
       return;
@@ -484,7 +499,7 @@ class Utils {
       // More messages
       case WsResponseType.messages:
         await _storeMessages(wsResponse.payload as List<PrivateMessage>,
-            notify: true);
+            notify: true, advanceCursor: true);
         break;
 
       // Archive delta after a reconnect
@@ -495,12 +510,14 @@ class Utils {
           await CacheUtils.addUser(
               User(peer.id, peer.username, peer.publicKey, false));
         }
-        await CacheUtils.setSyncSeq(synced.syncedThrough);
         if (synced.messages.isNotEmpty) {
           // History is silent: a week offline must not ring once per old
           // message.
           await _storeMessages(synced.messages, notify: false);
         }
+        // Only after the batch is stored: a cursor ahead of the local messages
+        // would drop them for good.
+        await CacheUtils.setSyncSeq(synced.syncedThrough);
         if (synced.hasMore && Singleton().wsClient.isConnected) {
           Singleton().wsClient.sendSync(synced.syncedThrough);
         }
