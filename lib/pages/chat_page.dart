@@ -1227,6 +1227,14 @@ class _ChatPageState extends State<ChatPage> {
         parent: AlwaysScrollableScrollPhysics(),
       ),
       slivers: [
+        // The body sits behind the translucent app bar, so the conversation
+        // has to start below it: without this the avatar header and the first
+        // day separator are painted under the bar.
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: MediaQuery.viewPaddingOf(context).top + kToolbarHeight,
+          ),
+        ),
         SliverToBoxAdapter(
           child: hasOlder
               ? const Padding(

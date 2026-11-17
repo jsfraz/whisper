@@ -399,6 +399,9 @@ class _HomePageState extends State<HomePage>
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
+      // The chips already clear the app bar; a scroll view's automatic
+      // MediaQuery padding would add a second gap above the first row.
+      padding: EdgeInsets.zero,
       itemCount: chats.length,
       itemBuilder: (context, index) {
         // Indexed access: `Map.entries.elementAt` is O(n) and made the list
@@ -543,8 +546,14 @@ class _HomePageState extends State<HomePage>
         // Messages
         Column(
           children: [
-            SizedBox(height: 10),
-            _filterChips(),
+            // The body sits behind the translucent app bar; the chips do not
+            // scroll, so they start below it.
+            Padding(
+              padding: EdgeInsets.only(
+                top: MediaQuery.viewPaddingOf(context).top + kToolbarHeight,
+              ),
+              child: _filterChips(),
+            ),
             // Messages and avatar list
             Expanded(
               child: _firstLoad
