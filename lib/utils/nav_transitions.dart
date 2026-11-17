@@ -33,8 +33,8 @@ Route<void> fadeRoute(Widget child) {
 
 /// Opens the next step of a flow (forwarding, onboarding): it comes in from
 /// the side, the way a form usually does.
-Route<void> stepRoute(Widget child) {
-  return PageTransition(
+Route<T> stepRoute<T>(Widget child) {
+  return PageTransition<T>(
     type: PageTransitionType.rightToLeft,
     child: child,
     duration: navDuration,

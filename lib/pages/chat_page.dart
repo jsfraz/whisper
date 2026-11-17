@@ -24,10 +24,14 @@ import '../widgets/attachment_confirm_sheet.dart';
 import '../widgets/chat_bubble.dart';
 import 'chat_info_page.dart';
 import 'forward_page.dart';
+import 'search_page.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage(this.user, {super.key});
+  const ChatPage(this.user, {this.jumpTo, super.key});
   final User user;
+
+  /// Opens the conversation at this message instead of the newest one.
+  final DateTime? jumpTo;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -123,6 +127,10 @@ class _ChatPageState extends State<ChatPage> {
     await _loadMessages();
     // Then top the conversation up from the server archive
     _loadHistory();
+    final jumpTo = widget.jumpTo;
+    if (jumpTo != null) {
+      await _jumpToMessage(jumpTo);
+    }
   }
 
   /// Keeps the newest message on screen when the keyboard opens.
@@ -381,6 +389,47 @@ class _ChatPageState extends State<ChatPage> {
     // The theme (and possibly the user) may have changed while it was open.
     await _loadChatTheme();
     await _loadMessages();
+  }
+
+  /// Search this conversation; the picked result is jumped to.
+  Future<void> _openSearch() async {
+    final picked = await Navigator.of(context)
+        .push<DateTime>(stepRoute(MessageSearchPage(peer: widget.user)));
+    if (picked != null && mounted) {
+      await _jumpToMessage(picked);
+    }
+  }
+
+  /// Jump to the first message of a picked day (or the first one after it).
+  Future<void> _jumpToDate() async {
+    if (_messages.isEmpty) {
+      return;
+    }
+    final oldest = _messages.first.sentAt.toLocal();
+    final firstDay = DateTime(oldest.year, oldest.month, oldest.day);
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: firstDay.isBefore(DateTime(2000)) ? DateTime(2000) : firstDay,
+      lastDate: now,
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    DateTime? target;
+    for (final message in _messages) {
+      if (!message.sentAt.isBefore(picked)) {
+        target = message.sentAt;
+        break;
+      }
+    }
+    if (target == null) {
+      await Fluttertoast.showToast(
+          msg: 'noMessagesOnDate'.tr(), backgroundColor: Colors.orange);
+      return;
+    }
+    await _jumpToMessage(target);
   }
 
   // ---------------------------------------------------------------------------
@@ -1331,6 +1380,38 @@ class _ChatPageState extends State<ChatPage> {
       ),
       // Action buttons
       actions: [
+        PopupMenuButton<String>(
+          tooltip: 'moreActions'.tr(),
+          onSelected: (value) {
+            if (value == 'search') {
+              _openSearch();
+            } else {
+              _jumpToDate();
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'search',
+              child: Row(
+                children: [
+                  const Icon(Icons.search),
+                  const SizedBox(width: 12),
+                  Text('searchInChat'.tr()),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'jumpDate',
+              child: Row(
+                children: [
+                  const Icon(Icons.event),
+                  const SizedBox(width: 12),
+                  Text('jumpToDate'.tr()),
+                ],
+              ),
+            ),
+          ],
+        ),
         IconButton(
           icon: const Icon(Icons.info),
           tooltip: 'infoButton'.tr(),
