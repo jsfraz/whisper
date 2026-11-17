@@ -63,7 +63,7 @@ class MessageActions {
                 title: Text('forwardMessage'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
-                  forward(context, message);
+                  forward(context, [message]);
                 },
               ),
               if (canSave(message))
@@ -122,10 +122,10 @@ class MessageActions {
     }
   }
 
-  /// Pick a chat (or a user) and send the message there.
+  /// Pick a chat (or a user) and send the messages there.
   static Future<void> forward(
-      BuildContext context, PrivateMessage message) async {
-    await Navigator.of(context).push(stepRoute(ForwardPage(message)));
+      BuildContext context, List<PrivateMessage> messages) async {
+    await Navigator.of(context).push(stepRoute(ForwardPage(messages)));
   }
 
   /// Delete the message only on this device, after a confirmation.

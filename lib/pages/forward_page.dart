@@ -11,11 +11,11 @@ import '../widgets/user_list_item.dart';
 import 'search_user_page.dart';
 import '../utils/nav_transitions.dart';
 
-/// Picks the destination of a forwarded message: an existing conversation or a
-/// user found by search. Sends the message and closes itself.
+/// Picks the destination of forwarded messages: an existing conversation or a
+/// user found by search. Sends the messages and closes itself.
 class ForwardPage extends StatefulWidget {
-  const ForwardPage(this.message, {super.key});
-  final PrivateMessage message;
+  const ForwardPage(this.messages, {super.key});
+  final List<PrivateMessage> messages;
 
   @override
   State<ForwardPage> createState() => _ForwardPageState();
@@ -48,29 +48,33 @@ class _ForwardPageState extends State<ForwardPage> {
       _sending = true;
     });
     try {
-      final message = widget.message;
-      bool sent;
-      if (message.isMedia) {
-        final path = message.localPath;
-        final type = message.mediaType;
-        if (path == null || type == null) {
-          // Save/forward are hidden for attachments that are not on disk
-          return;
+      var allSent = true;
+      for (final message in widget.messages) {
+        bool sent;
+        if (message.isMedia) {
+          final path = message.localPath;
+          final type = message.mediaType;
+          if (path == null || type == null) {
+            // Save/forward are hidden for attachments that are not on disk.
+            allSent = false;
+            continue;
+          }
+          final bytes = await MediaUtils.decryptAtRest(path);
+          sent = await ChatSender.sendMedia(to, type, bytes,
+              caption: message.message,
+              width: message.width,
+              height: message.height,
+              durationMs: message.durationMs,
+              fileName: message.fileName);
+        } else {
+          sent = await ChatSender.sendText(to, message.message);
         }
-        final bytes = await MediaUtils.decryptAtRest(path);
-        sent = await ChatSender.sendMedia(to, type, bytes,
-            caption: message.message,
-            width: message.width,
-            height: message.height,
-            durationMs: message.durationMs,
-            fileName: message.fileName);
-      } else {
-        sent = await ChatSender.sendText(to, message.message);
+        allSent = allSent && sent;
       }
       if (!mounted) {
         return;
       }
-      if (sent) {
+      if (allSent) {
         Fluttertoast.showToast(msg: 'forwarded'.tr());
         Navigator.pop(context);
       }
