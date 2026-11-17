@@ -12,6 +12,7 @@ import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
 import '../models/user.dart';
 import '../utils/cache_utils.dart';
+import '../utils/chat_scroll.dart';
 import '../utils/chat_sender.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
@@ -57,6 +58,8 @@ class _ChatPageState extends State<ChatPage> {
   bool _historyLoading = false;
   // Guards against overlapping "grow the window upwards" passes
   bool _growing = false;
+  // A jump walks the list itself; window growth would move the offset under it
+  bool _jumping = false;
   // Whether the newest archive page was already asked for
   bool _historyLoaded = false;
   // Cursor for the next (older) archive page, null when the archive ends
@@ -250,7 +253,7 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Extend the rendered window when the user scrolls towards older messages.
   void _onScroll() {
-    if (!_scrollController.hasClients) {
+    if (_jumping || !_scrollController.hasClients) {
       return;
     }
     final position = _scrollController.position;
@@ -480,33 +483,68 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  /// Scrolls to the message a reply quotes, widening the window when it is
-  /// older than what is rendered.
+  /// Scrolls to [sentAt], used by the reply quote, the search hits and the
+  /// date jump.
+  ///
+  /// Widening the rendered window is not enough: a list only builds what is
+  /// near the viewport, so growing the tail never builds an old message. The
+  /// fast path therefore cuts the window down to the target, which puts it one
+  /// screen from the top, and `jumpTo(0)` lands on it. The slow path walks up a
+  /// viewport at a time for a target already inside a large window but far
+  /// below the screen.
   Future<void> _jumpToMessage(DateTime sentAt) async {
     final micros = sentAt.microsecondsSinceEpoch;
-    final context = _messageKeys[micros]?.currentContext;
-    if (context != null) {
-      await Scrollable.ensureVisible(context,
-          alignment: 0.3, duration: const Duration(milliseconds: 250));
-      return;
-    }
-    // Not rendered: open the window up to it, then try once more.
-    final index = _messages.indexWhere((message) => message.sentAt == sentAt);
-    if (index < 0) {
-      return;
-    }
-    final needed = _messages.length - index + 5;
-    if (needed > _visibleCount) {
-      await _growWindow(needed - _visibleCount);
-    }
-    await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) {
-      return;
-    }
-    final retry = _messageKeys[micros]?.currentContext;
-    if (retry != null && retry.mounted) {
-      await Scrollable.ensureVisible(retry,
-          alignment: 0.3, duration: const Duration(milliseconds: 250));
+    _jumping = true;
+    try {
+      final index = _messages.indexWhere((message) => message.sentAt == sentAt);
+      if (index < 0) {
+        return;
+      }
+      final needed = windowForAddition(_messages.length, index);
+      if (needed > _visibleCount) {
+        setState(() {
+          _visibleCount = needed;
+        });
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted || !_scrollController.hasClients) {
+          return;
+        }
+        _scrollController.jumpTo(0);
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) {
+          return;
+        }
+      }
+      final context = _messageKeys[micros]?.currentContext;
+      if (context != null && context.mounted) {
+        await Scrollable.ensureVisible(context,
+            alignment: 0.2, duration: const Duration(milliseconds: 250));
+        return;
+      }
+      for (var attempt = 0; attempt < 50; attempt++) {
+        if (!_scrollController.hasClients) {
+          return;
+        }
+        final position = _scrollController.position;
+        final next =
+            nextJumpOffset(position.pixels, position.viewportDimension);
+        if (next == position.pixels) {
+          return;
+        }
+        _scrollController.jumpTo(next);
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) {
+          return;
+        }
+        final reached = _messageKeys[micros]?.currentContext;
+        if (reached != null && reached.mounted) {
+          await Scrollable.ensureVisible(reached,
+              alignment: 0.3, duration: const Duration(milliseconds: 250));
+          return;
+        }
+      }
+    } finally {
+      _jumping = false;
     }
   }
 
