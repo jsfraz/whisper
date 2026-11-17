@@ -1780,16 +1780,20 @@ packages:
   whisper_openapi_client_dart:
     dependency: "direct main"
     description:
-      path: "../whisper_openapi_client_dart"
-      relative: true
-    source: path
+      path: "."
+      ref: "v0.1.0"
+      resolved-ref: "6e97e025fa4408ae0b93c90ce500b4d83b1694e1"
+      url: "https://github.com/jsfraz/whisper_openapi_client_dart.git"
+    source: git
     version: "0.1.0"
   whisper_websocket_client_dart:
     dependency: "direct main"
     description:
-      path: "../whisper_websocket_client_dart"
-      relative: true
-    source: path
+      path: "."
+      ref: "v0.1.0"
+      resolved-ref: e590c319d5074442ae4a5ee7d0891a4bf358982f
+      url: "https://github.com/jsfraz/whisper_websocket_client_dart.git"
+    source: git
     version: "0.1.0"
   win32:
     dependency: transitive
