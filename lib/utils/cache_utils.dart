@@ -14,6 +14,7 @@ import '../models/user.dart';
 import 'color_utils.dart';
 import 'crypto_utils.dart';
 import 'media_utils.dart';
+import 'message_search.dart';
 import 'singleton.dart';
 import 'utils.dart';
 
@@ -777,6 +778,27 @@ class CacheUtils {
       }
     }
     return counts;
+  }
+
+  /// Searches the stored conversations, newest hit first.
+  ///
+  /// The message box holds decrypted text, so this is a local scan: the query
+  /// never reaches the server.
+  static Future<List<MessageHit>> searchMessages(
+      MessageSearchQuery query) async {
+    final box = await _openPrivateMessagesBox();
+    final hits = <MessageHit>[];
+    for (final key in box.keys.whereType<String>()) {
+      final conversationId = conversationOfKey(key);
+      if (conversationId == null) {
+        continue;
+      }
+      final value = box.get(key);
+      if (value is PrivateMessage) {
+        hits.add(MessageHit(conversationId, value));
+      }
+    }
+    return filterMessages(hits, query);
   }
 
   /// Oldest unread message of a conversation: the anchor of the "new messages"
