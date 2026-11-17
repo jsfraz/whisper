@@ -27,7 +27,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _isBiometryEnabled = false;
-  bool _notificationPreview = true;
+  bool _notificationPreview = false;
 
   @override
   void initState() {
@@ -90,6 +90,42 @@ class _SettingsPageState extends State<SettingsPage> {
     await Fluttertoast.showToast(
         msg: 'retentionSaved'.tr(), backgroundColor: Colors.grey);
   }
+
+  /// Language is stored by easy_localization in SharedPreferences.
+  Future<void> _showLanguageDialog() async {
+    final selected = await showDialog<Locale>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text('languageSettings'.tr()),
+        children: [
+          for (final locale in context.supportedLocales)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(dialogContext).pop(locale),
+              child: Row(
+                children: [
+                  Icon(
+                    context.locale.languageCode == locale.languageCode
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    size: 20,
+                    color: Theme.of(dialogContext).colorScheme.secondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(_languageNames[locale.languageCode] ??
+                      locale.languageCode),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (selected == null || !mounted) {
+      return;
+    }
+    await context.setLocale(selected);
+  }
+
+  static const _languageNames = {'cs': 'Čeština', 'en': 'English'};
 
   Future<void> _toggleBiometry(bool switchValue) async {
     if (switchValue) {
@@ -155,6 +191,27 @@ class _SettingsPageState extends State<SettingsPage> {
                       padding: EdgeInsets.only(left: 5),
                       child: Text(
                         'themeSettings'.tr(),
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.secondary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Language
+              TextButton(
+                onPressed: _showLanguageDialog,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.language,
+                      size: 24,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(left: 5),
+                      child: Text(
+                        'languageSettings'.tr(),
                         style: TextStyle(
                             color: Theme.of(context).colorScheme.secondary),
                       ),

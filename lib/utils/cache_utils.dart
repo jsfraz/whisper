@@ -327,11 +327,11 @@ class CacheUtils {
     await box.put(_biometry, enabled);
   }
 
-  /// Whether notifications may show the decrypted message text. Default on,
-  /// matching the previous behaviour; the user can hide it.
+  /// Whether notifications may show the decrypted message text. Default off:
+  /// the text stays hidden until the user opts in.
   static Future<bool> getNotificationPreview() async {
     Box box = await Hive.openBox(_settingsKey);
-    return box.get(_notificationPreviewKey) as bool? ?? true;
+    return box.get(_notificationPreviewKey) as bool? ?? false;
   }
 
   /// Sets whether notifications may show the message text.
