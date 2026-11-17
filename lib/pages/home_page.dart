@@ -17,6 +17,7 @@ import '../utils/message_notifier.dart';
 import '../utils/notification_service.dart';
 import 'search_user_page.dart';
 import 'settings_page.dart';
+import 'search_page.dart';
 import '../utils/dialog_utils.dart';
 import '../widgets/invite_list_item.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
@@ -33,6 +34,12 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+/// Which rows the chat list shows.
+///
+/// The roadmap lists folders for unread and favourites; favourites arrive in F7
+/// with contacts, so the pinned chats stand in for them.
+enum _ChatFilter { all, unread, pinned }
+
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   final WebSocketManager _webSocketManager = WebSocketManager();
@@ -46,6 +53,9 @@ class _HomePageState extends State<HomePage>
 
   /// Conversation ids pinned to the top of the list.
   Set<String> _pinnedChats = {};
+
+  /// Which rows the list shows; folders without extra storage.
+  _ChatFilter _filter = _ChatFilter.all;
   bool _firstLoad = true;
   String? _pendingFid; // Store pending FID
 
@@ -333,6 +343,56 @@ class _HomePageState extends State<HomePage>
     await _getServerInvites();
   }
 
+  /// Chats that pass the current folder filter.
+  List<MapEntry<User, PrivateMessage>> get _visibleChats {
+    switch (_filter) {
+      case _ChatFilter.unread:
+        return _chatEntries
+            .where((chat) => (_unreadCounts[chat.key.id] ?? 0) > 0)
+            .toList();
+      case _ChatFilter.pinned:
+        return _chatEntries
+            .where((chat) => _pinnedChats.contains(chat.key.id))
+            .toList();
+      case _ChatFilter.all:
+        return _chatEntries;
+    }
+  }
+
+  String _filterLabel(_ChatFilter filter) {
+    switch (filter) {
+      case _ChatFilter.all:
+        return 'allChats'.tr();
+      case _ChatFilter.unread:
+        return 'unreadChats'.tr();
+      case _ChatFilter.pinned:
+        return 'pinnedChats'.tr();
+    }
+  }
+
+  /// Folder chips above the list: everything, unread, pinned.
+  Widget _filterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          for (final filter in _ChatFilter.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(_filterLabel(filter)),
+                selected: _filter == filter,
+                onSelected: (_) => setState(() {
+                  _filter = filter;
+                }),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   /// Get ListView with content
   ListView _getContent(List<MapEntry<User, PrivateMessage>> chats) {
     _firstLoad = false;
@@ -424,6 +484,15 @@ class _HomePageState extends State<HomePage>
                     title: Text('msgPage'.tr()),
                     // Action buttons
                     actions: [
+                      // Search across every locally stored conversation
+                      IconButton(
+                        icon: const Icon(Icons.search),
+                        tooltip: 'searchMessages'.tr(),
+                        onPressed: () {
+                          Navigator.of(context)
+                              .push(stepRoute(const MessageSearchPage()));
+                        },
+                      ),
                       // Settings
                       IconButton(
                         icon: const Icon(Icons.settings),
@@ -485,6 +554,7 @@ class _HomePageState extends State<HomePage>
         Column(
           children: [
             SizedBox(height: 10),
+            _filterChips(),
             // Messages and avatar list
             Expanded(
               child: _firstLoad
@@ -494,7 +564,9 @@ class _HomePageState extends State<HomePage>
                         child: CircularProgressIndicator(),
                       ),
                     )
-                  : _getContent(_chatEntries),
+                  : _visibleChats.isEmpty
+                      ? Center(child: Text('noChatsInFilter'.tr()))
+                      : _getContent(_visibleChats),
             ),
           ],
         ),
