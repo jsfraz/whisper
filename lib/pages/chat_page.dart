@@ -54,6 +54,10 @@ class _ChatPageState extends State<ChatPage> {
   bool _firstLoad = true;
   // Guards against overlapping cache reads
   bool _loading = false;
+  // A change arrived mid-read: run one more pass when it ends
+  bool _reloadRequested = false;
+  // True only around our own read, which notifies on purpose (home list row)
+  bool _selfRead = false;
   // Guards against overlapping history requests
   bool _historyLoading = false;
   // Guards against overlapping "grow the window upwards" passes
@@ -133,8 +137,18 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Reload the conversation from the cache when messages or media state change.
   void _onMessagesChanged() {
+    // Our own read notifies too (it marks messages read); do not re-enter.
+    if (_selfRead) {
+      return;
+    }
     _loadMessages();
   }
+
+  /// Whether the viewport follows the newest message, so a history page landing
+  /// above it does not leave the view stuck one page up.
+  /// shortcut: only message and history events re-take the bottom; growth with
+  /// neither (a voice bubble opening) is not followed.
+  bool _pinned = true;
 
   /// Whether the viewport sits at the newest message.
   bool get _atBottom {
@@ -147,14 +161,26 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Load the conversation once per change instead of once per build.
   Future<void> _loadMessages() async {
-    if (_loading || !mounted) {
+    if (_loading) {
+      // Reading the cache already; the running pass may predate this change.
+      _reloadRequested = true;
+      return;
+    }
+    if (!mounted) {
       return;
     }
     _loading = true;
     final first = _firstLoad;
     final wasAtBottom = _atBottom;
     try {
-      final messages = await MessageNotifier().getMessages(widget.user.id);
+      // The read notifies as a side effect; keep that out of the listener.
+      final List<PrivateMessage> messages;
+      _selfRead = true;
+      try {
+        messages = await MessageNotifier().getMessages(widget.user.id);
+      } finally {
+        _selfRead = false;
+      }
       if (!mounted) {
         return;
       }
@@ -185,17 +211,19 @@ class _ChatPageState extends State<ChatPage> {
         _firstLoad = false;
       });
       if (first || wasAtBottom) {
-        await WidgetsBinding.instance.endOfFrame;
-        if (!mounted) {
-          return;
-        }
-        _jumpToBottom();
+        await _settleAtBottom();
         if (first) {
           await _jumpToFirstUnread();
         }
       }
     } finally {
       _loading = false;
+      if (_reloadRequested) {
+        _reloadRequested = false;
+        if (mounted) {
+          await _loadMessages();
+        }
+      }
     }
   }
 
@@ -223,6 +251,7 @@ class _ChatPageState extends State<ChatPage> {
     if (!_scrollController.hasClients) {
       return;
     }
+    _pinned = true;
     final target = _scrollController.position.maxScrollExtent;
     if (animate) {
       _scrollController.animateTo(target,
@@ -237,6 +266,28 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  /// Takes the bottom over a few frames.
+  ///
+  /// The first jump targets an estimate: a lazy list only knows the height of
+  /// the items it laid out, so the real end sits further down. Jump again until
+  /// the content stops growing, then leave it alone.
+  Future<void> _settleAtBottom() async {
+    for (var pass = 0; pass < 5; pass++) {
+      if (!_scrollController.hasClients) {
+        return;
+      }
+      final before = _scrollController.position.maxScrollExtent;
+      _jumpToBottom();
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+      if ((_scrollController.position.maxScrollExtent - before).abs() < 1) {
+        return;
+      }
+    }
+  }
+
   /// Opens the chat on the first message the user has not read yet.
   Future<void> _jumpToFirstUnread() async {
     if (_unreadAnchor == null) {
@@ -247,13 +298,19 @@ class _ChatPageState extends State<ChatPage> {
     if (context == null || !context.mounted) {
       return;
     }
+    // The divider is above the newest messages: stop following them.
+    _pinned = false;
     await Scrollable.ensureVisible(context,
         alignment: 0.15, duration: const Duration(milliseconds: 250));
   }
 
   /// Extend the rendered window when the user scrolls towards older messages.
   void _onScroll() {
-    if (_jumping || !_scrollController.hasClients) {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    _pinned = _atBottom;
+    if (_jumping) {
       return;
     }
     final position = _scrollController.position;
@@ -349,7 +406,11 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       final delta = _scrollController.position.maxScrollExtent - before;
-      if (delta > 0) {
+      // Older messages land above the viewport: keep what is on screen there,
+      // unless the user is following the newest message.
+      if (_pinned) {
+        await _settleAtBottom();
+      } else if (delta > 0) {
         _scrollController.jumpTo(_scrollController.offset + delta);
       }
     } finally {
