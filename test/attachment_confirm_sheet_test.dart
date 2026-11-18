@@ -13,7 +13,8 @@ void main() {
     await EasyLocalization.ensureInitialized();
   });
 
-  testWidgets('cancel returns null and send returns the caption', (tester) async {
+  testWidgets('cancel returns null and send returns the caption',
+      (tester) async {
     String? result = 'unset';
     await tester.pumpWidget(EasyLocalization(
       path: 'assets/translations',

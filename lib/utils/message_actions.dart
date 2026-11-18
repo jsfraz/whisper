@@ -11,6 +11,8 @@ import 'chat_sender.dart';
 import 'dialog_utils.dart';
 import 'media_utils.dart';
 import 'message_notifier.dart';
+import 'singleton.dart';
+import 'utils.dart';
 import '../utils/nav_transitions.dart';
 
 /// Actions for a single message, offered by the bubble long-press sheet and by
@@ -75,6 +77,16 @@ class MessageActions {
                     save(message);
                   },
                 ),
+              if (message.isMe && (message.id?.isNotEmpty ?? false))
+                ListTile(
+                  leading: const Icon(deleteIcon),
+                  title: Text('deleteMessageForEveryone'.tr()),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    deleteForEveryone(context, message, conversationUserId,
+                        onDeleted: onDeleted);
+                  },
+                ),
               ListTile(
                 leading: const Icon(deleteIcon),
                 title: Text('deleteMessageForMe'.tr()),
@@ -128,16 +140,59 @@ class MessageActions {
     await Navigator.of(context).push(stepRoute(ForwardPage(messages)));
   }
 
-  /// Delete the message only on this device, after a confirmation.
+  /// Delete the message for this account on every device, after a
+  /// confirmation. The other side keeps its copy.
   static void delete(
       BuildContext context, PrivateMessage message, String conversationUserId,
       {VoidCallback? onDeleted}) {
     DialogUtils.yesNoDialog(
-        context, 'deleteMessageConfirm'.tr(), 'deleteMessageConfirmText'.tr(),
-        () async {
-      await CacheUtils.deletePrivateMessage(conversationUserId, message);
-      MessageNotifier().notify();
-      onDeleted?.call();
-    });
+        context,
+        'deleteMessageConfirm'.tr(),
+        'deleteMessageConfirmText'.tr(),
+        () => _delete(context, message, conversationUserId,
+            forEveryone: false, onDeleted: onDeleted));
+  }
+
+  /// Delete an own message for everyone, after a confirmation: the server
+  /// erases the ciphertext, so the other side loses it from the archive.
+  static void deleteForEveryone(
+      BuildContext context, PrivateMessage message, String conversationUserId,
+      {VoidCallback? onDeleted}) {
+    DialogUtils.yesNoDialog(
+        context,
+        'deleteMessageForEveryoneConfirm'.tr(),
+        'deleteMessageForEveryoneConfirmText'.tr(),
+        () => _delete(context, message, conversationUserId,
+            forEveryone: true, onDeleted: onDeleted));
+  }
+
+  /// Removes [message] on the server first, then locally. A failed server call
+  /// leaves the message alone: a local delete on its own would come back with
+  /// the next history page.
+  static Future<void> _delete(
+      BuildContext context, PrivateMessage message, String conversationUserId,
+      {required bool forEveryone, VoidCallback? onDeleted}) async {
+    // A message that never reached the archive has nothing to delete on the
+    // server; only this device holds it.
+    final id = message.id;
+    if (id != null && id.isNotEmpty) {
+      try {
+        await Utils.callApi(
+            () => forEveryone
+                ? Singleton().messagesApi.deleteMessage(id)
+                : Singleton().messagesApi.hideMessage(id),
+            rethrowErr: true);
+      } catch (_) {
+        return;
+      }
+    } else if (forEveryone) {
+      await Fluttertoast.showToast(
+          msg: 'deleteMessageForEveryoneFailed'.tr(),
+          backgroundColor: Colors.red);
+      return;
+    }
+    await CacheUtils.deletePrivateMessage(conversationUserId, message);
+    MessageNotifier().notify();
+    onDeleted?.call();
   }
 }

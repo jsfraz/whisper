@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../utils/nav_transitions.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
@@ -231,7 +232,17 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                             context,
                             'deleteChatConfirm'.tr(),
                             'deleteChatConfirmText'.tr(), () async {
-                          MessageNotifier().deleteChat(widget.userId);
+                          final deleted =
+                              await MessageNotifier().deleteChat(widget.userId);
+                          if (!deleted) {
+                            Fluttertoast.showToast(
+                                msg: 'deleteChatFailed'.tr(),
+                                backgroundColor: Colors.red);
+                            return;
+                          }
+                          if (!context.mounted) {
+                            return;
+                          }
                           // Redirect to home page and clear navigation stack
                           Navigator.pushAndRemoveUntil(
                             context,

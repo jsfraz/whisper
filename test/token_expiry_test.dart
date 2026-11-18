@@ -6,7 +6,10 @@ import 'package:whisper/utils/utils.dart';
 String _token(Map<String, dynamic> payload) {
   String encode(Map<String, dynamic> value) =>
       base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
-  return '${encode({'alg': 'HS256', 'typ': 'JWT'})}.${encode(payload)}.signature';
+  return '${encode({
+        'alg': 'HS256',
+        'typ': 'JWT'
+      })}.${encode(payload)}.signature';
 }
 
 void main() {
@@ -15,8 +18,8 @@ void main() {
     final expired = _token({
       'sub': 'user',
       'exp': DateTime.now()
-          .subtract(const Duration(minutes: 1))
-          .millisecondsSinceEpoch ~/
+              .subtract(const Duration(minutes: 1))
+              .millisecondsSinceEpoch ~/
           1000,
     });
     expect(Utils.isTokenExpired(expired), isTrue);
@@ -26,8 +29,8 @@ void main() {
     final live = _token({
       'sub': 'user',
       'exp': DateTime.now()
-          .add(const Duration(minutes: 5))
-          .millisecondsSinceEpoch ~/
+              .add(const Duration(minutes: 5))
+              .millisecondsSinceEpoch ~/
           1000,
     });
     expect(Utils.isTokenExpired(live), isFalse);
@@ -39,8 +42,8 @@ void main() {
     final legacy = _token({
       'sub': 'user',
       'exp': DateTime.now()
-          .add(const Duration(minutes: 5))
-          .millisecondsSinceEpoch ~/
+              .add(const Duration(minutes: 5))
+              .millisecondsSinceEpoch ~/
           1000,
     });
     expect(Utils.isTokenExpired(legacy), isFalse);
@@ -52,8 +55,8 @@ void main() {
       'sub': 'user',
       'typ': 'access',
       'exp': DateTime.now()
-          .add(const Duration(minutes: 5))
-          .millisecondsSinceEpoch ~/
+              .add(const Duration(minutes: 5))
+              .millisecondsSinceEpoch ~/
           1000,
     });
     expect(Utils.isTokenUsable(typed), isTrue);

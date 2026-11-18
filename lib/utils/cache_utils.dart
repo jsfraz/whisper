@@ -482,6 +482,23 @@ class CacheUtils {
     }
   }
 
+  /// Deletes one stored message by its timestamp. Used for a server tombstone:
+  /// the other side deleted the message for everyone.
+  static Future<void> deletePrivateMessageAt(
+      String userId, DateTime sentAt) async {
+    final box = await _openPrivateMessagesBox();
+    await _migrateLegacyConversation(box, userId);
+    final key = messageKey(userId, sentAt);
+    final value = box.get(key);
+    if (value is PrivateMessage) {
+      for (final path in value.localPaths) {
+        await MediaUtils.deleteLocalFile(path);
+      }
+    }
+    await _deletePendingSend(userId, sentAt);
+    await box.delete(key);
+  }
+
   /// Delete user messages
   static Future<void> deletePrivateMessagesWithUser(String userId) async {
     Box messageBox = await _openPrivateMessagesBox();
@@ -750,6 +767,45 @@ class CacheUtils {
       await box.delete(userId);
     } else {
       await box.put(userId, meta);
+    }
+  }
+
+  /// Instant up to which the account deleted this conversation, null when it
+  /// never did. Everything at or before it is gone for good.
+  static Future<DateTime?> conversationClearedAt(String userId) async {
+    final box = await _openConversationsBox();
+    final raw = _metaOf(box, userId)['clearedAt'];
+    return raw is int ? DateTime.fromMillisecondsSinceEpoch(raw) : null;
+  }
+
+  /// Remembers the server's cut and drops what this device still holds of it.
+  /// The later of the two instants wins, so a stale page cannot undo a delete.
+  static Future<void> applyConversationClearedAt(
+      String userId, DateTime clearedAt) async {
+    final box = await _openConversationsBox();
+    final stored = await conversationClearedAt(userId);
+    final cut =
+        stored != null && stored.isAfter(clearedAt) ? stored : clearedAt;
+    final meta = _metaOf(box, userId);
+    meta['clearedAt'] = cut.millisecondsSinceEpoch;
+    await box.put(userId, meta);
+    await purgeConversationUpTo(userId, cut);
+  }
+
+  /// Deletes the stored messages sent at or before [cut], media included.
+  static Future<void> purgeConversationUpTo(String userId, DateTime cut) async {
+    final box = await _openPrivateMessagesBox();
+    await _migrateLegacyConversation(box, userId);
+    for (final key in _conversationKeys(box, userId).toList()) {
+      final value = box.get(key);
+      if (value is! PrivateMessage || value.sentAt.isAfter(cut)) {
+        continue;
+      }
+      for (final path in value.localPaths) {
+        await MediaUtils.deleteLocalFile(path);
+      }
+      await _deletePendingSend(userId, value.sentAt);
+      await box.delete(key);
     }
   }
 

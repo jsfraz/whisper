@@ -176,6 +176,12 @@ class PrivateMessage extends HiveObject {
   @HiveField(18)
   String? replyToPreview;
 
+  /// Archive id from the server, null for a message this device only ever sent
+  /// and for rows stored before the id was kept. Deleting on the server needs
+  /// it.
+  @HiveField(19)
+  String? id;
+
   /// Cache for [album], keyed by the [albumJson] it was decoded from.
   String? _albumCacheJson;
   List<AlbumItem>? _albumCache;

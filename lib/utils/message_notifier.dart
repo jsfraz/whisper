@@ -221,9 +221,24 @@ class MessageNotifier extends ChangeNotifier {
   }
 
   /// Delete chat by user ID
-  Future<void> deleteChat(String userId) async {
+  /// Deletes the conversation for this account on every device: the server
+  /// stops returning it, then this device drops what it holds. A failed call
+  /// leaves everything in place, because a local wipe alone would come back
+  /// with the next archive page.
+  ///
+  ///	@return bool whether the server confirmed the delete
+  Future<bool> deleteChat(String userId) async {
+    final cleared = await Utils.callApi(
+        () => Singleton().messagesApi.clearConversation(userId),
+        showError: true);
+    final cut = cleared?.clearedAt;
+    if (cut == null) {
+      return false;
+    }
     await CacheUtils.deletePrivateMessagesWithUser(userId);
+    await CacheUtils.applyConversationClearedAt(userId, cut.toLocal());
     notifyListeners();
+    return true;
   }
 
   void notify() {

@@ -429,15 +429,19 @@ class Utils {
     // an archived message we sent has our own id as the sender.
     final byPeer = <String, List<pm.PrivateMessage>>{};
     final peerOfMessage = <String, String>{};
+    final idOfMessage = <String, String>{};
     for (final message in messages) {
-      peerOfMessage[
-              '${message.senderId}|${message.sentAt.toUtc().toIso8601String()}'] =
-          message.peerId;
+      final key =
+          '${message.senderId}|${message.sentAt.toUtc().toIso8601String()}';
+      peerOfMessage[key] = message.peerId;
+      idOfMessage[key] = message.id;
     }
     for (final message in decryptedMessages) {
-      final peer = peerOfMessage[
-              '${message.senderId}|${message.sentAt.toUtc().toIso8601String()}'] ??
-          message.senderId;
+      final key =
+          '${message.senderId}|${message.sentAt.toUtc().toIso8601String()}';
+      // The archive id is what a delete on the server needs.
+      message.id ??= idOfMessage[key];
+      final peer = peerOfMessage[key] ?? message.senderId;
       byPeer.putIfAbsent(peer, () => []).add(message);
     }
     for (final entry in byPeer.entries) {
@@ -556,6 +560,15 @@ class Utils {
   /// older than anything the device already has.
   static Future<void> storeHistoryPage(
       List<ModelsPrivateMessage> messages) async {
+    if (messages.isEmpty) {
+      return;
+    }
+    // A tombstone carries no ciphertext (the sender deleted it for everyone):
+    // drop the local copy instead of storing an undecryptable placeholder.
+    for (final dead in messages.where((message) => message.deletedAt != null)) {
+      await CacheUtils.deletePrivateMessageAt(dead.peerId, dead.sentAt);
+    }
+    messages = messages.where((message) => message.deletedAt == null).toList();
     if (messages.isEmpty) {
       return;
     }

@@ -361,6 +361,13 @@ class _ChatPageState extends State<ChatPage> {
       }
       _historyLoaded = true;
       _historyCursor = page.nextCursor;
+      // The account may have cleared this chat on another device: drop what
+      // this one still holds before the page is written back.
+      if (page.clearedAt != null) {
+        await CacheUtils.applyConversationClearedAt(
+            widget.user.id, page.clearedAt!.toLocal());
+        MessageNotifier().notify();
+      }
       for (final peer in page.peers) {
         await CacheUtils.addUser(
             User(peer.id, peer.username, peer.publicKey, peer.admin));

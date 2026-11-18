@@ -229,7 +229,12 @@ class _HomePageState extends State<HomePage>
     DialogUtils.yesNoDialog(
         context, 'deleteChatConfirm'.tr(), 'deleteChatConfirmText'.tr(),
         () async {
-      await MessageNotifier().deleteChat(user.id);
+      final deleted = await MessageNotifier().deleteChat(user.id);
+      if (!deleted) {
+        Fluttertoast.showToast(
+            msg: 'deleteChatFailed'.tr(), backgroundColor: Colors.red);
+      }
+      await _getConversations();
     });
   }
 

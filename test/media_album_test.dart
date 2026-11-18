@@ -76,8 +76,8 @@ void main() {
 
   group('album items', () {
     test('serialize and deserialize', () {
-      final message = PrivateMessage('1', 'cap', DateTime(2026), DateTime(2026),
-          true);
+      final message =
+          PrivateMessage('1', 'cap', DateTime(2026), DateTime(2026), true);
       message.setAlbum([
         AlbumItem(
           mediaId: 'a',
@@ -110,8 +110,8 @@ void main() {
     });
 
     test('expands into one entry per attachment for the viewer', () {
-      final message = PrivateMessage('1', 'cap', DateTime(2026), DateTime(2026),
-          true);
+      final message =
+          PrivateMessage('1', 'cap', DateTime(2026), DateTime(2026), true);
       message.setAlbum([
         AlbumItem(
             mediaId: 'a',
@@ -153,8 +153,8 @@ void main() {
     });
 
     test('updating one album attachment keeps the others untouched', () async {
-      final message = PrivateMessage('1', 'cap', DateTime(2026, 1, 1),
-          DateTime(2026, 1, 1), true,
+      final message = PrivateMessage(
+          '1', 'cap', DateTime(2026, 1, 1), DateTime(2026, 1, 1), true,
           downloadStatus: MediaDownloadStatus.pending);
       message.setAlbum([
         AlbumItem(
@@ -189,8 +189,8 @@ void main() {
     });
 
     test('send status is stored on the message', () async {
-      final message = PrivateMessage('1', 'hi', DateTime(2026, 2, 1),
-          DateTime(2026, 2, 1), true,
+      final message = PrivateMessage(
+          '1', 'hi', DateTime(2026, 2, 1), DateTime(2026, 2, 1), true,
           sendStatus: SendStatus.sending);
       await CacheUtils.addPrivateMessages('1', [message]);
       await CacheUtils.updateStoredMessage('1', message, (stored) {
