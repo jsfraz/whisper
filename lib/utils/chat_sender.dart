@@ -316,8 +316,9 @@ class ChatSender {
   }
 
   /// Mark a message as sent after the server acknowledged it.
-  static Future<void> confirmSent(String receiverId, DateTime sentAt) async {
-    await CacheUtils.markMessageSent(receiverId, sentAt);
+  static Future<void> confirmSent(String receiverId, DateTime sentAt,
+      {String? id}) async {
+    await CacheUtils.markMessageSent(receiverId, sentAt, id: id);
     _outgoingReferences.remove(CacheUtils.messageKey(receiverId, sentAt));
     MessageNotifier().notify();
   }

@@ -654,8 +654,8 @@ class CacheUtils {
   ///
   /// [receiverId] and [sentAt] are the values the server echoes back; the pair
   /// identifies the stored message without keeping a client message id.
-  static Future<void> markMessageSent(
-      String receiverId, DateTime sentAt) async {
+  static Future<void> markMessageSent(String receiverId, DateTime sentAt,
+      {String? id}) async {
     Box box = await _openPrivateMessagesBox();
     await _migrateLegacyConversation(box, receiverId);
     final key = messageKey(receiverId, sentAt);
@@ -664,6 +664,9 @@ class CacheUtils {
       return;
     }
     stored.sendStatus = SendStatus.sent;
+    // The ack carries the archive id: without it the bubble could only be
+    // deleted for this device until the next sync handed the id over.
+    stored.id ??= id;
     await box.put(key, stored);
     await _deletePendingSend(receiverId, sentAt);
   }

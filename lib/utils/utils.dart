@@ -542,7 +542,7 @@ class Utils {
       // Delivery acknowledgement of one of our outgoing messages
       case WsResponseType.ack:
         final ack = wsResponse.payload as DeliveryAck;
-        await ChatSender.confirmSent(ack.receiverId, ack.sentAt);
+        await ChatSender.confirmSent(ack.receiverId, ack.sentAt, id: ack.id);
         break;
 
       // Error

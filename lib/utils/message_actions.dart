@@ -77,7 +77,11 @@ class MessageActions {
                     save(message);
                   },
                 ),
-              if (message.isMe && (message.id?.isNotEmpty ?? false))
+              // In the debug self-chat the other side is you, so "for
+              // everyone" would mean exactly the same as "for me".
+              if (message.isMe &&
+                  conversationUserId != Singleton().profile.user.id &&
+                  (message.id?.isNotEmpty ?? false))
                 ListTile(
                   leading: const Icon(deleteIcon),
                   title: Text('deleteMessageForEveryone'.tr()),
