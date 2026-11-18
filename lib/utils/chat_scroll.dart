@@ -12,8 +12,8 @@ int windowForAddition(int messageCount, int index, {int margin = 5}) {
   return needed > messageCount ? messageCount : needed;
 }
 
-/// Next scroll offset while walking up the list towards a message that is not
-/// built yet: one viewport at a time, never below the top.
+/// Next scroll offset while walking back towards newer messages that are not
+/// built yet: one viewport at a time, never past the newest message.
 double nextJumpOffset(double pixels, double viewport) {
   final next = pixels - viewport;
   if (next < 0) {

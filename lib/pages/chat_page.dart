@@ -144,19 +144,13 @@ class _ChatPageState extends State<ChatPage> {
     _loadMessages();
   }
 
-  /// Whether the viewport follows the newest message, so a history page landing
-  /// above it does not leave the view stuck one page up.
-  /// shortcut: only message and history events re-take the bottom; growth with
-  /// neither (a voice bubble opening) is not followed.
-  bool _pinned = true;
-
-  /// Whether the viewport sits at the newest message.
+  /// Whether the viewport sits at the newest message. The list is reversed, so
+  /// the newest message is at offset zero and older ones have larger offsets.
   bool get _atBottom {
     if (!_scrollController.hasClients) {
       return true;
     }
-    final position = _scrollController.position;
-    return position.pixels >= position.maxScrollExtent - 40;
+    return _scrollController.position.pixels <= 40;
   }
 
   /// Load the conversation once per change instead of once per build.
@@ -211,7 +205,11 @@ class _ChatPageState extends State<ChatPage> {
         _firstLoad = false;
       });
       if (first || wasAtBottom) {
-        await _settleAtBottom();
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) {
+          return;
+        }
+        _jumpToBottom();
         if (first) {
           await _jumpToFirstUnread();
         }
@@ -251,13 +249,12 @@ class _ChatPageState extends State<ChatPage> {
     if (!_scrollController.hasClients) {
       return;
     }
-    _pinned = true;
-    final target = _scrollController.position.maxScrollExtent;
+    // Reversed list: the newest message is at offset zero.
     if (animate) {
-      _scrollController.animateTo(target,
+      _scrollController.animateTo(0,
           duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
     } else {
-      _scrollController.jumpTo(target);
+      _scrollController.jumpTo(0);
     }
     if (_unseenCount != 0) {
       setState(() {
@@ -266,18 +263,15 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// Takes the bottom over a few frames.
-  ///
-  /// The first jump targets an estimate: a lazy list only knows the height of
-  /// the items it laid out, so the real end sits further down. Jump again until
-  /// the content stops growing, then leave it alone.
-  Future<void> _settleAtBottom() async {
+  /// Takes the oldest end over a few frames: the first jump only reaches the
+  /// estimated extent, and the list lays out the real end further on.
+  Future<void> _settleAtOldest() async {
     for (var pass = 0; pass < 5; pass++) {
       if (!_scrollController.hasClients) {
         return;
       }
       final before = _scrollController.position.maxScrollExtent;
-      _jumpToBottom();
+      _scrollController.jumpTo(before);
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted || !_scrollController.hasClients) {
         return;
@@ -298,29 +292,23 @@ class _ChatPageState extends State<ChatPage> {
     if (context == null || !context.mounted) {
       return;
     }
-    // The divider is above the newest messages: stop following them.
-    _pinned = false;
     await Scrollable.ensureVisible(context,
         alignment: 0.15, duration: const Duration(milliseconds: 250));
   }
 
   /// Extend the rendered window when the user scrolls towards older messages.
   void _onScroll() {
-    if (!_scrollController.hasClients) {
-      return;
-    }
-    _pinned = _atBottom;
-    if (_jumping) {
+    if (_jumping || !_scrollController.hasClients) {
       return;
     }
     final position = _scrollController.position;
-    if (position.pixels >= position.maxScrollExtent - 40 && _unseenCount != 0) {
+    if (_atBottom && _unseenCount != 0) {
       setState(() {
         _unseenCount = 0;
       });
     }
-    // Older messages are above: the window grows near the top of the list.
-    if (position.pixels > 200) {
+    // Reversed list: older messages are at the far end of the scroll extent.
+    if (position.pixels < position.maxScrollExtent - 200) {
       return;
     }
     if (_visibleCount < _messages.length) {
@@ -332,28 +320,18 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   /// Renders more messages above the viewport without moving what is on screen.
+  ///
+  /// The list is reversed, so the extra messages are appended past the current
+  /// end of the scroll extent and the viewport does not need any compensation.
   Future<void> _growWindow(int by) async {
     if (_growing || !mounted) {
       return;
     }
     _growing = true;
-    final before = _scrollController.hasClients
-        ? _scrollController.position.maxScrollExtent
-        : 0.0;
     setState(() {
       _visibleCount += by;
     });
     await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) {
-      _growing = false;
-      return;
-    }
-    if (_scrollController.hasClients) {
-      final delta = _scrollController.position.maxScrollExtent - before;
-      if (delta > 0) {
-        _scrollController.jumpTo(_scrollController.offset + delta);
-      }
-    }
     _growing = false;
   }
 
@@ -373,9 +351,6 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     _historyLoading = true;
-    final before = _scrollController.hasClients
-        ? _scrollController.position.maxScrollExtent
-        : 0.0;
     try {
       final page = await utils.Utils.callApi(
           () => Singleton().messagesApi.getHistory(widget.user.id,
@@ -398,21 +373,11 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       // Show the page that just arrived without making the user scroll again.
+      // Reversed list: the page is appended past the current end, so the
+      // viewport stays where the user left it.
       setState(() {
         _visibleCount += page.messages.length;
       });
-      await WidgetsBinding.instance.endOfFrame;
-      if (!mounted || !_scrollController.hasClients) {
-        return;
-      }
-      final delta = _scrollController.position.maxScrollExtent - before;
-      // Older messages land above the viewport: keep what is on screen there,
-      // unless the user is following the newest message.
-      if (_pinned) {
-        await _settleAtBottom();
-      } else if (delta > 0) {
-        _scrollController.jumpTo(_scrollController.offset + delta);
-      }
     } finally {
       _historyLoading = false;
     }
@@ -550,9 +515,9 @@ class _ChatPageState extends State<ChatPage> {
   /// Widening the rendered window is not enough: a list only builds what is
   /// near the viewport, so growing the tail never builds an old message. The
   /// fast path therefore cuts the window down to the target, which puts it one
-  /// screen from the top, and `jumpTo(0)` lands on it. The slow path walks up a
-  /// viewport at a time for a target already inside a large window but far
-  /// below the screen.
+  /// screen from the oldest end, and jumping to that end lands on it. The slow
+  /// path walks a viewport at a time towards older messages for a target
+  /// already inside a large window but far from the screen.
   Future<void> _jumpToMessage(DateTime sentAt) async {
     final micros = sentAt.microsecondsSinceEpoch;
     _jumping = true;
@@ -570,8 +535,8 @@ class _ChatPageState extends State<ChatPage> {
         if (!mounted || !_scrollController.hasClients) {
           return;
         }
-        _scrollController.jumpTo(0);
-        await WidgetsBinding.instance.endOfFrame;
+        // Reversed list: the target sits at the far end of the window.
+        await _settleAtOldest();
         if (!mounted) {
           return;
         }
@@ -1282,20 +1247,41 @@ class _ChatPageState extends State<ChatPage> {
     }
     final orderedDays = days.keys.toList()..sort();
 
+    // The scroll view is reversed: the first sliver is painted at the bottom
+    // of the screen, so the days and their messages go newest first. Offset
+    // zero is the newest message, which is why opening the chat needs no jump
+    // and older pages cannot move what the user is reading.
     return CustomScrollView(
       controller: _scrollController,
+      reverse: true,
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
       slivers: [
-        // The body sits behind the translucent app bar, so the conversation
-        // has to start below it: without this the avatar header and the first
-        // day separator are painted under the bar.
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: MediaQuery.viewPaddingOf(context).top + kToolbarHeight,
+        for (final day in orderedDays.reversed) ...[
+          SliverList.builder(
+            itemCount: days[day]!.length,
+            itemBuilder: (context, index) {
+              final position = days[day]![days[day]!.length - 1 - index];
+              final message = visible[position];
+              return _buildBubble(
+                message,
+                position > 0 ? visible[position - 1] : null,
+                position < visible.length - 1 ? visible[position + 1] : null,
+              );
+            },
           ),
-        ),
+          SliverPersistentHeader(
+            // A pinned header would stick to the bottom edge in a reversed
+            // view, so day separators scroll with their messages instead.
+            pinned: false,
+            delegate: _DayHeader(
+              label: _dayLabel(day),
+              textColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              background: chatBackground(tintAlpha: 0.35),
+            ),
+          ),
+        ],
         SliverToBoxAdapter(
           child: hasOlder
               ? const Padding(
@@ -1310,28 +1296,14 @@ class _ChatPageState extends State<ChatPage> {
                 )
               : _buildHeader(),
         ),
-        for (final day in orderedDays) ...[
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _DayHeader(
-              label: _dayLabel(day),
-              textColor: Theme.of(context).colorScheme.onSurfaceVariant,
-              background: chatBackground(tintAlpha: 0.35),
-            ),
+        // The body sits behind the translucent app bar, so the conversation
+        // has to start below it: without this the avatar header and the first
+        // day separator are painted under the bar.
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: MediaQuery.viewPaddingOf(context).top + kToolbarHeight,
           ),
-          SliverList.builder(
-            itemCount: days[day]!.length,
-            itemBuilder: (context, index) {
-              final position = days[day]![index];
-              final message = visible[position];
-              return _buildBubble(
-                message,
-                position > 0 ? visible[position - 1] : null,
-                position < visible.length - 1 ? visible[position + 1] : null,
-              );
-            },
-          ),
-        ],
+        ),
       ],
     );
   }

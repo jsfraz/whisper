@@ -22,15 +22,15 @@ void main() {
   });
 
   group('nextJumpOffset', () {
-    test('moves one viewport up', () {
+    test('moves one viewport towards newer messages', () {
       expect(nextJumpOffset(1000, 600), 400);
     });
 
-    test('stops at the top instead of going negative', () {
+    test('stops at the newest message instead of going negative', () {
       expect(nextJumpOffset(200, 600), 0);
     });
 
-    test('returns the same offset when already at the top', () {
+    test('returns the same offset when already at the newest message', () {
       expect(nextJumpOffset(0, 600), 0);
     });
   });
