@@ -33,6 +33,10 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   Map<String, DateTime> _pins = {};
   bool _readReceipts = false;
 
+  /// A toggle in flight: the switch stays disabled until the server call and
+  /// the cache write are done, so it cannot be flipped back and forth.
+  bool _readReceiptsBusy = false;
+
   @override
   void initState() {
     super.initState();
@@ -55,14 +59,27 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   /// current cursor right away, so the peer's ticks catch up without waiting
   /// for the next message.
   Future<void> _toggleReadReceipts(bool enabled) async {
-    await CacheUtils.setReadReceiptsEnabled(widget.userId, enabled);
-    if (enabled) {
-      final messages = await CacheUtils.getPrivateMessages(widget.userId);
-      if (messages.isNotEmpty) {
-        await Utils.sendReadCursor(widget.userId, messages.last.sentAt);
+    if (_readReceiptsBusy) {
+      return;
+    }
+    setState(() {
+      _readReceiptsBusy = true;
+      _readReceipts = enabled;
+    });
+    try {
+      await CacheUtils.setReadReceiptsEnabled(widget.userId, enabled);
+      if (enabled) {
+        final messages = await CacheUtils.getPrivateMessages(widget.userId);
+        if (messages.isNotEmpty) {
+          await Utils.sendReadCursor(widget.userId, messages.last.sentAt);
+        }
+      }
+      await _loadReadReceipts();
+    } finally {
+      if (mounted) {
+        setState(() => _readReceiptsBusy = false);
       }
     }
-    await _loadReadReceipts();
   }
 
   Future<void> _loadPins() async {
@@ -247,9 +264,14 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                     SettingsTile(
                       icon: Icons.done_all,
                       label: 'readReceipts'.tr(),
+                      // Tap on the row toggles too; a non-null handler keeps
+                      // the row in the enabled colours (a disabled TextButton
+                      // greys out its icon and label).
+                      onPressed: () => _toggleReadReceipts(!_readReceipts),
                       trailing: Switch(
                         value: _readReceipts,
-                        onChanged: _toggleReadReceipts,
+                        onChanged:
+                            _readReceiptsBusy ? null : _toggleReadReceipts,
                       ),
                     ),
                     // Pinned messages, shared with the other participant
