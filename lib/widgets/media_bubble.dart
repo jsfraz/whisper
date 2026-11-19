@@ -242,6 +242,8 @@ class _MediaBubbleState extends State<MediaBubble> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Stack(
+          // The badge hangs over the bottom edge, so the stack must not clip.
+          clipBehavior: Clip.none,
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
@@ -251,9 +253,10 @@ class _MediaBubbleState extends State<MediaBubble> {
             // of the caption below it.
             if (widget.badge != null)
               Positioned(
-                // Low on the attachment, but far enough from the corner that
-                // the rounded edge (transparent there) does not cut it.
-                bottom: 4,
+                // On the attachment's bottom edge: half of the pill hangs over
+                // the edge, the way a badge is pinned to it. Far enough from
+                // the corner that the rounded side does not cut it.
+                bottom: -10,
                 left: widget.message.isMe ? 16 : null,
                 right: widget.message.isMe ? null : 16,
                 child: widget.badge!,

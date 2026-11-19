@@ -389,7 +389,11 @@ class _ChatBubbleState extends State<ChatBubble> {
               ),
             )
           : null,
-      clipBehavior: isMedia ? Clip.antiAlias : Clip.none,
+      // An attachment clips its own media; the bubble must stay unclipped when
+      // a reaction badge hangs over its bottom edge.
+      clipBehavior: isMedia && widget.message.reactionEmojis.isEmpty
+          ? Clip.antiAlias
+          : Clip.none,
       padding: isMedia
           ? (widget.message.isReply
               ? const EdgeInsets.fromLTRB(8, 8, 8, 0)
