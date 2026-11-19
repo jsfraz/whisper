@@ -79,19 +79,34 @@ class _ChatBubbleState extends State<ChatBubble> {
       isEmojiOnly(widget.message.message) &&
       emojiCount(widget.message.message) <= 3;
 
-  /// One reaction chip: the emoji, plus how many participants picked it.
-  Widget _reactionChip(String emoji) {
-    final count =
-        widget.message.reactions?.values.where((v) => v == emoji).length ?? 0;
+  /// One badge for all reactions of the bubble: the emoji sit in a single pill
+  /// with no gap between them, and a count only when the same emoji came from
+  /// more than one participant.
+  Widget _reactionBadge() {
+    final emojis = widget.message.reactionEmojis;
+    final counts = <String, int>{};
+    for (final emoji in widget.message.reactions?.values ?? const <String>[]) {
+      counts[emoji] = (counts[emoji] ?? 0) + 1;
+    }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(
-        count > 1 ? '$emoji $count' : emoji,
-        style: const TextStyle(fontSize: 12),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < emojis.length; i++) ...[
+            if (i > 0) const SizedBox(width: 1),
+            Text(
+              (counts[emojis[i]] ?? 1) > 1
+                  ? '${emojis[i]}${counts[emojis[i]]}'
+                  : emojis[i],
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -374,6 +389,26 @@ class _ChatBubbleState extends State<ChatBubble> {
       child: bubble,
     );
 
+    // The reactions hang on the bubble's bottom edge as one badge, on the side
+    // opposite the bubble's own side, the way a messenger pins them there.
+    final bubbleWithBadge = widget.message.reactionEmojis.isEmpty
+        ? bubbleBox
+        : Stack(
+            clipBehavior: Clip.none,
+            children: [
+              bubbleBox,
+              Positioned(
+                bottom: -8,
+                left: widget.message.isMe ? 8 : null,
+                right: widget.message.isMe ? null : 8,
+                child: GestureDetector(
+                  onTap: () => (widget.onActions ?? widget.onSelect)?.call(),
+                  child: _reactionBadge(),
+                ),
+              ),
+            ],
+          );
+
     return Padding(
       padding: EdgeInsets.only(
         left: widget.message.isMe ? 96 : 16,
@@ -448,46 +483,37 @@ class _ChatBubbleState extends State<ChatBubble> {
                                 ? CrossAxisAlignment.end
                                 : CrossAxisAlignment.start,
                             children: [
-                              if (widget.onReply != null &&
-                                  !widget.selectionMode)
-                                Dismissible(
-                                  key: ValueKey(
-                                      'reply|${widget.message.senderId}'
-                                      '|${widget.message.sentAt.microsecondsSinceEpoch}'),
-                                  direction: DismissDirection.horizontal,
-                                  // The swipe is an action, not a delete: the
-                                  // bubble always springs back.
-                                  confirmDismiss: (_) async {
-                                    widget.onReply?.call();
-                                    return false;
-                                  },
-                                  background: _swipeBackground(
-                                      Alignment.centerLeft, bubbleTextColor()),
-                                  secondaryBackground: _swipeBackground(
-                                      Alignment.centerRight, bubbleTextColor()),
-                                  child: bubbleBox,
-                                )
-                              else
-                                bubbleBox,
-                              // Reactions sit just outside the bubble, the
-                              // way they do in the other messengers.
-                              if (widget.message.reactionEmojis.isNotEmpty)
-                                GestureDetector(
-                                  onTap: () =>
-                                      (widget.onActions ?? widget.onSelect)
-                                          ?.call(),
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(top: 2),
-                                    child: Wrap(
-                                      spacing: 4,
-                                      children: [
-                                        for (final emoji
-                                            in widget.message.reactionEmojis)
-                                          _reactionChip(emoji),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                              Padding(
+                                // Room for the reaction badge hanging under
+                                // the bubble.
+                                padding: EdgeInsets.only(
+                                    bottom:
+                                        widget.message.reactionEmojis.isEmpty
+                                            ? 0
+                                            : 10),
+                                child: widget.onReply != null &&
+                                        !widget.selectionMode
+                                    ? Dismissible(
+                                        key: ValueKey(
+                                            'reply|${widget.message.senderId}'
+                                            '|${widget.message.sentAt.microsecondsSinceEpoch}'),
+                                        direction: DismissDirection.horizontal,
+                                        // The swipe is an action, not a
+                                        // delete: the bubble springs back.
+                                        confirmDismiss: (_) async {
+                                          widget.onReply?.call();
+                                          return false;
+                                        },
+                                        background: _swipeBackground(
+                                            Alignment.centerLeft,
+                                            bubbleTextColor()),
+                                        secondaryBackground: _swipeBackground(
+                                            Alignment.centerRight,
+                                            bubbleTextColor()),
+                                        child: bubbleWithBadge,
+                                      )
+                                    : bubbleWithBadge,
+                              ),
                               // Outgoing messages show a clock while they are
                               // being sent and an error when the send failed.
                               if (widget.message.isMe &&

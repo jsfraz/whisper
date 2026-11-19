@@ -189,6 +189,27 @@ void main() {
     ));
     expect(find.byIcon(Icons.done_all), findsOneWidget);
 
+    // Reactions are one badge hanging on the bubble's bottom edge: no gap
+    // between the emoji and none between the badge and the bubble.
+    final sentAt = DateTime(2026, 11, 19, 12);
+    await show(ChatBubble(
+      null,
+      PrivateMessage('1', 'reaguj', sentAt, sentAt, true)
+        ..reactions = {'1': '❤️', '2': '😂'},
+      null,
+      peer,
+      accentColor: Colors.blue,
+    ));
+    expect(find.text('❤️'), findsOneWidget);
+    expect(find.text('😂'), findsOneWidget);
+    final body = tester.getRect(find.text('reaguj'));
+    final heart = tester.getRect(find.text('❤️'));
+    final laugh = tester.getRect(find.text('😂'));
+    // Overlapping the bubble instead of sitting below it.
+    expect(heart.top, lessThan(body.bottom + 5));
+    // The two emoji are one badge, not two chips with a gap.
+    expect(laugh.left - heart.right, lessThan(8));
+
     // Phone numbers and e-mails are underlined like a link.
     await show(ChatBubble(
       null,
