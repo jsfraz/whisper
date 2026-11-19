@@ -251,11 +251,11 @@ class _MediaBubbleState extends State<MediaBubble> {
             // of the caption below it.
             if (widget.badge != null)
               Positioned(
-                // Clear of the rounded corner: right at the corner the media
-                // is transparent and the badge would hang over the edge.
-                bottom: 12,
-                left: widget.message.isMe ? 12 : null,
-                right: widget.message.isMe ? null : 12,
+                // Low on the attachment, but far enough from the corner that
+                // the rounded edge (transparent there) does not cut it.
+                bottom: 4,
+                left: widget.message.isMe ? 16 : null,
+                right: widget.message.isMe ? null : 16,
                 child: widget.badge!,
               ),
           ],
