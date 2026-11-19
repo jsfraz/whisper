@@ -107,6 +107,11 @@ class _ChatPageState extends State<ChatPage> {
   DateTime? _publishedReadAt;
   Timer? _readPublish;
 
+  /// The composer floats over the message list, so the list reserves its
+  /// measured height at the bottom and slides behind the bar above it.
+  final GlobalKey _composerKey = GlobalKey();
+  double _composerHeight = 0;
+
   /// Newest message the viewport has already shown at the bottom; anything
   /// after it while scrolled up counts as unseen.
   int _newestSeenSentAt = 0;
@@ -1075,96 +1080,90 @@ class _ChatPageState extends State<ChatPage> {
     return '$minutes:$seconds';
   }
 
-  /// Default message input bar (attach + text field + mic/send).
+  /// Default message input bar: attach inside the field on the left, mic or
+  /// send on the right.
   Widget _buildInputBar() {
-    return Row(
-      children: [
-        IconButton(
-          icon: const Icon(Icons.add),
-          tooltip: 'attachButton'.tr(),
-          onPressed: _isSending ? null : _showAttachSheet,
+    return Padding(
+      padding: const EdgeInsets.only(right: 5, left: 5),
+      child: TextField(
+        controller: _controllerMessage,
+        minLines: 1,
+        maxLines: 5,
+        textInputAction: TextInputAction.newline,
+        contentInsertionConfiguration: ContentInsertionConfiguration(
+          allowedMimeTypes: const ['image/gif', 'image/webp'],
+          onContentInserted: _onKeyboardContentInserted,
         ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 5, left: 5),
-            child: TextField(
-              controller: _controllerMessage,
-              minLines: 1,
-              maxLines: 5,
-              textInputAction: TextInputAction.newline,
-              contentInsertionConfiguration: ContentInsertionConfiguration(
-                allowedMimeTypes: const ['image/gif', 'image/webp'],
-                onContentInserted: _onKeyboardContentInserted,
-              ),
-              decoration: InputDecoration(
-                hintText: 'yourMessage'.tr(),
-                filled: true,
-                fillColor: chatTheme.brightness == Brightness.dark
-                    ? chatTheme.colorScheme.surfaceBright
-                    : chatTheme.colorScheme.surfaceDim,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
+        decoration: InputDecoration(
+          hintText: 'yourMessage'.tr(),
+          // The attach button lives inside the field, mirroring the mic.
+          prefixIcon: IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'attachButton'.tr(),
+            onPressed: _isSending ? null : _showAttachSheet,
+          ),
+          filled: true,
+          fillColor: chatTheme.brightness == Brightness.dark
+              ? chatTheme.colorScheme.surfaceBright
+              : chatTheme.colorScheme.surfaceDim,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide.none,
+          ),
+          suffixIcon: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _controllerMessage,
+            builder: (context, value, _) {
+              final hasText = value.text.trim().isNotEmpty;
+              if (hasText) {
+                return IconButton(
+                  onPressed: _isSending ? null : _sendMessage,
+                  icon: _isSending
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send),
+                );
+              }
+              // Hold-to-record voice message. The bar is overlaid while
+              // recording, so this detector stays mounted and its
+              // long-press end still fires.
+              return GestureDetector(
+                onLongPressStart: (_) {
+                  if (!_isSending) {
+                    _startRecording();
+                  }
+                },
+                onLongPressMoveUpdate: (details) {
+                  final shouldCancel = details.localOffsetFromOrigin.dx < -80;
+                  if (shouldCancel != _cancelRecording) {
+                    setState(() {
+                      _cancelRecording = shouldCancel;
+                    });
+                  }
+                },
+                onLongPressEnd: (_) {
+                  if (_isRecording) {
+                    _stopRecording();
+                  } else {
+                    _stopRequested = true;
+                  }
+                },
+                child: IconButton(
+                  onPressed: _isSending
+                      ? null
+                      : () async {
+                          await Fluttertoast.showToast(
+                              msg: 'holdToRecord'.tr());
+                        },
+                  icon: const Icon(Icons.mic),
                 ),
-                suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: _controllerMessage,
-                  builder: (context, value, _) {
-                    final hasText = value.text.trim().isNotEmpty;
-                    if (hasText) {
-                      return IconButton(
-                        onPressed: _isSending ? null : _sendMessage,
-                        icon: _isSending
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.send),
-                      );
-                    }
-                    // Hold-to-record voice message. The bar is overlaid while
-                    // recording, so this detector stays mounted and its
-                    // long-press end still fires.
-                    return GestureDetector(
-                      onLongPressStart: (_) {
-                        if (!_isSending) {
-                          _startRecording();
-                        }
-                      },
-                      onLongPressMoveUpdate: (details) {
-                        final shouldCancel =
-                            details.localOffsetFromOrigin.dx < -80;
-                        if (shouldCancel != _cancelRecording) {
-                          setState(() {
-                            _cancelRecording = shouldCancel;
-                          });
-                        }
-                      },
-                      onLongPressEnd: (_) {
-                        if (_isRecording) {
-                          _stopRecording();
-                        } else {
-                          _stopRequested = true;
-                        }
-                      },
-                      child: IconButton(
-                        onPressed: _isSending
-                            ? null
-                            : () async {
-                                await Fluttertoast.showToast(
-                                    msg: 'holdToRecord'.tr());
-                              },
-                        icon: const Icon(Icons.mic),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
+              );
+            },
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -1412,6 +1411,9 @@ class _ChatPageState extends State<ChatPage> {
         parent: AlwaysScrollableScrollPhysics(),
       ),
       slivers: [
+        // Reversed list: the first sliver sits at the visual bottom, so this
+        // spacer keeps the newest message above the composer bar.
+        SliverToBoxAdapter(child: SizedBox(height: _composerHeight)),
         for (final day in orderedDays.reversed) ...[
           SliverList.builder(
             itemCount: days[day]!.length,
@@ -1598,8 +1600,25 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  /// Measures the composer so the list can reserve exactly its height.
+  void _measureComposer() {
+    final render = _composerKey.currentContext?.findRenderObject();
+    if (render is! RenderBox || !render.hasSize) {
+      return;
+    }
+    final height = render.size.height;
+    if ((height - _composerHeight).abs() > 0.5) {
+      setState(() => _composerHeight = height);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _measureComposer();
+      }
+    });
     return PopScope(
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop && _messages.isNotEmpty) {
@@ -1628,6 +1647,37 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
           ),
+          // The message list runs behind the composer bar, so a tall bubble is
+          // never cut off at the input's edge.
+          extendBody: true,
+          bottomNavigationBar: Container(
+            key: _composerKey,
+            decoration: BoxDecoration(
+              color: chatBackground(),
+              image: chatPattern(),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildPinBar(),
+                    if (_replyTo != null) _buildReplyBar(),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        _buildInputBar(),
+                        if (_isRecording)
+                          Positioned.fill(child: _buildRecordingBar()),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           body: Container(
             decoration: BoxDecoration(image: chatPattern()),
             child: Column(
@@ -1649,7 +1699,7 @@ class _ChatPageState extends State<ChatPage> {
                       if (!_firstLoad && _unseenCount > 0)
                         Positioned(
                           right: 16,
-                          bottom: 16,
+                          bottom: _composerHeight + 16,
                           child: FloatingActionButton.small(
                             heroTag: 'jumpToBottom',
                             tooltip: 'jumpToLatest'.tr(),
@@ -1669,27 +1719,6 @@ class _ChatPageState extends State<ChatPage> {
                           ),
                         ),
                     ],
-                  ),
-                ),
-                SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildPinBar(),
-                        if (_replyTo != null) _buildReplyBar(),
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            _buildInputBar(),
-                            if (_isRecording)
-                              Positioned.fill(child: _buildRecordingBar()),
-                          ],
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ],
