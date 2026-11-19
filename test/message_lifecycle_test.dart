@@ -90,6 +90,25 @@ void main() {
     expect(await CacheUtils.getPinnedMessages(peer), isEmpty);
   });
 
+  test('read receipts are off by default and the peer cursor only moves on',
+      () async {
+    const peer = 'peer-id';
+    expect(await CacheUtils.isReadReceiptsEnabled(peer), isFalse);
+
+    await CacheUtils.setReadReceiptsEnabled(peer, true);
+    expect(await CacheUtils.isReadReceiptsEnabled(peer), isTrue);
+
+    await CacheUtils.setPeerReadAt(peer, DateTime(2026, 11, 19, 12, 5));
+    expect(await CacheUtils.getPeerReadAt(peer), DateTime(2026, 11, 19, 12, 5));
+
+    // Out of order frames must not take the tick back.
+    await CacheUtils.setPeerReadAt(peer, DateTime(2026, 11, 19, 12, 1));
+    expect(await CacheUtils.getPeerReadAt(peer), DateTime(2026, 11, 19, 12, 5));
+
+    await CacheUtils.setReadReceiptsEnabled(peer, false);
+    expect(await CacheUtils.isReadReceiptsEnabled(peer), isFalse);
+  });
+
   test('the mutation cursor never moves backwards', () async {
     await CacheUtils.setSyncEventSeq(5);
     await CacheUtils.setSyncEventSeq(3);

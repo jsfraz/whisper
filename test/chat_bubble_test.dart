@@ -153,6 +153,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Show less'), findsOneWidget);
 
+    // A forwarded message says so above its body.
+    await show(ChatBubble(
+      null,
+      PrivateMessage(
+          '2', 'přeposlaný text', DateTime(2026), DateTime(2026), true)
+        ..forwarded = true,
+      null,
+      peer,
+      accentColor: Colors.blue,
+    ));
+    expect(find.text('Forwarded'), findsOneWidget);
+    expect(renderedText(tester), contains('přeposlaný text'));
+
+    // Own messages carry one tick once the server stored them; the peer's read
+    // cursor covering the message turns it into two.
+    final sent = DateTime(2026, 11, 19, 12);
+    await show(ChatBubble(
+      null,
+      PrivateMessage('1', 'odesláno', sent, sent, true),
+      null,
+      peer,
+      accentColor: Colors.blue,
+    ));
+    expect(find.byIcon(Icons.done), findsOneWidget);
+    expect(find.byIcon(Icons.done_all), findsNothing);
+
+    await show(ChatBubble(
+      null,
+      PrivateMessage('1', 'přečteno', sent, sent, true),
+      null,
+      peer,
+      accentColor: Colors.blue,
+      readAt: sent,
+    ));
+    expect(find.byIcon(Icons.done_all), findsOneWidget);
+
     // Phone numbers and e-mails are underlined like a link.
     await show(ChatBubble(
       null,

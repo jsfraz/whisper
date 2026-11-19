@@ -11,6 +11,7 @@ import '../utils/message_notifier.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/media_utils.dart';
 import '../utils/singleton.dart';
+import '../utils/utils.dart';
 import '../utils/theme_utils.dart';
 import '../widgets/media_bubble.dart';
 import '../widgets/settings_tile.dart';
@@ -30,6 +31,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   Color? _chatThemeColor;
   List<PrivateMessage> _media = [];
   Map<String, DateTime> _pins = {};
+  bool _readReceipts = false;
 
   @override
   void initState() {
@@ -37,6 +39,30 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     _loadChatTheme();
     _loadMedia();
     _loadPins();
+    _loadReadReceipts();
+  }
+
+  Future<void> _loadReadReceipts() async {
+    final enabled = await CacheUtils.isReadReceiptsEnabled(widget.userId);
+    if (mounted) {
+      setState(() {
+        _readReceipts = enabled;
+      });
+    }
+  }
+
+  /// Turns receipts of this chat on or off. Turning them on publishes the
+  /// current cursor right away, so the peer's ticks catch up without waiting
+  /// for the next message.
+  Future<void> _toggleReadReceipts(bool enabled) async {
+    await CacheUtils.setReadReceiptsEnabled(widget.userId, enabled);
+    if (enabled) {
+      final messages = await CacheUtils.getPrivateMessages(widget.userId);
+      if (messages.isNotEmpty) {
+        await Utils.sendReadCursor(widget.userId, messages.last.sentAt);
+      }
+    }
+    await _loadReadReceipts();
   }
 
   Future<void> _loadPins() async {
@@ -215,6 +241,16 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                       icon: Icons.event,
                       label: 'jumpToDate'.tr(),
                       onPressed: _jumpToDate,
+                    ),
+                    // Read receipts: off by default, one switch for both
+                    // directions of this chat
+                    SettingsTile(
+                      icon: Icons.done_all,
+                      label: 'readReceipts'.tr(),
+                      trailing: Switch(
+                        value: _readReceipts,
+                        onChanged: _toggleReadReceipts,
+                      ),
                     ),
                     // Pinned messages, shared with the other participant
                     SettingsTile(

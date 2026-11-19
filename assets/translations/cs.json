@@ -248,5 +248,9 @@
   "selectMessage": "Vybrat",
   "messageEdited": "upraveno",
   "pinnedMessages": "Připnuté zprávy",
-  "noPinnedMessages": "Zatím žádná připnutá zpráva"
+  "noPinnedMessages": "Zatím žádná připnutá zpráva",
+  "forwardedMessage": "Přeposláno",
+  "readReceipts": "Potvrzení o přečtení",
+  "messageDelivered": "Doručeno",
+  "messageRead": "Přečteno"
 }

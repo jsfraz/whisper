@@ -1783,14 +1783,14 @@ packages:
       path: "../whisper_openapi_client_dart"
       relative: true
     source: path
-    version: "0.2.0"
+    version: "0.3.0"
   whisper_websocket_client_dart:
     dependency: "direct main"
     description:
       path: "../whisper_websocket_client_dart"
       relative: true
     source: path
-    version: "0.2.0"
+    version: "0.3.0"
   win32:
     dependency: transitive
     description:

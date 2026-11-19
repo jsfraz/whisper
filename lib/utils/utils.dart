@@ -14,6 +14,7 @@ import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:whisper_websocket_client_dart/models/delivery_ack.dart';
 import 'package:whisper_websocket_client_dart/models/message_event.dart';
+import 'package:whisper_websocket_client_dart/models/read_receipt.dart';
 import 'package:whisper_websocket_client_dart/models/synced.dart';
 import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/private_message.dart';
@@ -339,6 +340,7 @@ class Utils {
                 DateTime.now(),
                 false,
                 downloadStatus: pm.MediaDownloadStatus.pending,
+                forwarded: envelope.forwarded,
               );
               albumMsg.setAlbum(envelope.references
                   .map((ref) => pm.AlbumItem(
@@ -369,6 +371,7 @@ class Utils {
               durationMs: ref.durationMs,
               fileName: ref.fileName,
               downloadStatus: pm.MediaDownloadStatus.pending,
+              forwarded: envelope.forwarded,
             );
             return (mediaMsg, [ref], message.peerId);
           }
@@ -380,7 +383,8 @@ class Utils {
               textEnvelope?.body ?? utf8.decode(decryptedMessage),
               message.sentAt,
               DateTime.now(),
-              false)
+              false,
+              forwarded: textEnvelope?.forwarded ?? false)
             ..setReplyTo(textEnvelope?.reply);
           return (textMsg, const <MediaReference>[], message.peerId);
         } catch (e) {
@@ -555,6 +559,10 @@ class Utils {
         for (final event in synced.events) {
           await applyEvent(event);
         }
+        for (final receipt in synced.reads) {
+          await CacheUtils.setPeerReadAt(
+              receipt.peerId, receipt.readAt.toLocal());
+        }
         // Only after the batch is stored: a cursor ahead of the local messages
         // would drop them for good.
         await CacheUtils.setSyncSeq(synced.syncedThrough);
@@ -571,6 +579,14 @@ class Utils {
       case WsResponseType.reaction:
       case WsResponseType.pin:
         await applyEvent(wsResponse.payload as MessageEvent);
+        break;
+
+      // The other participant moved their read cursor
+      case WsResponseType.read:
+        final receipt = wsResponse.payload as ReadReceipt;
+        await CacheUtils.setPeerReadAt(
+            receipt.peerId, receipt.readAt.toLocal());
+        MessageNotifier().notify();
         break;
 
       // Delete account
@@ -721,6 +737,23 @@ class Utils {
       if (kDebugMode) {
         debugPrint('sync request failed: $e');
       }
+    }
+  }
+
+  /// Publishes how far the account has read [peerId]'s chat. Returns false when
+  /// the server refused, so the caller can retry on the next message.
+  static Future<bool> sendReadCursor(String peerId, DateTime readAt) async {
+    try {
+      await callApi(
+          () => Singleton().chatsApi.setReadCursor(
+                peerId,
+                setReadCursorInput: SetReadCursorInput(readAt: readAt.toUtc()),
+              ),
+          rethrowErr: true,
+          showError: false);
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 

@@ -886,6 +886,52 @@ class CacheUtils {
     }
   }
 
+  /// Whether this chat sends and shows read receipts. Off by default; one
+  /// switch governs both directions, so ticks only appear when both sides opted
+  /// in (a side that is off never publishes its cursor).
+  static Future<bool> isReadReceiptsEnabled(String userId) async {
+    final box = await _openConversationsBox();
+    return _metaOf(box, userId)['readReceipts'] == true;
+  }
+
+  /// Turns read receipts of one chat on or off.
+  static Future<void> setReadReceiptsEnabled(
+      String userId, bool enabled) async {
+    final box = await _openConversationsBox();
+    final meta = _metaOf(box, userId);
+    if (enabled) {
+      meta['readReceipts'] = true;
+    } else {
+      meta.remove('readReceipts');
+    }
+    if (meta.isEmpty) {
+      await box.delete(userId);
+    } else {
+      await box.put(userId, meta);
+    }
+  }
+
+  /// Instant up to which the other participant has read this chat, null when
+  /// they never published one.
+  static Future<DateTime?> getPeerReadAt(String userId) async {
+    final box = await _openConversationsBox();
+    final raw = _metaOf(box, userId)['peerReadAt'];
+    return raw is int ? DateTime.fromMillisecondsSinceEpoch(raw) : null;
+  }
+
+  /// Remembers the peer's read cursor. It only moves forward, so a frame that
+  /// arrives out of order cannot take the tick back.
+  static Future<void> setPeerReadAt(String userId, DateTime readAt) async {
+    final stored = await getPeerReadAt(userId);
+    if (stored != null && !readAt.isAfter(stored)) {
+      return;
+    }
+    final box = await _openConversationsBox();
+    final meta = _metaOf(box, userId);
+    meta['peerReadAt'] = readAt.millisecondsSinceEpoch;
+    await box.put(userId, meta);
+  }
+
   /// Instant up to which the account deleted this conversation, null when it
   /// never did. Everything at or before it is gone for good.
   static Future<DateTime?> conversationClearedAt(String userId) async {

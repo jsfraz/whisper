@@ -91,5 +91,7 @@ class Singleton {
 
   MessagesApi get messagesApi => MessagesApi(_api);
 
+  ChatsApi get chatsApi => ChatsApi(_api);
+
   bool get offlineMode => _offlineMode;
 }

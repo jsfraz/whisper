@@ -191,6 +191,11 @@ class PrivateMessage extends HiveObject {
   @HiveField(21)
   Map<String, String>? reactions;
 
+  /// Whether the message was forwarded: the sender passed on somebody else's
+  /// text instead of writing it.
+  @HiveField(22, defaultValue: false)
+  bool forwarded;
+
   /// Cache for [album], keyed by the [albumJson] it was decoded from.
   String? _albumCacheJson;
   List<AlbumItem>? _albumCache;
@@ -217,6 +222,7 @@ class PrivateMessage extends HiveObject {
     this.replyToPreview,
     this.editedAt,
     this.reactions,
+    this.forwarded = false,
   });
 
   /// Whether the sender edited the text after sending it.

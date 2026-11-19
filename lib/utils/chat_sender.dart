@@ -57,13 +57,14 @@ class ChatSender {
   /// upgrade by persisting the transport key inside the encrypted profile box.
   static final Map<String, List<MediaReference>> _outgoingReferences = {};
 
-  /// Send a text message to [recipient], optionally quoting [reply].
+  /// Send a text message to [recipient], optionally quoting [reply] or marked
+  /// as forwarded.
   static Future<bool> sendText(User recipient, String text,
-      {ReplyRef? reply}) async {
+      {ReplyRef? reply, bool forwarded = false}) async {
     final now = DateTime.now();
     final message = PrivateMessage(
         Singleton().profile.user.id, text, now, now, true,
-        sendStatus: SendStatus.sending)
+        sendStatus: SendStatus.sending, forwarded: forwarded)
       ..setReplyTo(reply);
     try {
       await _persist(recipient, [message]);
@@ -86,7 +87,8 @@ class ChatSender {
       int? width,
       int? height,
       int? durationMs,
-      String? fileName}) async {
+      String? fileName,
+      bool forwarded = false}) async {
     if (!MediaUtils.uploadFits(bytes.length)) {
       _toastTooLarge();
       return false;
@@ -110,6 +112,7 @@ class ChatSender {
       downloadStatus: MediaDownloadStatus.ready,
       fileName: fileName,
       sendStatus: SendStatus.sending,
+      forwarded: forwarded,
     );
     try {
       await _persist(recipient, [message]);
@@ -128,7 +131,8 @@ class ChatSender {
       }
       _outgoingReferences[CacheUtils.messageKey(recipient.id, message.sentAt)] =
           [reference];
-      final envelope = MediaUtils.buildMediaEnvelope(reference, caption);
+      final envelope = MediaUtils.buildMediaEnvelope(reference, caption,
+          forwarded: forwarded);
       await _sendEnvelope(recipient, envelope, message.sentAt);
       await CacheUtils.updateStoredMessage(recipient.id, message, (stored) {
         stored.mediaId = reference.mediaId;
@@ -144,7 +148,7 @@ class ChatSender {
   /// envelope carrying all references, one WebSocket message.
   static Future<bool> sendAlbum(
       User recipient, List<OutgoingAttachment> attachments,
-      {String caption = ''}) async {
+      {String caption = '', bool forwarded = false}) async {
     if (attachments.isEmpty) {
       return false;
     }
@@ -169,6 +173,7 @@ class ChatSender {
       true,
       downloadStatus: MediaDownloadStatus.ready,
       sendStatus: SendStatus.sending,
+      forwarded: forwarded,
     );
     message.setAlbum([
       for (var i = 0; i < attachments.length; i++)
@@ -210,7 +215,8 @@ class ChatSender {
 
       _outgoingReferences[CacheUtils.messageKey(recipient.id, message.sentAt)] =
           references;
-      final envelope = MediaUtils.buildAlbumEnvelope(references, caption);
+      final envelope = MediaUtils.buildAlbumEnvelope(references, caption,
+          forwarded: forwarded);
       await _sendEnvelope(recipient, envelope, message.sentAt);
       await CacheUtils.updateStoredMessage(recipient.id, message, (stored) {
         final items = stored.album;
@@ -342,8 +348,10 @@ class ChatSender {
     }
     _outgoingReferences[key] = references;
     final envelope = message.isAlbum
-        ? MediaUtils.buildAlbumEnvelope(references, message.message)
-        : MediaUtils.buildMediaEnvelope(references.first, message.message);
+        ? MediaUtils.buildAlbumEnvelope(references, message.message,
+            forwarded: message.forwarded)
+        : MediaUtils.buildMediaEnvelope(references.first, message.message,
+            forwarded: message.forwarded);
     await _sendEnvelope(recipient, envelope, message.sentAt);
   }
 
@@ -402,9 +410,10 @@ class ChatSender {
     // A reply needs the quote next to the body; everything else stays raw text
     // so an older client can still read it.
     final reply = message.replyTo;
-    final plaintext = reply == null
+    final plaintext = reply == null && !message.forwarded
         ? utf8.encode(message.message)
-        : buildTextEnvelope(message.message, reply);
+        : buildTextEnvelope(message.message, reply,
+            forwarded: message.forwarded);
     final data = await CryptoUtils.encryptMessageData(
         plaintext, bu.CryptoUtils.rsaPublicKeyFromPem(recipient.publicKey));
     Singleton().wsClient.sendMessage(WsMessage.privateMessage(NewPrivateMessage(

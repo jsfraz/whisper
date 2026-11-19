@@ -27,6 +27,10 @@ class ChatBubble extends StatefulWidget {
   /// Whether this bubble is part of the current selection.
   final bool selected;
 
+  /// Instant up to which the peer read the chat; null when they never
+  /// published one (receipts off or nothing read yet).
+  final DateTime? readAt;
+
   /// Toggles this bubble in the selection (tap and long-press).
   final VoidCallback? onSelect;
 
@@ -44,6 +48,7 @@ class ChatBubble extends StatefulWidget {
       {required this.accentColor,
       this.selectionMode = false,
       this.selected = false,
+      this.readAt,
       this.onSelect,
       this.onActions,
       this.onReply,
@@ -305,6 +310,18 @@ class _ChatBubbleState extends State<ChatBubble> {
           : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (widget.message.forwarded)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              'forwardedMessage'.tr(),
+              style: TextStyle(
+                color: bubbleTextColor().withValues(alpha: 0.8),
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
         if (widget.message.isReply) quoteBlock(),
         content(),
         if (widget.message.isEdited)
@@ -495,6 +512,28 @@ class _ChatBubbleState extends State<ChatBubble> {
                                     ),
                                   ),
                                 ),
+                              // Sent messages carry ticks: one for the ack
+                              // (the server stored it), two when the peer's
+                              // read cursor passed it.
+                              if (widget.message.isMe &&
+                                  widget.message.sendStatus == SendStatus.sent)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Tooltip(
+                                    message: _readByPeer
+                                        ? 'messageRead'.tr()
+                                        : 'messageDelivered'.tr(),
+                                    child: Icon(
+                                      _readByPeer ? Icons.done_all : Icons.done,
+                                      size: 13,
+                                      color: _readByPeer
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                          : Colors.grey,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -508,6 +547,12 @@ class _ChatBubbleState extends State<ChatBubble> {
         ],
       ),
     );
+  }
+
+  /// Whether the peer's read cursor already covers this message.
+  bool get _readByPeer {
+    final readAt = widget.readAt;
+    return readAt != null && !widget.message.sentAt.isAfter(readAt);
   }
 
   Widget _swipeBackground(Alignment alignment, Color color) {

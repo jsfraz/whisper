@@ -53,10 +53,13 @@ class ReplyRef {
 
 /// Payload of a text message that quotes another one.
 class ParsedTextEnvelope {
-  const ParsedTextEnvelope(this.body, this.reply);
+  const ParsedTextEnvelope(this.body, this.reply, {this.forwarded = false});
 
   final String body;
   final ReplyRef? reply;
+
+  /// The sender passed on somebody else's text instead of writing it.
+  final bool forwarded;
 }
 
 /// Envelope version of a text message carrying a quote. Versions 1 and 2 are
@@ -64,13 +67,18 @@ class ParsedTextEnvelope {
 /// quotes anything keeps writing what every older client can open.
 const int textEnvelopeVersion = 3;
 
-/// Plaintext (pre-encryption) bytes of a reply.
-Uint8List buildTextEnvelope(String body, ReplyRef reply) {
+/// Plaintext (pre-encryption) bytes of a reply or a forwarded message.
+///
+/// The envelope stays version 3 and the flags are optional keys, so a reader
+/// that predates them still shows the body instead of raw JSON.
+Uint8List buildTextEnvelope(String body, ReplyRef? reply,
+    {bool forwarded = false}) {
   final map = <String, dynamic>{
     'whisperMsg': textEnvelopeVersion,
     'kind': 'text',
     'body': body,
-    'replyTo': reply.toJson(),
+    if (reply != null) 'replyTo': reply.toJson(),
+    if (forwarded) 'forwarded': true,
   };
   return Uint8List.fromList(utf8.encode(jsonEncode(map)));
 }
@@ -87,7 +95,11 @@ ParsedTextEnvelope? tryParseTextEnvelope(Uint8List plaintext) {
       if (body is! String) {
         return null;
       }
-      return ParsedTextEnvelope(body, ReplyRef.fromJson(decoded['replyTo']));
+      return ParsedTextEnvelope(
+        body,
+        ReplyRef.fromJson(decoded['replyTo']),
+        forwarded: decoded['forwarded'] == true,
+      );
     }
   } catch (_) {
     // Not JSON / not a text envelope -> plain text.

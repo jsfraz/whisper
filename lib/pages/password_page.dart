@@ -58,8 +58,7 @@ class _PasswordPageState extends State<PasswordPage> {
         // Load profile
         Singleton().profile = await CacheUtils.getProfile();
         // OpenAPI client
-        Singleton().api =
-            Singleton.createApiClient(Singleton().profile.url);
+        Singleton().api = Singleton.createApiClient(Singleton().profile.url);
         // Check tokens
         await Utils.authCheck();
         // WebSocket client
@@ -147,8 +146,7 @@ class _PasswordPageState extends State<PasswordPage> {
         // Add profile to singleton
         Singleton().profile = await CacheUtils.getProfile();
         // OpenAPI client
-        Singleton().api =
-            Singleton.createApiClient(Singleton().profile.url);
+        Singleton().api = Singleton.createApiClient(Singleton().profile.url);
         // Kontrola tokenů
         await Utils.authCheck();
 

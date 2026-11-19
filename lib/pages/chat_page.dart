@@ -96,6 +96,17 @@ class _ChatPageState extends State<ChatPage> {
   /// Pinned message ids of this chat with the instant of the pin.
   Map<String, DateTime> _pins = {};
 
+  /// Whether this chat publishes and shows read receipts.
+  bool _readReceipts = false;
+
+  /// Instant up to which the other participant has read this chat.
+  DateTime? _peerReadAt;
+
+  /// Instant this device already told the server about, so an idle re-render
+  /// does not send the same cursor again.
+  DateTime? _publishedReadAt;
+  Timer? _readPublish;
+
   /// Newest message the viewport has already shown at the bottom; anything
   /// after it while scrolled up counts as unseen.
   int _newestSeenSentAt = 0;
@@ -192,12 +203,17 @@ class _ChatPageState extends State<ChatPage> {
       final newest =
           messages.isEmpty ? 0 : messages.last.sentAt.microsecondsSinceEpoch;
       final pins = await CacheUtils.getPinnedMessages(widget.user.id);
+      final peerReadAt = await CacheUtils.getPeerReadAt(widget.user.id);
+      final readReceipts =
+          await CacheUtils.isReadReceiptsEnabled(widget.user.id);
       if (!mounted) {
         return;
       }
       setState(() {
         _messages = messages;
         _pins = pins;
+        _peerReadAt = peerReadAt;
+        _readReceipts = readReceipts;
         if (!first) {
           if (wasAtBottom) {
             _unseenCount = 0;
@@ -222,6 +238,8 @@ class _ChatPageState extends State<ChatPage> {
           await _jumpToFirstUnread();
         }
       }
+      // Reading the chat is what moves the cursor; the peer's ticks follow.
+      _publishReadCursor();
     } finally {
       _loading = false;
       if (_reloadRequested) {
@@ -491,6 +509,28 @@ class _ChatPageState extends State<ChatPage> {
         ),
       ),
     );
+  }
+
+  /// Publishes how far this chat was read, debounced: scrolling through a burst
+  /// of messages should cost one request, not one per message.
+  void _publishReadCursor() {
+    if (!_readReceipts || _messages.isEmpty) {
+      return;
+    }
+    final newest = _messages.last.sentAt;
+    if (_publishedReadAt != null && !newest.isAfter(_publishedReadAt!)) {
+      return;
+    }
+    _readPublish?.cancel();
+    _readPublish = Timer(const Duration(seconds: 1), () async {
+      final at = _messages.isEmpty ? null : _messages.last.sentAt;
+      if (at == null) {
+        return;
+      }
+      if (await utils.Utils.sendReadCursor(widget.user.id, at) && mounted) {
+        _publishedReadAt = at;
+      }
+    });
   }
 
   /// Load the draft message saved when leaving the chat.
@@ -1327,6 +1367,7 @@ class _ChatPageState extends State<ChatPage> {
       accentColor: _chatThemeColor ?? Singleton().appTheme.color,
       selectionMode: _selectionMode,
       selected: _selected.contains(micros),
+      readAt: _peerReadAt,
       onSelect: () => _toggleSelected(message),
       onActions: () => _openMessageActions(message),
       onReply: () => _startReply(message),
@@ -1425,6 +1466,7 @@ class _ChatPageState extends State<ChatPage> {
     _scrollController.removeListener(_onScroll);
     WidgetsBinding.instance.removeObserver(_metricsObserver);
     _recordTimer?.cancel();
+    _readPublish?.cancel();
     _recorderController?.dispose();
     _controllerMessage.dispose();
     _scrollController.dispose();

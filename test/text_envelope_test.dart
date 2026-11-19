@@ -33,6 +33,26 @@ void main() {
     expect(decoded['whisperMsg'], textEnvelopeVersion);
   });
 
+  test('a forwarded message survives the round trip without a quote', () {
+    final envelope = buildTextEnvelope('přeposláno', null, forwarded: true);
+
+    final parsed = tryParseTextEnvelope(envelope);
+    expect(parsed, isNotNull);
+    expect(parsed!.body, 'přeposláno');
+    expect(parsed.forwarded, isTrue);
+    expect(parsed.reply, isNull);
+    // The version stays 3: an older reader still opens the body instead of
+    // showing raw JSON.
+    final decoded = jsonDecode(utf8.decode(envelope)) as Map;
+    expect(decoded['whisperMsg'], textEnvelopeVersion);
+  });
+
+  test('an envelope without the flag is not a forward', () {
+    final parsed = tryParseTextEnvelope(buildTextEnvelope(
+        'x', ReplyRef(senderId: 'a', sentAt: DateTime(2026), preview: 'y')));
+    expect(parsed!.forwarded, isFalse);
+  });
+
   test('plain text is not an envelope', () {
     expect(tryParseTextEnvelope(bytes('ahoj')), isNull);
   });

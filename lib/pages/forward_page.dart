@@ -65,9 +65,11 @@ class _ForwardPageState extends State<ForwardPage> {
               width: message.width,
               height: message.height,
               durationMs: message.durationMs,
-              fileName: message.fileName);
+              fileName: message.fileName,
+              forwarded: true);
         } else {
-          sent = await ChatSender.sendText(to, message.message);
+          sent =
+              await ChatSender.sendText(to, message.message, forwarded: true);
         }
         allSent = allSent && sent;
       }

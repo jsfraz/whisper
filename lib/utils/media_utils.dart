@@ -501,13 +501,14 @@ class MediaUtils {
 
   /// Build the plaintext (pre-encryption) bytes for a media message: a JSON
   /// envelope wrapping the [reference] and optional [caption].
-  static Uint8List buildMediaEnvelope(
-      MediaReference reference, String caption) {
+  static Uint8List buildMediaEnvelope(MediaReference reference, String caption,
+      {bool forwarded = false}) {
     final map = <String, dynamic>{
       'whisperMsg': envelopeVersion,
       'kind': 'media',
       'caption': caption,
       'media': reference.toJson(),
+      if (forwarded) 'forwarded': true,
     };
     return Uint8List.fromList(utf8.encode(jsonEncode(map)));
   }
@@ -515,12 +516,14 @@ class MediaUtils {
   /// Build the plaintext (pre-encryption) bytes for an album message: a JSON
   /// envelope wrapping [references] and an optional [caption].
   static Uint8List buildAlbumEnvelope(
-      List<MediaReference> references, String caption) {
+      List<MediaReference> references, String caption,
+      {bool forwarded = false}) {
     final map = <String, dynamic>{
       'whisperMsg': envelopeVersionAlbum,
       'kind': 'media',
       'caption': caption,
       'media': references.map((reference) => reference.toJson()).toList(),
+      if (forwarded) 'forwarded': true,
     };
     return Uint8List.fromList(utf8.encode(jsonEncode(map)));
   }
@@ -532,11 +535,13 @@ class MediaUtils {
       final decoded = jsonDecode(utf8.decode(plaintext));
       if (decoded is Map && decoded['kind'] == 'media') {
         final caption = (decoded['caption'] as String?) ?? '';
+        final forwarded = decoded['forwarded'] == true;
         if (decoded['whisperMsg'] == envelopeVersion &&
             decoded['media'] is Map) {
           final reference = MediaReference.fromJson(
               Map<String, dynamic>.from(decoded['media'] as Map));
-          return ParsedMediaEnvelope([reference], caption);
+          return ParsedMediaEnvelope([reference], caption,
+              forwarded: forwarded);
         }
         if (decoded['whisperMsg'] == envelopeVersionAlbum &&
             decoded['media'] is List) {
@@ -546,7 +551,8 @@ class MediaUtils {
                   MediaReference.fromJson(Map<String, dynamic>.from(item)))
               .toList();
           if (references.isNotEmpty) {
-            return ParsedMediaEnvelope(references, caption);
+            return ParsedMediaEnvelope(references, caption,
+                forwarded: forwarded);
           }
         }
       }
@@ -618,7 +624,11 @@ class ParsedMediaEnvelope {
   final List<MediaReference> references;
   final String caption;
 
-  const ParsedMediaEnvelope(this.references, this.caption);
+  /// The sender passed on somebody else's attachment instead of writing it.
+  final bool forwarded;
+
+  const ParsedMediaEnvelope(this.references, this.caption,
+      {this.forwarded = false});
 }
 
 /// Thin wrapper around the [AudioRecorder] for hold-to-record voice messages.

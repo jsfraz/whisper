@@ -38,13 +38,14 @@ class PrivateMessageAdapter extends TypeAdapter<PrivateMessage> {
       replyToPreview: fields[18] as String?,
       editedAt: fields[20] as DateTime?,
       reactions: (fields[21] as Map?)?.cast<String, String>(),
+      forwarded: fields[22] == null ? false : fields[22] as bool,
     )..id = fields[19] as String?;
   }
 
   @override
   void write(BinaryWriter writer, PrivateMessage obj) {
     writer
-      ..writeByte(22)
+      ..writeByte(23)
       ..writeByte(0)
       ..write(obj.senderId)
       ..writeByte(1)
@@ -88,7 +89,9 @@ class PrivateMessageAdapter extends TypeAdapter<PrivateMessage> {
       ..writeByte(20)
       ..write(obj.editedAt)
       ..writeByte(21)
-      ..write(obj.reactions);
+      ..write(obj.reactions)
+      ..writeByte(22)
+      ..write(obj.forwarded);
   }
 
   @override

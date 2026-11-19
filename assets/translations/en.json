@@ -248,5 +248,9 @@
   "selectMessage": "Select",
   "messageEdited": "edited",
   "pinnedMessages": "Pinned messages",
-  "noPinnedMessages": "No pinned messages yet"
+  "noPinnedMessages": "No pinned messages yet",
+  "forwardedMessage": "Forwarded",
+  "readReceipts": "Read receipts",
+  "messageDelivered": "Delivered",
+  "messageRead": "Read"
 }
