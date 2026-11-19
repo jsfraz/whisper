@@ -36,6 +36,9 @@ class MessageActions {
   static const IconData unpinIcon = Icons.push_pin;
   static const IconData selectIcon = Icons.checklist;
 
+  /// Reaction a double-tap adds, toggled off by a second double-tap.
+  static const String quickReaction = '❤️';
+
   /// Emoji offered by the reaction row. A short fixed set keeps reacting one
   /// tap instead of opening a picker.
   static const List<String> reactionEmojis = [

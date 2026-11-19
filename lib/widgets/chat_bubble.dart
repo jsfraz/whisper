@@ -37,8 +37,12 @@ class ChatBubble extends StatefulWidget {
   /// Opens the action sheet (long-press). Falls back to [onSelect] when unset.
   final VoidCallback? onActions;
 
-  /// Quotes this message in the composer (double-tap and swipe).
+  /// Quotes this message in the composer (swipe, and double-tap when no quick
+  /// reaction is wired).
   final VoidCallback? onReply;
+
+  /// Double-tap: adds the quick reaction to this message.
+  final VoidCallback? onQuickReact;
 
   /// Jumps to the quoted message.
   final VoidCallback? onTapQuote;
@@ -52,6 +56,7 @@ class ChatBubble extends StatefulWidget {
       this.onSelect,
       this.onActions,
       this.onReply,
+      this.onQuickReact,
       this.onTapQuote,
       super.key});
 
@@ -398,7 +403,7 @@ class _ChatBubbleState extends State<ChatBubble> {
             children: [
               bubbleBox,
               Positioned(
-                bottom: -8,
+                bottom: -12,
                 left: widget.message.isMe ? 8 : null,
                 right: widget.message.isMe ? null : 8,
                 child: GestureDetector(
@@ -443,7 +448,9 @@ class _ChatBubbleState extends State<ChatBubble> {
                 GestureDetector(
                   onTap: onTap,
                   onLongPress: onLongPress,
-                  onDoubleTap: widget.onReply,
+                  onDoubleTap: widget.selectionMode
+                      ? null
+                      : (widget.onQuickReact ?? widget.onReply),
                   child: Align(
                     alignment: widget.message.isMe
                         ? Alignment.centerRight
@@ -490,7 +497,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                                     bottom:
                                         widget.message.reactionEmojis.isEmpty
                                             ? 0
-                                            : 10),
+                                            : 14),
                                 child: widget.onReply != null &&
                                         !widget.selectionMode
                                     ? Dismissible(

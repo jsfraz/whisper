@@ -124,7 +124,8 @@ void main() {
     ));
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
 
-    // Double tap quotes the message in the composer.
+    // Double tap adds the quick reaction instead of quoting.
+    var reacted = false;
     var replied = false;
     await show(ChatBubble(
       null,
@@ -133,12 +134,14 @@ void main() {
       peer,
       accentColor: Colors.blue,
       onReply: () => replied = true,
+      onQuickReact: () => reacted = true,
     ));
     await tester.tap(find.text('ahoj'));
     await tester.pump(const Duration(milliseconds: 50));
     await tester.tap(find.text('ahoj'));
     await tester.pumpAndSettle();
-    expect(replied, isTrue);
+    expect(reacted, isTrue);
+    expect(replied, isFalse);
 
     // A long message can be unfolded.
     await show(ChatBubble(

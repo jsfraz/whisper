@@ -1370,6 +1370,8 @@ class _ChatPageState extends State<ChatPage> {
       readAt: _peerReadAt,
       onSelect: () => _toggleSelected(message),
       onActions: () => _openMessageActions(message),
+      onQuickReact: () => MessageActions.react(
+          message, widget.user.id, MessageActions.quickReaction),
       onReply: () => _startReply(message),
       onTapQuote: message.isReply
           ? () => _jumpToMessage(message.replyTo!.sentAt)
