@@ -257,30 +257,10 @@ class MessageActions {
     if (id == null || id.isEmpty) {
       return;
     }
-    final controller = TextEditingController(text: message.message);
     final text = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('editMessage'.tr()),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLines: null,
-          minLines: 1,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('cancel'.tr()),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: Text('okText'.tr()),
-          ),
-        ],
-      ),
+      builder: (_) => _EditMessageDialog(initial: message.message),
     );
-    controller.dispose();
     if (text == null || text.trim().isEmpty || text == message.message) {
       return;
     }
@@ -399,5 +379,54 @@ class MessageActions {
     await CacheUtils.deletePrivateMessage(conversationUserId, message);
     MessageNotifier().notify();
     onDeleted?.call();
+  }
+}
+
+/// Edit dialog that owns its controller.
+///
+/// Disposing a controller right after `showDialog` returns races the route's
+/// exit animation: the `TextField` is still mounted and the dialog's inherited
+/// elements deactivate with a live dependent, which trips
+/// `InheritedElement.debugDeactivated` on a phone.
+class _EditMessageDialog extends StatefulWidget {
+  const _EditMessageDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_EditMessageDialog> createState() => _EditMessageDialogState();
+}
+
+class _EditMessageDialogState extends State<_EditMessageDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('editMessage'.tr()),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLines: null,
+        minLines: 1,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('cancel'.tr()),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: Text('okText'.tr()),
+        ),
+      ],
+    );
   }
 }
