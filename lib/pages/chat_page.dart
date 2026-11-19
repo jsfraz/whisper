@@ -478,50 +478,50 @@ class _ChatPageState extends State<ChatPage> {
     return newest;
   }
 
-  /// Narrow bar above the composer: the newest pin, tap to jump, cross to unpin.
+  /// Slim strip under the header: the newest pin, tap to jump, cross to unpin.
   Widget _buildPinBar() {
     final pinned = _newestPin;
     if (pinned == null) {
       return const SizedBox.shrink();
     }
     final preview = pinned.preview;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Material(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => _jumpToMessage(pinned.sentAt),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                const Icon(Icons.push_pin, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    preview.isEmpty ? 'mediaPhoto'.tr() : preview,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12),
-                  ),
+    return Material(
+      // Opaque in the header's tint: the strip sits over the message list, so a
+      // translucent fill would let bubbles show through it.
+      color: chatBackground(tintAlpha: 0.32),
+      child: InkWell(
+        onTap: () => _jumpToMessage(pinned.sentAt),
+        child: Padding(
+          padding: const EdgeInsets.only(left: 12, right: 4),
+          child: Row(
+            children: [
+              const Icon(Icons.push_pin, size: 13),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  preview.isEmpty ? 'mediaPhoto'.tr() : preview,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11),
                 ),
-                if (_pins.length > 1)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: Text('+${_pins.length - 1}',
-                        style: const TextStyle(fontSize: 11)),
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 16),
-                  tooltip: 'unpinMessage'.tr(),
-                  onPressed: () => MessageActions.togglePin(
-                      pinned, widget.user.id,
-                      pinned: true),
+              ),
+              if (_pins.length > 1)
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: Text('+${_pins.length - 1}',
+                      style: const TextStyle(fontSize: 10)),
                 ),
-              ],
-            ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 14),
+                tooltip: 'unpinMessage'.tr(),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 26),
+                onPressed: () => MessageActions.togglePin(
+                    pinned, widget.user.id,
+                    pinned: true),
+              ),
+            ],
           ),
         ),
       ),
@@ -1682,7 +1682,6 @@ class _ChatPageState extends State<ChatPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildPinBar(),
                     if (_replyTo != null) _buildReplyBar(),
                     Stack(
                       alignment: Alignment.center,
@@ -1699,47 +1698,61 @@ class _ChatPageState extends State<ChatPage> {
           ),
           body: Container(
             decoration: BoxDecoration(image: chatPattern()),
-            child: Column(
+            child: Stack(
               children: [
-                // Messages and avatar list
-                Expanded(
-                  child: Stack(
-                    children: [
-                      _firstLoad
-                          ? Center(
-                              child: Transform.scale(
-                                scale: 1.5,
-                                child: CircularProgressIndicator(),
-                              ),
-                            )
-                          : _getContent(_messages),
-                      // Floating "down" button with the count of messages that
-                      // arrived while the user was reading further up.
-                      if (!_firstLoad && _unseenCount > 0)
-                        Positioned(
-                          right: 16,
-                          bottom: _composerHeight + 16,
-                          child: FloatingActionButton.small(
-                            heroTag: 'jumpToBottom',
-                            tooltip: 'jumpToLatest'.tr(),
-                            onPressed: () => _jumpToBottom(animate: true),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.arrow_downward, size: 16),
-                                if (_unseenCount > 1)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 2),
-                                    child: Text('$_unseenCount',
-                                        style: const TextStyle(fontSize: 11)),
+                Column(
+                  children: [
+                    // Messages and avatar list
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          _firstLoad
+                              ? Center(
+                                  child: Transform.scale(
+                                    scale: 1.5,
+                                    child: CircularProgressIndicator(),
                                   ),
-                              ],
+                                )
+                              : _getContent(_messages),
+                          // Floating "down" button with the count of messages that
+                          // arrived while the user was reading further up.
+                          if (!_firstLoad && _unseenCount > 0)
+                            Positioned(
+                              right: 16,
+                              bottom: _composerHeight + 16,
+                              child: FloatingActionButton.small(
+                                heroTag: 'jumpToBottom',
+                                tooltip: 'jumpToLatest'.tr(),
+                                onPressed: () => _jumpToBottom(animate: true),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.arrow_downward, size: 16),
+                                    if (_unseenCount > 1)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 2),
+                                        child: Text('$_unseenCount',
+                                            style:
+                                                const TextStyle(fontSize: 11)),
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                    ],
-                  ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+                // Right under the header, over the list: the pin is where the
+                // eye looks first and the composer stays clean.
+                if (_newestPin != null)
+                  Positioned(
+                    top: kToolbarHeight + MediaQuery.of(context).padding.top,
+                    left: 0,
+                    right: 0,
+                    child: _buildPinBar(),
+                  ),
               ],
             ),
           ),
