@@ -241,27 +241,33 @@ class _MediaBubbleState extends State<MediaBubble> {
           : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Stack(
-          // The badge hangs over the bottom edge, so the stack must not clip.
-          clipBehavior: Clip.none,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: media,
-            ),
-            // On the attachment itself: the corner of the media, not the level
-            // of the caption below it.
-            if (widget.badge != null)
-              Positioned(
-                // On the attachment's bottom edge: half of the pill hangs over
-                // the edge, the way a badge is pinned to it. Far enough from
-                // the corner that the rounded side does not cut it.
-                bottom: -10,
-                left: widget.message.isMe ? 16 : null,
-                right: widget.message.isMe ? null : 16,
-                child: widget.badge!,
+        // The caption below would paint over the half of the badge that hangs
+        // past the media, so the media layer reserves room for it.
+        Padding(
+          padding: EdgeInsets.only(
+              bottom: hasCaption && widget.badge != null ? 12 : 0),
+          child: Stack(
+            // The badge hangs over the bottom edge, so the stack must not clip.
+            clipBehavior: Clip.none,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: media,
               ),
-          ],
+              // On the attachment itself: the corner of the media, not the
+              // level of the caption below it.
+              if (widget.badge != null)
+                Positioned(
+                  // On the attachment's bottom edge: half of the pill hangs
+                  // over the edge, the way a badge is pinned to it. Far enough
+                  // from the corner that the rounded side does not cut it.
+                  bottom: -10,
+                  left: widget.message.isMe ? 16 : null,
+                  right: widget.message.isMe ? null : 16,
+                  child: widget.badge!,
+                ),
+            ],
+          ),
         ),
         if (hasCaption)
           Container(
