@@ -1650,12 +1650,10 @@ class _ChatPageState extends State<ChatPage> {
           // The message list runs behind the composer bar, so a tall bubble is
           // never cut off at the input's edge.
           extendBody: true,
+          // Transparent on purpose: the chat background and the messages
+          // slide under the composer instead of a filled band behind it.
           bottomNavigationBar: Container(
             key: _composerKey,
-            decoration: BoxDecoration(
-              color: chatBackground(),
-              image: chatPattern(),
-            ),
             child: SafeArea(
               top: false,
               child: Padding(
