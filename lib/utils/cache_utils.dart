@@ -455,7 +455,14 @@ class CacheUtils {
     await _migrateLegacyConversation(box, userId);
     for (final message in messages) {
       final key = messageKey(userId, message.sentAt);
-      if (box.containsKey(key)) {
+      final stored = box.get(key);
+      if (stored is PrivateMessage) {
+        // Rows written before the transport key was kept cannot edit their
+        // caption; the archive page brings the reference back, so fill it in.
+        if (stored.mediaRefJson == null && message.mediaRefJson != null) {
+          stored.mediaRefJson = message.mediaRefJson;
+          await box.put(key, stored);
+        }
         continue;
       }
       await box.put(key, message);

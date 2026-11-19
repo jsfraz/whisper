@@ -252,5 +252,6 @@
   "forwardedMessage": "Forwarded",
   "readReceipts": "Read receipts",
   "messageDelivered": "Delivered",
-  "messageRead": "Read"
+  "messageRead": "Read",
+  "attachmentCaptionUneditable": "This attachment's caption can't be edited"
 }

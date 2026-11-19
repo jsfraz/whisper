@@ -351,6 +351,7 @@ class Utils {
                         height: ref.height,
                         durationMs: ref.durationMs,
                         fileName: ref.fileName,
+                        keyB64: base64Encode(ref.key),
                         status: pm.MediaDownloadStatus.pending,
                       ))
                   .toList());
@@ -372,6 +373,7 @@ class Utils {
               fileName: ref.fileName,
               downloadStatus: pm.MediaDownloadStatus.pending,
               forwarded: envelope.forwarded,
+              mediaRefJson: jsonEncode(ref.toJson()),
             );
             return (mediaMsg, [ref], message.peerId);
           }

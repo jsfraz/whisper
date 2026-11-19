@@ -87,10 +87,7 @@ class MessageActions {
                     ],
                   ),
                 ),
-              if (message.isMe &&
-                  !message.isMedia &&
-                  !message.isUndecryptable &&
-                  canAddress)
+              if (message.isMe && !message.isUndecryptable && canAddress)
                 ListTile(
                   leading: const Icon(editIcon),
                   title: Text('editMessage'.tr()),
@@ -264,7 +261,9 @@ class MessageActions {
       context: context,
       builder: (_) => _EditMessageDialog(initial: message.message),
     );
-    if (text == null || text.trim().isEmpty || text == message.message) {
+    // A plain message cannot become empty; a caption can be cleared.
+    final unchanged = text == null || text == message.message;
+    if (unchanged || (text.trim().isEmpty && !message.isMedia)) {
       return;
     }
     try {
@@ -272,10 +271,27 @@ class MessageActions {
       if (peer == null) {
         return;
       }
-      // A reply keeps its quote; only the body changes.
-      final reply = message.replyTo;
-      final plaintext =
-          reply == null ? utf8.encode(text) : buildTextEnvelope(text, reply);
+      // A reply keeps its quote and an attachment keeps its media reference, so
+      // only the body of the envelope changes.
+      final Uint8List plaintext;
+      if (message.isMedia) {
+        final references = await ChatSender.mediaReferencesFor(peer, message);
+        if (references == null || references.isEmpty) {
+          await Fluttertoast.showToast(
+              msg: 'attachmentCaptionUneditable'.tr(),
+              backgroundColor: Colors.red);
+          return;
+        }
+        plaintext = message.isAlbum
+            ? MediaUtils.buildAlbumEnvelope(references, text,
+                forwarded: message.forwarded)
+            : MediaUtils.buildMediaEnvelope(references.first, text,
+                forwarded: message.forwarded);
+      } else {
+        final reply = message.replyTo;
+        plaintext =
+            reply == null ? utf8.encode(text) : buildTextEnvelope(text, reply);
+      }
       final data = await CryptoUtils.encryptMessageData(
           plaintext, bu.CryptoUtils.rsaPublicKeyFromPem(peer.publicKey));
       final response = await Utils.callApi(

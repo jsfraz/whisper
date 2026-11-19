@@ -136,6 +136,9 @@ class ChatSender {
       await _sendEnvelope(recipient, envelope, message.sentAt);
       await CacheUtils.updateStoredMessage(recipient.id, message, (stored) {
         stored.mediaId = reference.mediaId;
+        // Keep the reference (with its transport key) so the caption can be
+        // edited later without the original upload.
+        stored.mediaRefJson = jsonEncode(reference.toJson());
       });
       return true;
     } catch (e) {
@@ -222,6 +225,7 @@ class ChatSender {
         final items = stored.album;
         for (var i = 0; i < items.length && i < references.length; i++) {
           items[i].mediaId = references[i].mediaId;
+          items[i].keyB64 = base64Encode(references[i].key);
         }
         stored.setAlbum(items);
       });
@@ -230,6 +234,24 @@ class ChatSender {
       Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
       return await _fail(recipient.id, message);
     }
+  }
+
+  /// Media references of an already stored message, for re-encrypting it with a
+  /// new caption. Prefers what the row kept, then the upload cache, and only
+  /// re-uploads the local copies when neither has it (a message from a build
+  /// that did not keep the key yet).
+  static Future<List<MediaReference>?> mediaReferencesFor(
+      User recipient, PrivateMessage message) async {
+    final kept = message.mediaReferences;
+    if (kept != null && kept.isNotEmpty) {
+      return kept;
+    }
+    final cached = _outgoingReferences[
+        CacheUtils.messageKey(recipient.id, message.sentAt)];
+    if (cached != null && cached.isNotEmpty) {
+      return cached;
+    }
+    return _uploadLocalCopies(recipient, message);
   }
 
   /// Resend every message that never received a delivery ack.

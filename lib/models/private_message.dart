@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:hive/hive.dart';
+import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
 import '../utils/singleton.dart';
@@ -49,6 +50,7 @@ class AlbumItem {
     this.height,
     this.durationMs,
     this.fileName,
+    this.keyB64,
     this.localPath,
     this.status = MediaDownloadStatus.ready,
   });
@@ -62,6 +64,11 @@ class AlbumItem {
   int? height;
   int? durationMs;
   String? fileName;
+
+  /// Base64 of the transport key of the attachment, kept so a caption can be
+  /// re-encrypted into a new envelope later. Null on rows stored before it was
+  /// kept.
+  String? keyB64;
 
   /// Encrypted-at-rest file on this device, null until downloaded/sent.
   String? localPath;
@@ -85,6 +92,7 @@ class AlbumItem {
         if (height != null) 'height': height,
         if (durationMs != null) 'durationMs': durationMs,
         if (fileName != null) 'fileName': fileName,
+        if (keyB64 != null) 'keyB64': keyB64,
         if (localPath != null) 'localPath': localPath,
         'status': status,
       };
@@ -97,6 +105,7 @@ class AlbumItem {
         height: (json['height'] as num?)?.toInt(),
         durationMs: (json['durationMs'] as num?)?.toInt(),
         fileName: json['fileName'] as String?,
+        keyB64: json['keyB64'] as String?,
         localPath: json['localPath'] as String?,
         status: (json['status'] as num?)?.toInt() ?? MediaDownloadStatus.ready,
       );
@@ -196,6 +205,12 @@ class PrivateMessage extends HiveObject {
   @HiveField(22, defaultValue: false)
   bool forwarded;
 
+  /// JSON of the media reference (id, key, type, size, metadata) for a single
+  /// attachment. Kept so editing the caption can build a new envelope without
+  /// the original upload; null on rows stored before it was kept.
+  @HiveField(23)
+  String? mediaRefJson;
+
   /// Cache for [album], keyed by the [albumJson] it was decoded from.
   String? _albumCacheJson;
   List<AlbumItem>? _albumCache;
@@ -223,7 +238,41 @@ class PrivateMessage extends HiveObject {
     this.editedAt,
     this.reactions,
     this.forwarded = false,
+    this.mediaRefJson,
   });
+
+  /// References needed to re-encrypt this message with a new caption, null for
+  /// text messages and when their key was never kept.
+  List<MediaReference>? get mediaReferences {
+    if (isAlbum) {
+      final refs = <MediaReference>[];
+      for (final item in album) {
+        final key = item.keyB64 == null ? null : base64Decode(item.keyB64!);
+        final type = item.mediaType;
+        if (key == null || type == null) {
+          return null;
+        }
+        refs.add(MediaReference(item.mediaId, key, type, item.size,
+            width: item.width,
+            height: item.height,
+            durationMs: item.durationMs,
+            fileName: item.fileName));
+      }
+      return refs.isEmpty ? null : refs;
+    }
+    final raw = mediaRefJson;
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    try {
+      return [
+        MediaReference.fromJson(
+            Map<String, dynamic>.from(jsonDecode(raw) as Map))
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Whether the sender edited the text after sending it.
   bool get isEdited => editedAt != null;

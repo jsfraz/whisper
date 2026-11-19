@@ -118,5 +118,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Edit message'), findsOneWidget);
     expect(find.text('Unpin'), findsNothing);
+
+    // Close the sheet
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    // An own attachment offers the caption edit too.
+    message = PrivateMessage(
+        '1', 'caption', DateTime(2026), DateTime(2026), true,
+        localPath: '/tmp/whisper_media_test', mediaTypeStr: 'image')
+      ..id = '00000000-0000-4000-8000-000000000000';
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit message'), findsOneWidget);
+    expect(find.text('Save attachment'), findsOneWidget);
   });
 }

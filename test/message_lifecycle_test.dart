@@ -1,9 +1,13 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:whisper/models/private_message.dart';
 import 'package:whisper/utils/cache_utils.dart';
+import 'package:whisper_websocket_client_dart/models/media_reference.dart';
+import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
 /// The local side of the lifecycle: an edit rewrites the stored text, a
 /// reaction is a per-user map, a pin lives on the chat, and the mutation cursor
@@ -107,6 +111,50 @@ void main() {
 
     await CacheUtils.setReadReceiptsEnabled(peer, false);
     expect(await CacheUtils.isReadReceiptsEnabled(peer), isFalse);
+  });
+
+  test('a stored media reference rebuilds the envelope for a caption edit',
+      () async {
+    final key = Uint8List.fromList([1, 2, 3, 4]);
+    final reference = MediaReference('media-id', key, MediaType.image, 100,
+        width: 640, height: 480);
+    final message =
+        PrivateMessage(peer, 'caption', DateTime(2026), DateTime(2026), true)
+          ..mediaId = 'media-id'
+          ..mediaTypeStr = 'image'
+          ..mediaRefJson = jsonEncode(reference.toJson());
+
+    final rebuilt = message.mediaReferences;
+    expect(rebuilt, isNotNull);
+    expect(rebuilt!.single.mediaId, 'media-id');
+    expect(rebuilt.single.key, key);
+    expect(rebuilt.single.width, 640);
+
+    // An album is rebuilt from the per-item keys instead.
+    final album =
+        PrivateMessage(peer, 'album', DateTime(2026), DateTime(2026), true)
+          ..setAlbum([
+            AlbumItem(
+              mediaId: 'a',
+              type: 'image',
+              size: 10,
+              keyB64: base64Encode(key),
+            ),
+            AlbumItem(
+              mediaId: 'b',
+              type: 'image',
+              size: 20,
+              keyB64: base64Encode(key),
+            ),
+          ]);
+    expect(album.mediaReferences, hasLength(2));
+    expect(album.mediaReferences!.first.mediaId, 'a');
+
+    // Without the key there is nothing to re-encrypt, so editing is refused.
+    final legacy =
+        PrivateMessage(peer, 'legacy', DateTime(2026), DateTime(2026), true)
+          ..mediaTypeStr = 'image';
+    expect(legacy.mediaReferences, isNull);
   });
 
   test('the mutation cursor never moves backwards', () async {

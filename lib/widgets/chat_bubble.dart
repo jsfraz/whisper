@@ -215,6 +215,12 @@ class _ChatBubbleState extends State<ChatBubble> {
       if (widget.message.isMedia) {
         return MediaBubble(
           message: widget.message,
+          badge: widget.message.reactionEmojis.isEmpty
+              ? null
+              : GestureDetector(
+                  onTap: () => (widget.onActions ?? widget.onSelect)?.call(),
+                  child: _reactionBadge(),
+                ),
           conversationUserId: widget.user.id,
           bubbleColor: bubbleBackground(),
           textColor: bubbleTextColor(),
@@ -396,7 +402,8 @@ class _ChatBubbleState extends State<ChatBubble> {
 
     // The reactions hang on the bubble's bottom edge as one badge, on the side
     // opposite the bubble's own side, the way a messenger pins them there.
-    final bubbleWithBadge = widget.message.reactionEmojis.isEmpty
+    final bubbleWithBadge = widget.message.reactionEmojis.isEmpty ||
+            widget.message.isMedia
         ? bubbleBox
         : Stack(
             clipBehavior: Clip.none,
@@ -495,7 +502,8 @@ class _ChatBubbleState extends State<ChatBubble> {
                                 // the bubble.
                                 padding: EdgeInsets.only(
                                     bottom:
-                                        widget.message.reactionEmojis.isEmpty
+                                        widget.message.reactionEmojis.isEmpty ||
+                                                widget.message.isMedia
                                             ? 0
                                             : 14),
                                 child: widget.onReply != null &&

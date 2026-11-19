@@ -24,6 +24,9 @@ class MediaBubble extends StatefulWidget {
   final bool canRetry;
   final String conversationUserId;
 
+  /// Reaction badge drawn on the attachment's bottom corner.
+  final Widget? badge;
+
   const MediaBubble({
     required this.message,
     required this.bubbleColor,
@@ -31,6 +34,7 @@ class MediaBubble extends StatefulWidget {
     required this.onRetry,
     required this.canRetry,
     required this.conversationUserId,
+    this.badge,
     super.key,
   });
 
@@ -237,9 +241,22 @@ class _MediaBubbleState extends State<MediaBubble> {
           : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: media,
+        Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: media,
+            ),
+            // On the attachment itself: the corner of the media, not the level
+            // of the caption below it.
+            if (widget.badge != null)
+              Positioned(
+                bottom: 6,
+                left: widget.message.isMe ? 6 : null,
+                right: widget.message.isMe ? null : 6,
+                child: widget.badge!,
+              ),
+          ],
         ),
         if (hasCaption)
           Container(
