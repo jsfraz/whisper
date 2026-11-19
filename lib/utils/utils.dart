@@ -565,6 +565,9 @@ class Utils {
           await CacheUtils.setPeerReadAt(
               receipt.peerId, receipt.readAt.toLocal());
         }
+        // After the cursors are stored: the reload kicked off earlier (when the
+        // messages were written) read the old value.
+        MessageNotifier().notify();
         // Only after the batch is stored: a cursor ahead of the local messages
         // would drop them for good.
         await CacheUtils.setSyncSeq(synced.syncedThrough);

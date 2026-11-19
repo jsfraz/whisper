@@ -805,6 +805,16 @@ class CacheUtils {
     return Hive.openBox(_conversationsKey);
   }
 
+  /// Serializes the read-modify-write of the per-chat metadata map, so a pin,
+  /// an archive page and a read cursor cannot overwrite each other.
+  static Future<void> _metaLock = Future.value();
+
+  static Future<T> _serializedMeta<T>(Future<T> Function() action) {
+    final result = _metaLock.then((_) => action());
+    _metaLock = result.then((_) {}, onError: (_) {});
+    return result;
+  }
+
   static Map _metaOf(Box box, String userId) {
     final stored = box.get(userId);
     return stored is Map ? Map.from(stored) : <String, dynamic>{};
@@ -818,19 +828,21 @@ class CacheUtils {
 
   /// Pins or unpins a conversation. The entry is dropped once it is empty, so
   /// the box only holds chats that differ from the default.
-  static Future<void> setConversationPinned(String userId, bool pinned) async {
-    final box = await _openConversationsBox();
-    final meta = _metaOf(box, userId);
-    if (pinned) {
-      meta['pinned'] = true;
-    } else {
-      meta.remove('pinned');
-    }
-    if (meta.isEmpty) {
-      await box.delete(userId);
-    } else {
-      await box.put(userId, meta);
-    }
+  static Future<void> setConversationPinned(String userId, bool pinned) {
+    return _serializedMeta(() async {
+      final box = await _openConversationsBox();
+      final meta = _metaOf(box, userId);
+      if (pinned) {
+        meta['pinned'] = true;
+      } else {
+        meta.remove('pinned');
+      }
+      if (meta.isEmpty) {
+        await box.delete(userId);
+      } else {
+        await box.put(userId, meta);
+      }
+    });
   }
 
   /// Pinned message ids of one chat, with the instant each was pinned.
@@ -851,31 +863,35 @@ class CacheUtils {
   /// Pins or unpins one message of a chat. Pins are shared between both
   /// participants, so this is written from a pin event or a history page.
   static Future<void> setMessagePinned(
-      String userId, String? messageId, DateTime? pinnedAt) async {
+      String userId, String? messageId, DateTime? pinnedAt) {
     if (messageId == null || messageId.isEmpty) {
-      return;
+      return Future.value();
     }
-    final box = await _openConversationsBox();
-    final meta = _metaOf(box, userId);
-    final pins = Map<String, dynamic>.from(
-        meta['pins'] is Map ? meta['pins'] as Map : const {});
-    if (pinnedAt == null) {
-      pins.remove(messageId);
-    } else {
-      pins[messageId] = pinnedAt.millisecondsSinceEpoch;
-    }
-    await _putPins(box, userId, meta, pins);
+    return _serializedMeta(() async {
+      final box = await _openConversationsBox();
+      final meta = _metaOf(box, userId);
+      final pins = Map<String, dynamic>.from(
+          meta['pins'] is Map ? meta['pins'] as Map : const {});
+      if (pinnedAt == null) {
+        pins.remove(messageId);
+      } else {
+        pins[messageId] = pinnedAt.millisecondsSinceEpoch;
+      }
+      await _putPins(box, userId, meta, pins);
+    });
   }
 
   /// Replaces the pins of a chat with a server answer, so an unpin that happened
   /// on another device does not survive on a stale local entry.
   static Future<void> replacePinnedMessages(
-      String userId, Map<String, DateTime> pins) async {
-    final box = await _openConversationsBox();
-    final meta = _metaOf(box, userId);
-    await _putPins(box, userId, meta, {
-      for (final entry in pins.entries)
-        entry.key: entry.value.millisecondsSinceEpoch,
+      String userId, Map<String, DateTime> pins) {
+    return _serializedMeta(() async {
+      final box = await _openConversationsBox();
+      final meta = _metaOf(box, userId);
+      await _putPins(box, userId, meta, {
+        for (final entry in pins.entries)
+          entry.key: entry.value.millisecondsSinceEpoch,
+      });
     });
   }
 
@@ -928,15 +944,17 @@ class CacheUtils {
 
   /// Remembers the peer's read cursor. It only moves forward, so a frame that
   /// arrives out of order cannot take the tick back.
-  static Future<void> setPeerReadAt(String userId, DateTime readAt) async {
-    final stored = await getPeerReadAt(userId);
-    if (stored != null && !readAt.isAfter(stored)) {
-      return;
-    }
-    final box = await _openConversationsBox();
-    final meta = _metaOf(box, userId);
-    meta['peerReadAt'] = readAt.millisecondsSinceEpoch;
-    await box.put(userId, meta);
+  static Future<void> setPeerReadAt(String userId, DateTime readAt) {
+    return _serializedMeta(() async {
+      final stored = await getPeerReadAt(userId);
+      if (stored != null && !readAt.isAfter(stored)) {
+        return;
+      }
+      final box = await _openConversationsBox();
+      final meta = _metaOf(box, userId);
+      meta['peerReadAt'] = readAt.millisecondsSinceEpoch;
+      await box.put(userId, meta);
+    });
   }
 
   /// Instant up to which the account deleted this conversation, null when it
@@ -951,13 +969,17 @@ class CacheUtils {
   /// The later of the two instants wins, so a stale page cannot undo a delete.
   static Future<void> applyConversationClearedAt(
       String userId, DateTime clearedAt) async {
-    final box = await _openConversationsBox();
-    final stored = await conversationClearedAt(userId);
-    final cut =
-        stored != null && stored.isAfter(clearedAt) ? stored : clearedAt;
-    final meta = _metaOf(box, userId);
-    meta['clearedAt'] = cut.millisecondsSinceEpoch;
-    await box.put(userId, meta);
+    final cut = await _serializedMeta(() async {
+      final box = await _openConversationsBox();
+      final stored = await conversationClearedAt(userId);
+      final cut =
+          stored != null && stored.isAfter(clearedAt) ? stored : clearedAt;
+      final meta = _metaOf(box, userId);
+      meta['clearedAt'] = cut.millisecondsSinceEpoch;
+      await box.put(userId, meta);
+      return cut;
+    });
+    // Outside the lock: purging calls setMessagePinned, which takes it.
     await purgeConversationUpTo(userId, cut);
   }
 

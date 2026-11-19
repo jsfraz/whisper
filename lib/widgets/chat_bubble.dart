@@ -557,25 +557,21 @@ class _ChatBubbleState extends State<ChatBubble> {
                                     ),
                                   ),
                                 ),
-                              // Sent messages carry ticks: one for the ack
-                              // (the server stored it), two when the peer's
-                              // read cursor passed it.
-                              if (widget.message.isMe &&
-                                  widget.message.sendStatus == SendStatus.sent)
+                              // Only the newest own message carries a tick, and
+                              // only when the peer's cursor covers it: a single
+                              // "delivered" tick would be a claim this build
+                              // cannot back, because the peer's receipt switch
+                              // is their business.
+                              if (widget.message.isMe && _readByPeer)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 2),
                                   child: Tooltip(
-                                    message: _readByPeer
-                                        ? 'messageRead'.tr()
-                                        : 'messageDelivered'.tr(),
+                                    message: 'messageRead'.tr(),
                                     child: Icon(
-                                      _readByPeer ? Icons.done_all : Icons.done,
+                                      Icons.done_all,
                                       size: 13,
-                                      color: _readByPeer
-                                          ? Theme.of(context)
-                                              .colorScheme
-                                              .primary
-                                          : Colors.grey,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
                                     ),
                                   ),
                                 ),

@@ -169,8 +169,8 @@ void main() {
     expect(find.text('Forwarded'), findsOneWidget);
     expect(renderedText(tester), contains('přeposlaný text'));
 
-    // Own messages carry one tick once the server stored them; the peer's read
-    // cursor covering the message turns it into two.
+    // Only the peer's cursor covering the message shows a tick; there is no
+    // single "delivered" tick any more.
     final sent = DateTime(2026, 11, 19, 12);
     await show(ChatBubble(
       null,
@@ -179,7 +179,7 @@ void main() {
       peer,
       accentColor: Colors.blue,
     ));
-    expect(find.byIcon(Icons.done), findsOneWidget);
+    expect(find.byIcon(Icons.done), findsNothing);
     expect(find.byIcon(Icons.done_all), findsNothing);
 
     await show(ChatBubble(

@@ -102,6 +102,10 @@ class _ChatPageState extends State<ChatPage> {
   /// Instant up to which the other participant has read this chat.
   DateTime? _peerReadAt;
 
+  /// Client timestamp of the newest own message: only that one carries the
+  /// read tick.
+  int? _lastOwnMicros;
+
   /// Instant this device already told the server about, so an idle re-render
   /// does not send the same cursor again.
   DateTime? _publishedReadAt;
@@ -214,11 +218,19 @@ class _ChatPageState extends State<ChatPage> {
       if (!mounted) {
         return;
       }
+      var lastOwn = 0;
+      for (final message in messages.reversed) {
+        if (message.isMe) {
+          lastOwn = message.sentAt.microsecondsSinceEpoch;
+          break;
+        }
+      }
       setState(() {
         _messages = messages;
         _pins = pins;
         _peerReadAt = peerReadAt;
         _readReceipts = readReceipts;
+        _lastOwnMicros = lastOwn == 0 ? null : lastOwn;
         if (!first) {
           if (wasAtBottom) {
             _unseenCount = 0;
@@ -1366,7 +1378,7 @@ class _ChatPageState extends State<ChatPage> {
       accentColor: _chatThemeColor ?? Singleton().appTheme.color,
       selectionMode: _selectionMode,
       selected: _selected.contains(micros),
-      readAt: _peerReadAt,
+      readAt: micros == _lastOwnMicros && _readReceipts ? _peerReadAt : null,
       onSelect: () => _toggleSelected(message),
       onActions: () => _openMessageActions(message),
       onQuickReact: () => MessageActions.react(
@@ -1470,6 +1482,15 @@ class _ChatPageState extends State<ChatPage> {
     _scrollController.removeListener(_onScroll);
     WidgetsBinding.instance.removeObserver(_metricsObserver);
     _recordTimer?.cancel();
+    if (_readPublish?.isActive ?? false) {
+      // Leaving within the debounce window used to drop the cursor; send it
+      // now, fire and forget (dispose cannot await).
+      _readPublish!.cancel();
+      if (_readReceipts && _messages.isNotEmpty) {
+        unawaited(
+            utils.Utils.sendReadCursor(widget.user.id, _messages.last.sentAt));
+      }
+    }
     _readPublish?.cancel();
     _recorderController?.dispose();
     _controllerMessage.dispose();
