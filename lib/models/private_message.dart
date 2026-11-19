@@ -182,6 +182,15 @@ class PrivateMessage extends HiveObject {
   @HiveField(19)
   String? id;
 
+  /// Instant the sender last edited the text, null when it was never edited.
+  @HiveField(20)
+  DateTime? editedAt;
+
+  /// Emoji reaction of each participant, keyed by user id. Null when nobody
+  /// reacted.
+  @HiveField(21)
+  Map<String, String>? reactions;
+
   /// Cache for [album], keyed by the [albumJson] it was decoded from.
   String? _albumCacheJson;
   List<AlbumItem>? _albumCache;
@@ -206,7 +215,16 @@ class PrivateMessage extends HiveObject {
     this.replyToSenderId,
     this.replyToSentAt,
     this.replyToPreview,
+    this.editedAt,
+    this.reactions,
   });
+
+  /// Whether the sender edited the text after sending it.
+  bool get isEdited => editedAt != null;
+
+  /// Distinct reaction emoji, sorted so the chips do not jump around.
+  List<String> get reactionEmojis =>
+      (reactions?.values.toSet().toList() ?? [])..sort();
 
   /// The quoted message, or null when this message is not a reply.
   ReplyRef? get replyTo {

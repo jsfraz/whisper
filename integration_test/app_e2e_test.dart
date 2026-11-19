@@ -124,10 +124,10 @@ void main() {
     expect(message.senderId, '2');
 
     final plaintext = await CryptoUtils.decryptMessageData(
-      message.content,
-      message.key,
-      message.nonce,
-      message.mac,
+      message.content!,
+      message.key!,
+      message.nonce!,
+      message.mac!,
       keys.privateKey as RSAPrivateKey,
     );
     expect(utf8.decode(plaintext), 'hello over websocket');

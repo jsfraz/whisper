@@ -30,6 +30,9 @@ class ChatBubble extends StatefulWidget {
   /// Toggles this bubble in the selection (tap and long-press).
   final VoidCallback? onSelect;
 
+  /// Opens the action sheet (long-press). Falls back to [onSelect] when unset.
+  final VoidCallback? onActions;
+
   /// Quotes this message in the composer (double-tap and swipe).
   final VoidCallback? onReply;
 
@@ -42,6 +45,7 @@ class ChatBubble extends StatefulWidget {
       this.selectionMode = false,
       this.selected = false,
       this.onSelect,
+      this.onActions,
       this.onReply,
       this.onTapQuote,
       super.key});
@@ -69,6 +73,23 @@ class _ChatBubbleState extends State<ChatBubble> {
       !widget.message.isUndecryptable &&
       isEmojiOnly(widget.message.message) &&
       emojiCount(widget.message.message) <= 3;
+
+  /// One reaction chip: the emoji, plus how many participants picked it.
+  Widget _reactionChip(String emoji) {
+    final count =
+        widget.message.reactions?.values.where((v) => v == emoji).length ?? 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        count > 1 ? '$emoji $count' : emoji,
+        style: const TextStyle(fontSize: 12),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +183,7 @@ class _ChatBubbleState extends State<ChatBubble> {
       if (widget.selectionMode) {
         return;
       }
-      widget.onSelect?.call();
+      (widget.onActions ?? widget.onSelect)?.call();
     }
 
     Widget content() {
@@ -286,6 +307,18 @@ class _ChatBubbleState extends State<ChatBubble> {
       children: [
         if (widget.message.isReply) quoteBlock(),
         content(),
+        if (widget.message.isEdited)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              'messageEdited'.tr(),
+              style: TextStyle(
+                color: bubbleTextColor().withValues(alpha: 0.7),
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
       ],
     );
 
@@ -419,6 +452,25 @@ class _ChatBubbleState extends State<ChatBubble> {
                                 )
                               else
                                 bubbleBox,
+                              // Reactions sit just outside the bubble, the
+                              // way they do in the other messengers.
+                              if (widget.message.reactionEmojis.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () =>
+                                      (widget.onActions ?? widget.onSelect)
+                                          ?.call(),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Wrap(
+                                      spacing: 4,
+                                      children: [
+                                        for (final emoji
+                                            in widget.message.reactionEmojis)
+                                          _reactionChip(emoji),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               // Outgoing messages show a clock while they are
                               // being sent and an error when the send failed.
                               if (widget.message.isMe &&

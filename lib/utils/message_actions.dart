@@ -1,17 +1,23 @@
+import 'dart:convert';
+
+import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:whisper_openapi_client_dart/api.dart';
 
 import '../models/private_message.dart';
 import '../pages/forward_page.dart';
 import 'cache_utils.dart';
 import 'chat_sender.dart';
+import 'crypto_utils.dart';
 import 'dialog_utils.dart';
 import 'media_utils.dart';
 import 'message_notifier.dart';
 import 'singleton.dart';
+import 'text_envelope.dart';
 import 'utils.dart';
 import '../utils/nav_transitions.dart';
 
@@ -25,6 +31,21 @@ class MessageActions {
   static const IconData saveIcon = Icons.download;
   static const IconData deleteIcon = Icons.delete;
   static const IconData resendIcon = Icons.refresh;
+  static const IconData editIcon = Icons.edit;
+  static const IconData pinIcon = Icons.push_pin_outlined;
+  static const IconData unpinIcon = Icons.push_pin;
+  static const IconData selectIcon = Icons.checklist;
+
+  /// Emoji offered by the reaction row. A short fixed set keeps reacting one
+  /// tap instead of opening a picker.
+  static const List<String> reactionEmojis = [
+    '👍',
+    '❤️',
+    '😂',
+    '😮',
+    '😢',
+    '🙏'
+  ];
 
   /// Whether [message] can be saved or forwarded (the file must be on disk).
   static bool canSave(PrivateMessage message) =>
@@ -34,14 +55,65 @@ class MessageActions {
   /// [conversationUserId] is the other side of the conversation.
   static Future<void> showSheet(
       BuildContext context, PrivateMessage message, String conversationUserId,
-      {VoidCallback? onDeleted}) {
+      {VoidCallback? onDeleted, bool pinned = false, VoidCallback? onSelect}) {
     return showModalBottomSheet(
       context: context,
       showDragHandle: true,
       builder: (ctx) {
+        final canAddress =
+            message.id?.isNotEmpty ?? false; // needs the archive id
         return SafeArea(
           child: Wrap(
             children: [
+              // Reactions first: one tap, and the same emoji again removes it.
+              if (canAddress)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      for (final emoji in reactionEmojis)
+                        IconButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            react(message, conversationUserId, emoji);
+                          },
+                          icon:
+                              Text(emoji, style: const TextStyle(fontSize: 22)),
+                        ),
+                    ],
+                  ),
+                ),
+              if (message.isMe &&
+                  !message.isMedia &&
+                  !message.isUndecryptable &&
+                  canAddress)
+                ListTile(
+                  leading: const Icon(editIcon),
+                  title: Text('editMessage'.tr()),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    edit(context, message, conversationUserId);
+                  },
+                ),
+              if (canAddress)
+                ListTile(
+                  leading: Icon(pinned ? unpinIcon : pinIcon),
+                  title: Text(pinned ? 'unpinMessage'.tr() : 'pinMessage'.tr()),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    togglePin(message, conversationUserId, pinned: pinned);
+                  },
+                ),
+              if (onSelect != null)
+                ListTile(
+                  leading: const Icon(selectIcon),
+                  title: Text('selectMessage'.tr()),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onSelect();
+                  },
+                ),
               if (message.isMe && message.sendStatus == SendStatus.failed)
                 ListTile(
                   leading: const Icon(resendIcon),
@@ -111,6 +183,135 @@ class MessageActions {
   static Future<void> copy(PrivateMessage message) async {
     await Clipboard.setData(ClipboardData(text: message.message));
     Fluttertoast.showToast(msg: 'copiedText'.tr());
+  }
+
+  /// Sets the caller's reaction, or removes it when the same emoji is picked
+  /// again. The emoji travels encrypted like the message body.
+  static Future<void> react(
+      PrivateMessage message, String conversationUserId, String emoji) async {
+    final id = message.id;
+    if (id == null || id.isEmpty) {
+      return;
+    }
+    final me = Singleton().profile.user.id;
+    final removing = message.reactions?[me] == emoji;
+    try {
+      if (removing) {
+        await Utils.callApi(() => Singleton().messagesApi.removeReaction(id),
+            rethrowErr: true);
+      } else {
+        final peer = await CacheUtils.getUserById(conversationUserId);
+        if (peer == null) {
+          return;
+        }
+        final data = await CryptoUtils.encryptMessageData(
+            Uint8List.fromList(utf8.encode(emoji)),
+            bu.CryptoUtils.rsaPublicKeyFromPem(peer.publicKey));
+        await Utils.callApi(
+            () => Singleton().messagesApi.setReaction(
+                  id,
+                  setReactionInput: SetReactionInput(
+                    content: data['encryptedData']!,
+                    key: data['encryptedKey']!,
+                    nonce: data['nonce']!,
+                    mac: data['mac']!,
+                  ),
+                ),
+            rethrowErr: true);
+      }
+      await CacheUtils.setMessageReaction(
+          conversationUserId, message.sentAt, me, removing ? null : emoji);
+      MessageNotifier().notify();
+    } catch (_) {
+      // The server refused; nothing changed locally either.
+    }
+  }
+
+  /// Pins or unpins the message for both participants.
+  static Future<void> togglePin(
+      PrivateMessage message, String conversationUserId,
+      {required bool pinned}) async {
+    final id = message.id;
+    if (id == null || id.isEmpty) {
+      return;
+    }
+    try {
+      await Utils.callApi(
+          () => pinned
+              ? Singleton().messagesApi.unpinMessage(id)
+              : Singleton().messagesApi.pinMessage(id),
+          rethrowErr: true);
+      await CacheUtils.setMessagePinned(
+          conversationUserId, id, pinned ? null : DateTime.now());
+      MessageNotifier().notify();
+    } catch (_) {
+      // Left as it was.
+    }
+  }
+
+  /// Rewrites the text of an own message: new ciphertext, server stamp, same
+  /// bubble.
+  static Future<void> edit(BuildContext context, PrivateMessage message,
+      String conversationUserId) async {
+    final id = message.id;
+    if (id == null || id.isEmpty) {
+      return;
+    }
+    final controller = TextEditingController(text: message.message);
+    final text = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('editMessage'.tr()),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: null,
+          minLines: 1,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('cancel'.tr()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: Text('okText'.tr()),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (text == null || text.trim().isEmpty || text == message.message) {
+      return;
+    }
+    try {
+      final peer = await CacheUtils.getUserById(conversationUserId);
+      if (peer == null) {
+        return;
+      }
+      // A reply keeps its quote; only the body changes.
+      final reply = message.replyTo;
+      final plaintext =
+          reply == null ? utf8.encode(text) : buildTextEnvelope(text, reply);
+      final data = await CryptoUtils.encryptMessageData(
+          plaintext, bu.CryptoUtils.rsaPublicKeyFromPem(peer.publicKey));
+      final response = await Utils.callApi(
+          () => Singleton().messagesApi.editMessage(
+                id,
+                editMessageInput: EditMessageInput(
+                  content: data['encryptedData']!,
+                  key: data['encryptedKey']!,
+                  nonce: data['nonce']!,
+                  mac: data['mac']!,
+                ),
+              ),
+          rethrowErr: true);
+      await CacheUtils.markMessageEdited(conversationUserId, message.sentAt,
+          text, (response?.editedAt ?? DateTime.now()).toLocal());
+      MessageNotifier().notify();
+    } catch (_) {
+      // The old text stays in place.
+    }
   }
 
   /// Save the decrypted attachment wherever the user picks.

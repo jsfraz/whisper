@@ -241,5 +241,12 @@
   "invalidRetention": "Nepodporovaná hodnota retence.",
   "invalidCursor": "Neplatný požadavek na historii.",
   "confirm": "Potvrdit",
-  "newLoginTitle": "Nové přihlášení"
+  "newLoginTitle": "Nové přihlášení",
+  "editMessage": "Upravit zprávu",
+  "pinMessage": "Připnout",
+  "unpinMessage": "Odepnout",
+  "selectMessage": "Vybrat",
+  "messageEdited": "upraveno",
+  "pinnedMessages": "Připnuté zprávy",
+  "noPinnedMessages": "Zatím žádná připnutá zpráva"
 }

@@ -33,6 +33,7 @@ class CacheUtils {
   static const String _saltStorageKey = 'whisper_pbkdf2_salt';
   static const String _deviceIdKey = 'whisper_device_id';
   static const String _syncSeqKey = 'syncSeq';
+  static const String _syncEventSeqKey = 'syncEventSeq';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static const _chatThemeKeyPrefix = 'chatTheme:';
 
@@ -87,6 +88,23 @@ class CacheUtils {
     final stored = box.get(_syncSeqKey) as int? ?? 0;
     if (seq > stored) {
       await box.put(_syncSeqKey, seq);
+    }
+  }
+
+  /// Highest mutation-log `eventSeq` stored on this device. Edits, deletions,
+  /// reactions and pins only reach a device that was offline through this
+  /// cursor.
+  static Future<int> getSyncEventSeq() async {
+    Box box = await Hive.openBox(_settingsKey);
+    return box.get(_syncEventSeqKey) as int? ?? 0;
+  }
+
+  /// Advances the mutation cursor; like [setSyncSeq] it never moves backwards.
+  static Future<void> setSyncEventSeq(int seq) async {
+    Box box = await Hive.openBox(_settingsKey);
+    final stored = box.get(_syncEventSeqKey) as int? ?? 0;
+    if (seq > stored) {
+      await box.put(_syncEventSeqKey, seq);
     }
   }
 
@@ -494,9 +512,44 @@ class CacheUtils {
       for (final path in value.localPaths) {
         await MediaUtils.deleteLocalFile(path);
       }
+      await setMessagePinned(userId, value.id, null);
     }
     await _deletePendingSend(userId, sentAt);
     await box.delete(key);
+  }
+
+  /// Stores the newest text of an edited message, or drops the edit when the
+  /// message is not on this device.
+  static Future<void> markMessageEdited(
+      String userId, DateTime sentAt, String text, DateTime editedAt) async {
+    final box = await _openPrivateMessagesBox();
+    final key = messageKey(userId, sentAt);
+    final value = box.get(key);
+    if (value is! PrivateMessage) {
+      return;
+    }
+    value.message = text;
+    value.editedAt = editedAt;
+    await box.put(key, value);
+  }
+
+  /// Sets or clears one participant's reaction on a stored message.
+  static Future<void> setMessageReaction(
+      String userId, DateTime sentAt, String reactorId, String? emoji) async {
+    final box = await _openPrivateMessagesBox();
+    final key = messageKey(userId, sentAt);
+    final value = box.get(key);
+    if (value is! PrivateMessage) {
+      return;
+    }
+    final reactions = Map<String, String>.from(value.reactions ?? const {});
+    if (emoji == null) {
+      reactions.remove(reactorId);
+    } else {
+      reactions[reactorId] = emoji;
+    }
+    value.reactions = reactions.isEmpty ? null : reactions;
+    await box.put(key, value);
   }
 
   /// Delete user messages
@@ -773,6 +826,66 @@ class CacheUtils {
     }
   }
 
+  /// Pinned message ids of one chat, with the instant each was pinned.
+  static Future<Map<String, DateTime>> getPinnedMessages(String userId) async {
+    final box = await _openConversationsBox();
+    final raw = _metaOf(box, userId)['pins'];
+    if (raw is! Map) {
+      return {};
+    }
+    return {
+      for (final entry in raw.entries)
+        if (entry.key is String && entry.value is int)
+          entry.key as String:
+              DateTime.fromMillisecondsSinceEpoch(entry.value as int),
+    };
+  }
+
+  /// Pins or unpins one message of a chat. Pins are shared between both
+  /// participants, so this is written from a pin event or a history page.
+  static Future<void> setMessagePinned(
+      String userId, String? messageId, DateTime? pinnedAt) async {
+    if (messageId == null || messageId.isEmpty) {
+      return;
+    }
+    final box = await _openConversationsBox();
+    final meta = _metaOf(box, userId);
+    final pins = Map<String, dynamic>.from(
+        meta['pins'] is Map ? meta['pins'] as Map : const {});
+    if (pinnedAt == null) {
+      pins.remove(messageId);
+    } else {
+      pins[messageId] = pinnedAt.millisecondsSinceEpoch;
+    }
+    await _putPins(box, userId, meta, pins);
+  }
+
+  /// Replaces the pins of a chat with a server answer, so an unpin that happened
+  /// on another device does not survive on a stale local entry.
+  static Future<void> replacePinnedMessages(
+      String userId, Map<String, DateTime> pins) async {
+    final box = await _openConversationsBox();
+    final meta = _metaOf(box, userId);
+    await _putPins(box, userId, meta, {
+      for (final entry in pins.entries)
+        entry.key: entry.value.millisecondsSinceEpoch,
+    });
+  }
+
+  static Future<void> _putPins(
+      Box box, String userId, Map meta, Map<String, dynamic> pins) async {
+    if (pins.isEmpty) {
+      meta.remove('pins');
+    } else {
+      meta['pins'] = pins;
+    }
+    if (meta.isEmpty) {
+      await box.delete(userId);
+    } else {
+      await box.put(userId, meta);
+    }
+  }
+
   /// Instant up to which the account deleted this conversation, null when it
   /// never did. Everything at or before it is gone for good.
   static Future<DateTime?> conversationClearedAt(String userId) async {
@@ -808,6 +921,7 @@ class CacheUtils {
         await MediaUtils.deleteLocalFile(path);
       }
       await _deletePendingSend(userId, value.sentAt);
+      await setMessagePinned(userId, value.id, null);
       await box.delete(key);
     }
   }

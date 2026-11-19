@@ -6,6 +6,7 @@ import '../utils/nav_transitions.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
 import '../utils/cache_utils.dart';
+import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/media_utils.dart';
@@ -28,12 +29,72 @@ class ChatInfoPage extends StatefulWidget {
 class _ChatInfoPageState extends State<ChatInfoPage> {
   Color? _chatThemeColor;
   List<PrivateMessage> _media = [];
+  Map<String, DateTime> _pins = {};
 
   @override
   void initState() {
     super.initState();
     _loadChatTheme();
     _loadMedia();
+    _loadPins();
+  }
+
+  Future<void> _loadPins() async {
+    final pins = await CacheUtils.getPinnedMessages(widget.userId);
+    if (mounted) {
+      setState(() {
+        _pins = pins;
+      });
+    }
+  }
+
+  /// Pinned messages of this chat, newest pin first, with an unpin per row.
+  Future<void> _openPinned() async {
+    final messages = await CacheUtils.getPrivateMessages(widget.userId);
+    final pins = await CacheUtils.getPinnedMessages(widget.userId);
+    final pinned = messages
+        .where((message) => message.id != null && pins.containsKey(message.id))
+        .toList()
+      ..sort((a, b) => pins[b.id]!.compareTo(pins[a.id]!));
+    if (!mounted) {
+      return;
+    }
+    await showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            if (pinned.isEmpty) ListTile(title: Text('noPinnedMessages'.tr())),
+            for (final message in pinned)
+              ListTile(
+                leading: const Icon(Icons.push_pin),
+                title: Text(
+                  message.preview.isEmpty ? 'mediaPhoto'.tr() : message.preview,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(DateFormat.yMMMd()
+                    .add_Hm()
+                    .format(message.sentAt.toLocal())),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: 'unpinMessage'.tr(),
+                  onPressed: () async {
+                    await MessageActions.togglePin(message, widget.userId,
+                        pinned: true);
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                    }
+                    await _loadPins();
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadChatTheme() async {
@@ -154,6 +215,18 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                       icon: Icons.event,
                       label: 'jumpToDate'.tr(),
                       onPressed: _jumpToDate,
+                    ),
+                    // Pinned messages, shared with the other participant
+                    SettingsTile(
+                      icon: Icons.push_pin,
+                      label: 'pinnedMessages'.tr(),
+                      onPressed: _openPinned,
+                      extra: _pins.isEmpty
+                          ? null
+                          : Padding(
+                              padding: const EdgeInsets.only(left: 10),
+                              child: Text('${_pins.length}'),
+                            ),
                     ),
                     // Chat theme
                     SettingsTile(

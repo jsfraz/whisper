@@ -241,5 +241,12 @@
   "invalidRetention": "Unsupported retention value.",
   "invalidCursor": "The history request was invalid.",
   "confirm": "Confirm",
-  "newLoginTitle": "New login"
+  "newLoginTitle": "New login",
+  "editMessage": "Edit message",
+  "pinMessage": "Pin",
+  "unpinMessage": "Unpin",
+  "selectMessage": "Select",
+  "messageEdited": "edited",
+  "pinnedMessages": "Pinned messages",
+  "noPinnedMessages": "No pinned messages yet"
 }

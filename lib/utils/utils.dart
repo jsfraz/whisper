@@ -13,6 +13,7 @@ import '../pages/chat_page.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:whisper_websocket_client_dart/models/delivery_ack.dart';
+import 'package:whisper_websocket_client_dart/models/message_event.dart';
 import 'package:whisper_websocket_client_dart/models/synced.dart';
 import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/private_message.dart';
@@ -279,6 +280,19 @@ class Utils {
   /// older echoes are dropped; history from a sync is stored silently.
   static Future<void> _storeMessages(List<PrivateMessage> messages,
       {required bool notify, bool advanceCursor = false}) async {
+    // A tombstone (deleted for everyone) has no ciphertext left. The caller
+    // drops the local copy; storing it here would only create an undecryptable
+    // placeholder.
+    messages = messages
+        .where((message) =>
+            message.content != null &&
+            message.key != null &&
+            message.nonce != null &&
+            message.mac != null)
+        .toList();
+    if (messages.isEmpty) {
+      return;
+    }
     messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
     List<pm.PrivateMessage> decryptedMessages = [];
     // Media references of each conversation that still need a download.
@@ -292,10 +306,10 @@ class Utils {
         decryptedBatch = await CryptoUtils.decryptMessageBatch(
             messages
                 .map((message) => {
-                      'data': message.content,
-                      'key': message.key,
-                      'nonce': message.nonce,
-                      'mac': message.mac,
+                      'data': message.content!,
+                      'key': message.key!,
+                      'nonce': message.nonce!,
+                      'mac': message.mac!,
                     })
                 .toList(),
             Singleton().profile.privateKey);
@@ -430,17 +444,20 @@ class Utils {
     final byPeer = <String, List<pm.PrivateMessage>>{};
     final peerOfMessage = <String, String>{};
     final idOfMessage = <String, String>{};
+    final editedOfMessage = <String, DateTime?>{};
     for (final message in messages) {
       final key =
           '${message.senderId}|${message.sentAt.toUtc().toIso8601String()}';
       peerOfMessage[key] = message.peerId;
       idOfMessage[key] = message.id;
+      editedOfMessage[key] = message.editedAt;
     }
     for (final message in decryptedMessages) {
       final key =
           '${message.senderId}|${message.sentAt.toUtc().toIso8601String()}';
       // The archive id is what a delete on the server needs.
       message.id ??= idOfMessage[key];
+      message.editedAt ??= editedOfMessage[key];
       final peer = peerOfMessage[key] ?? message.senderId;
       byPeer.putIfAbsent(peer, () => []).add(message);
     }
@@ -518,17 +535,42 @@ class Utils {
           await CacheUtils.addUser(
               User(peer.id, peer.username, peer.publicKey, false));
         }
+        // A tombstone carries no ciphertext: drop the local copy instead of
+        // storing an undecryptable placeholder.
+        for (final dead
+            in synced.messages.where((message) => message.deletedAt != null)) {
+          await CacheUtils.deletePrivateMessageAt(dead.peerId, dead.sentAt);
+        }
         if (synced.messages.isNotEmpty) {
           // History is silent: a week offline must not ring once per old
           // message.
           await _storeMessages(synced.messages, notify: false);
         }
+        for (final cleared in synced.cleared) {
+          await CacheUtils.applyConversationClearedAt(
+              cleared.peerId, cleared.clearedAt.toLocal());
+        }
+        // Events come after the messages they talk about, which is what the
+        // server's cursor ordering guarantees.
+        for (final event in synced.events) {
+          await applyEvent(event);
+        }
         // Only after the batch is stored: a cursor ahead of the local messages
         // would drop them for good.
         await CacheUtils.setSyncSeq(synced.syncedThrough);
+        await CacheUtils.setSyncEventSeq(synced.eventsThrough);
         if (synced.hasMore && Singleton().wsClient.isConnected) {
-          Singleton().wsClient.sendSync(synced.syncedThrough);
+          Singleton().wsClient.sendSync(synced.syncedThrough,
+              sinceEventSeq: synced.eventsThrough);
         }
+        break;
+
+      // One live mutation of an archived message
+      case WsResponseType.edit:
+      case WsResponseType.delete:
+      case WsResponseType.reaction:
+      case WsResponseType.pin:
+        await applyEvent(wsResponse.payload as MessageEvent);
         break;
 
       // Delete account
@@ -551,6 +593,81 @@ class Utils {
         await Fluttertoast.showToast(
             msg: Utils.serverErrorText(error), backgroundColor: Colors.red);
         break;
+
+      // A frame from a newer server. Ignoring it keeps this build usable.
+      case WsResponseType.unknown:
+        break;
+    }
+  }
+
+  /// Applies one entry of the mutation log: an edit, a deletion, a reaction or
+  /// a pin of a message this device already has. The same code serves a live
+  /// frame and a replayed sync page, so a reconnect converges on the same
+  /// state.
+  static Future<void> applyEvent(MessageEvent event) async {
+    switch (event.kind) {
+      case MessageEventKind.delete:
+        await CacheUtils.deletePrivateMessageAt(event.peerId, event.sentAt);
+        await CacheUtils.setMessagePinned(event.peerId, event.messageId, null);
+        break;
+
+      case MessageEventKind.edit:
+        final content = event.content;
+        if (content == null) {
+          return;
+        }
+        final plain = await _decryptSmall(event);
+        if (plain == null) {
+          return;
+        }
+        final body = tryParseTextEnvelope(plain)?.body ?? utf8.decode(plain);
+        await CacheUtils.markMessageEdited(
+            event.peerId, event.sentAt, body, event.createdAt.toLocal());
+        break;
+
+      case MessageEventKind.reaction:
+        // My own reaction ciphertext is wrapped for the other side, so this
+        // device keeps the emoji it set locally.
+        if (event.actorId == Singleton().profile.user.id) {
+          return;
+        }
+        String? emoji;
+        if (event.content != null) {
+          final plain = await _decryptSmall(event);
+          if (plain == null) {
+            return;
+          }
+          emoji = utf8.decode(plain);
+        }
+        await CacheUtils.setMessageReaction(
+            event.peerId, event.sentAt, event.actorId, emoji);
+        break;
+
+      case MessageEventKind.pin:
+        await CacheUtils.setMessagePinned(event.peerId, event.messageId,
+            event.pinned == true ? event.createdAt.toLocal() : null);
+        break;
+    }
+    MessageNotifier().notify();
+  }
+
+  /// Decrypts the small payload of an edit or a reaction, null when it cannot
+  /// be opened.
+  static Future<Uint8List?> _decryptSmall(MessageEvent event) async {
+    final content = event.content;
+    final key = event.key;
+    final nonce = event.nonce;
+    final mac = event.mac;
+    if (content == null || key == null || nonce == null || mac == null) {
+      return null;
+    }
+    try {
+      final decrypted = await CryptoUtils.decryptMessageBatch([
+        {'data': content, 'key': key, 'nonce': nonce, 'mac': mac}
+      ], Singleton().profile.privateKey);
+      return decrypted.single;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -583,20 +700,23 @@ class Utils {
               'nonce': message.nonce,
               'mac': message.mac,
               'sentAt': message.sentAt.toIso8601String(),
+              'editedAt': message.editedAt?.toIso8601String(),
               'recipientOnline': false,
             }))
         .toList();
     await _storeMessages(wire, notify: false);
   }
 
-  /// Ask the server for the archive delta above the cursor stored on this
-  /// device. Nothing is pushed on connect, so this is what catches a client up.
+  /// Ask the server for the archive delta and the mutation log above the
+  /// cursors stored on this device. Nothing is pushed on connect, so this is
+  /// what catches a client up.
   static Future<void> syncArchive() async {
     if (!Singleton().wsClient.isConnected) {
       return;
     }
     try {
-      Singleton().wsClient.sendSync(await CacheUtils.getSyncSeq());
+      Singleton().wsClient.sendSync(await CacheUtils.getSyncSeq(),
+          sinceEventSeq: await CacheUtils.getSyncEventSeq());
     } catch (e) {
       if (kDebugMode) {
         debugPrint('sync request failed: $e');

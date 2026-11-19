@@ -93,6 +93,9 @@ class _ChatPageState extends State<ChatPage> {
   /// Bubble keys by client timestamp, for jumping to a quoted message.
   final Map<int, GlobalKey> _messageKeys = {};
 
+  /// Pinned message ids of this chat with the instant of the pin.
+  Map<String, DateTime> _pins = {};
+
   /// Newest message the viewport has already shown at the bottom; anything
   /// after it while scrolled up counts as unseen.
   int _newestSeenSentAt = 0;
@@ -188,8 +191,13 @@ class _ChatPageState extends State<ChatPage> {
       }
       final newest =
           messages.isEmpty ? 0 : messages.last.sentAt.microsecondsSinceEpoch;
+      final pins = await CacheUtils.getPinnedMessages(widget.user.id);
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _messages = messages;
+        _pins = pins;
         if (!first) {
           if (wasAtBottom) {
             _unseenCount = 0;
@@ -368,6 +376,17 @@ class _ChatPageState extends State<ChatPage> {
             widget.user.id, page.clearedAt!.toLocal());
         MessageNotifier().notify();
       }
+      // Pins are shared and the page always carries the whole set, so this is
+      // also how an unpin that happened on another device lands here.
+      final pins = {
+        for (final pin in page.pins) pin.messageId: pin.pinnedAt.toLocal(),
+      };
+      await CacheUtils.replacePinnedMessages(widget.user.id, pins);
+      if (mounted) {
+        setState(() {
+          _pins = pins;
+        });
+      }
       for (final peer in page.peers) {
         await CacheUtils.addUser(
             User(peer.id, peer.username, peer.publicKey, peer.admin));
@@ -388,6 +407,90 @@ class _ChatPageState extends State<ChatPage> {
     } finally {
       _historyLoading = false;
     }
+  }
+
+  /// Opens the long-press sheet for one message. The pin state of the sheet is
+  /// the one this device knows, so the entry reads "unpin" when it applies.
+  void _openMessageActions(PrivateMessage message) {
+    final id = message.id;
+    MessageActions.showSheet(
+      context,
+      message,
+      widget.user.id,
+      pinned: id != null && _pins.containsKey(id),
+      onSelect: () => _toggleSelected(message),
+    );
+  }
+
+  /// The newest pinned message this device still holds, null when none is left.
+  PrivateMessage? get _newestPin {
+    PrivateMessage? newest;
+    DateTime? newestAt;
+    for (final message in _messages) {
+      final id = message.id;
+      if (id == null) {
+        continue;
+      }
+      final at = _pins[id];
+      if (at == null) {
+        continue;
+      }
+      if (newestAt == null || at.isAfter(newestAt)) {
+        newest = message;
+        newestAt = at;
+      }
+    }
+    return newest;
+  }
+
+  /// Narrow bar above the composer: the newest pin, tap to jump, cross to unpin.
+  Widget _buildPinBar() {
+    final pinned = _newestPin;
+    if (pinned == null) {
+      return const SizedBox.shrink();
+    }
+    final preview = pinned.preview;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _jumpToMessage(pinned.sentAt),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.push_pin, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    preview.isEmpty ? 'mediaPhoto'.tr() : preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                if (_pins.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text('+${_pins.length - 1}',
+                        style: const TextStyle(fontSize: 11)),
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 16),
+                  tooltip: 'unpinMessage'.tr(),
+                  onPressed: () => MessageActions.togglePin(
+                      pinned, widget.user.id,
+                      pinned: true),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// Load the draft message saved when leaving the chat.
@@ -1225,6 +1328,7 @@ class _ChatPageState extends State<ChatPage> {
       selectionMode: _selectionMode,
       selected: _selected.contains(micros),
       onSelect: () => _toggleSelected(message),
+      onActions: () => _openMessageActions(message),
       onReply: () => _startReply(message),
       onTapQuote: message.isReply
           ? () => _jumpToMessage(message.replyTo!.sentAt)
@@ -1530,6 +1634,7 @@ class _ChatPageState extends State<ChatPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        _buildPinBar(),
                         if (_replyTo != null) _buildReplyBar(),
                         Stack(
                           alignment: Alignment.center,

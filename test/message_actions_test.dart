@@ -93,5 +93,30 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     expect(find.text('Send again'), findsNothing);
+
+    // Close the sheet
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    // An archived message gains the reaction row and the pin entry; only an own
+    // text message can be edited.
+    message = PrivateMessage('2', 'hello', DateTime(2026), DateTime(2026), true)
+      ..id = '00000000-0000-4000-8000-000000000000';
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('👍'), findsOneWidget);
+    expect(find.text('Pin'), findsOneWidget);
+    expect(find.text('Edit message'), findsNothing);
+
+    // Close the sheet
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    message = PrivateMessage('1', 'hello', DateTime(2026), DateTime(2026), true)
+      ..id = '00000000-0000-4000-8000-000000000000';
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit message'), findsOneWidget);
+    expect(find.text('Unpin'), findsNothing);
   });
 }
