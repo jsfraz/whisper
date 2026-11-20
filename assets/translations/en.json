@@ -97,6 +97,7 @@
   "yesterdayText": "Yesterday",
   "todayText": "Today",
   "meText": "Me",
+  "reactionsTitle": "Reactions",
   "accountDeleted2": "Your account has been deleted :P",
   "wsOffline": "WebSocket is offline",
   "attachButton": "Attach",

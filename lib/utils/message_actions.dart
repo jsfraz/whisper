@@ -54,6 +54,67 @@ class MessageActions {
   static bool canSave(PrivateMessage message) =>
       message.isMedia && message.localPath != null;
 
+  /// Reactions grouped by emoji, most used first, with the name of every
+  /// participant. [nameOf] resolves a user id, so the grouping stays free of
+  /// the user cache and can be tested on its own.
+  static List<MapEntry<String, List<String>>> groupReactions(
+      Map<String, String> reactions, String Function(String userId) nameOf) {
+    final grouped = <String, List<String>>{};
+    for (final entry in reactions.entries) {
+      grouped.putIfAbsent(entry.value, () => []).add(nameOf(entry.key));
+    }
+    final rows = grouped.entries.toList()
+      ..sort((a, b) {
+        final byCount = b.value.length.compareTo(a.value.length);
+        return byCount != 0 ? byCount : a.key.compareTo(b.key);
+      });
+    return rows;
+  }
+
+  /// Who reacted with what. Names come from the local user cache, so this is a
+  /// cache read and never a server call.
+  static Future<void> showReactions(
+      BuildContext context, PrivateMessage message) async {
+    final reactions = message.reactions ?? const <String, String>{};
+    if (reactions.isEmpty) {
+      return;
+    }
+    final me = Singleton().profile.user.id;
+    final names = <String, String>{me: 'meText'.tr()};
+    for (final id in reactions.keys) {
+      if (names.containsKey(id)) {
+        continue;
+      }
+      names[id] = (await CacheUtils.getUserById(id))?.username ?? '?';
+    }
+    if (!context.mounted) {
+      return;
+    }
+    final rows = groupReactions(reactions, (id) => names[id] ?? '?');
+
+    await showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text('reactionsTitle'.tr(),
+                  style: Theme.of(ctx).textTheme.titleMedium),
+            ),
+            for (final row in rows)
+              ListTile(
+                leading: Text(row.key, style: const TextStyle(fontSize: 22)),
+                title: Text(row.value.join(', ')),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Bubble long-press sheet with all actions that apply to [message].
   /// [conversationUserId] is the other side of the conversation.
   static Future<void> showSheet(
@@ -65,6 +126,9 @@ class MessageActions {
       builder: (ctx) {
         final canAddress =
             message.id?.isNotEmpty ?? false; // needs the archive id
+        // The emoji already picked by this user, marked so a second tap reads
+        // as "remove mine" instead of "pick this again".
+        final mine = message.reactions?[Singleton().profile.user.id];
         return SafeArea(
           child: Wrap(
             children: [
@@ -77,6 +141,15 @@ class MessageActions {
                     children: [
                       for (final emoji in reactionEmojis)
                         IconButton(
+                          style: emoji == mine
+                              ? IconButton.styleFrom(
+                                  backgroundColor: Theme.of(ctx)
+                                      .colorScheme
+                                      .primaryContainer,
+                                  side: BorderSide(
+                                      color: Theme.of(ctx).colorScheme.primary),
+                                )
+                              : null,
                           onPressed: () {
                             Navigator.pop(ctx);
                             react(message, conversationUserId, emoji);

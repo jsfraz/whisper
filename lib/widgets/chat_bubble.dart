@@ -41,6 +41,9 @@ class ChatBubble extends StatefulWidget {
   /// Opens the action sheet (long-press). Falls back to [onSelect] when unset.
   final VoidCallback? onActions;
 
+  /// Opens the "who reacted" list when the reaction badge is tapped.
+  final VoidCallback? onReactions;
+
   /// Quotes this message in the composer (swipe, and double-tap when no quick
   /// reaction is wired).
   final VoidCallback? onReply;
@@ -60,6 +63,7 @@ class ChatBubble extends StatefulWidget {
       this.readAt,
       this.onSelect,
       this.onActions,
+      this.onReactions,
       this.onReply,
       this.onQuickReact,
       this.onTapQuote,
@@ -88,6 +92,11 @@ class _ChatBubbleState extends State<ChatBubble> {
       !widget.message.isUndecryptable &&
       isEmojiOnly(widget.message.message) &&
       emojiCount(widget.message.message) <= 3;
+
+  /// Tapping the badge shows who reacted; a bubble without that callback keeps
+  /// offering its actions, which is what the badge used to do.
+  VoidCallback? get _onBadgeTap =>
+      widget.onReactions ?? widget.onActions ?? widget.onSelect;
 
   /// One badge for all reactions of the bubble: the emoji sit in a single pill
   /// with no gap between them, and a count only when the same emoji came from
@@ -223,7 +232,7 @@ class _ChatBubbleState extends State<ChatBubble> {
           badge: widget.message.reactionEmojis.isEmpty
               ? null
               : GestureDetector(
-                  onTap: () => (widget.onActions ?? widget.onSelect)?.call(),
+                  onTap: _onBadgeTap,
                   child: _reactionBadge(),
                 ),
           conversationUserId: widget.user.id,
@@ -424,24 +433,32 @@ class _ChatBubbleState extends State<ChatBubble> {
 
     // The reactions hang on the bubble's bottom edge as one badge, on the side
     // opposite the bubble's own side, the way a messenger pins them there.
-    final bubbleWithBadge = widget.message.reactionEmojis.isEmpty ||
-            widget.message.isMedia
-        ? clippedBox
-        : Stack(
-            clipBehavior: Clip.none,
-            children: [
-              clippedBox,
-              Positioned(
-                bottom: -12,
-                left: widget.message.isMe ? 8 : null,
-                right: widget.message.isMe ? null : 8,
-                child: GestureDetector(
-                  onTap: () => (widget.onActions ?? widget.onSelect)?.call(),
-                  child: _reactionBadge(),
-                ),
-              ),
-            ],
-          );
+    final bubbleWithBadge =
+        widget.message.reactionEmojis.isEmpty || widget.message.isMedia
+            ? clippedBox
+            : Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // The room for the badge is part of the stack: a child that
+                  // hangs past its parent's edge still paints, but it never
+                  // receives the tap that opens the reaction list.
+                  Padding(
+                    // Same 12 px the badge used to hang by, now reserved
+                    // inside the stack so the badge stays tappable.
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: clippedBox,
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    left: widget.message.isMe ? 8 : null,
+                    right: widget.message.isMe ? null : 8,
+                    child: GestureDetector(
+                      onTap: _onBadgeTap,
+                      child: _reactionBadge(),
+                    ),
+                  ),
+                ],
+              );
 
     return Padding(
       padding: EdgeInsets.only(
@@ -520,14 +537,9 @@ class _ChatBubbleState extends State<ChatBubble> {
                                 : CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                // Room for the reaction badge hanging under
-                                // the bubble.
-                                padding: EdgeInsets.only(
-                                    bottom:
-                                        widget.message.reactionEmojis.isEmpty ||
-                                                widget.message.isMedia
-                                            ? 0
-                                            : 14),
+                                // The badge's room is inside the bubble's own
+                                // stack, so this one only carries the swipe.
+                                padding: EdgeInsets.zero,
                                 child: widget.onReply != null &&
                                         !widget.selectionMode
                                     ? Dismissible(

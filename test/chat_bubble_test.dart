@@ -195,6 +195,8 @@ void main() {
     // Reactions are one badge hanging on the bubble's bottom edge: no gap
     // between the emoji and none between the badge and the bubble.
     final sentAt = DateTime(2026, 11, 19, 12);
+    var reactionsOpened = 0;
+    var actionsOpened = 0;
     await show(ChatBubble(
       null,
       PrivateMessage('1', 'reaguj', sentAt, sentAt, true)
@@ -202,6 +204,8 @@ void main() {
       null,
       peer,
       accentColor: Colors.blue,
+      onActions: () => actionsOpened++,
+      onReactions: () => reactionsOpened++,
     ));
     expect(find.text('❤️'), findsOneWidget);
     expect(find.text('😂'), findsOneWidget);
@@ -212,6 +216,11 @@ void main() {
     expect(heart.top, lessThan(body.bottom + 5));
     // The two emoji are one badge, not two chips with a gap.
     expect(laugh.left - heart.right, lessThan(8));
+    // Tapping the badge asks who reacted, not for the action sheet.
+    await tester.tap(find.text('❤️'));
+    await tester.pumpAndSettle();
+    expect(reactionsOpened, 1);
+    expect(actionsOpened, 0);
 
     // Phone numbers and e-mails are underlined like a link.
     await show(ChatBubble(
@@ -256,6 +265,7 @@ void main() {
 
     // A voice message shows the reaction it carries: the badge sits inside the
     // bubble's edge, so a quick react there is not a silent no-op.
+    var mediaReactions = 0;
     await show(ChatBubble(
       null,
       PrivateMessage('2', '', DateTime(2026), DateTime(2026), true,
@@ -265,8 +275,14 @@ void main() {
       null,
       peer,
       accentColor: Colors.blue,
+      onReactions: () => mediaReactions++,
     ));
     expect(find.text('👍'), findsOneWidget);
+    // The badge on a media bubble is tappable too: it used to hang outside its
+    // parent's bounds, which paints but never hits.
+    await tester.tap(find.text('👍'));
+    await tester.pumpAndSettle();
+    expect(mediaReactions, 1);
 
     // A jump lights the target bubble and drops the frame again afterwards.
     Future<Decoration?> frame(ChatBubble bubble) async {

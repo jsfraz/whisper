@@ -1414,6 +1414,7 @@ class _ChatPageState extends State<ChatPage> {
       readAt: micros == _lastOwnMicros && _readReceipts ? _peerReadAt : null,
       onSelect: () => _toggleSelected(message),
       onActions: () => _openMessageActions(message),
+      onReactions: () => MessageActions.showReactions(context, message),
       onQuickReact: () => MessageActions.react(
           message, widget.user.id, MessageActions.quickReaction),
       onReply: () => _startReply(message),

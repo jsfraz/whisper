@@ -201,9 +201,15 @@ class _MediaBubbleState extends State<MediaBubble> {
       return Stack(
         clipBehavior: Clip.none,
         children: [
-          box,
+          // The room the badge hangs into is part of the stack: a child past
+          // the edge still paints, but it never receives the tap that opens the
+          // reaction list.
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: box,
+          ),
           Positioned(
-            bottom: -10,
+            bottom: 0,
             left: widget.message.isMe ? 16 : null,
             right: widget.message.isMe ? null : 16,
             child: widget.badge!,
@@ -259,33 +265,31 @@ class _MediaBubbleState extends State<MediaBubble> {
           : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // The caption below would paint over the half of the badge that hangs
-        // past the media, so the media layer reserves room for it.
-        Padding(
-          padding: EdgeInsets.only(
-              bottom: hasCaption && widget.badge != null ? 12 : 0),
-          child: Stack(
-            // The badge hangs over the bottom edge, so the stack must not clip.
-            clipBehavior: Clip.none,
-            children: [
-              ClipRRect(
+        // The badge hangs over the media's bottom edge, so its room sits inside
+        // the stack: outside it the badge would paint but never take a tap. The
+        // caption below starts under that room instead of over the badge.
+        Stack(
+          // The badge hangs over the bottom edge, so the stack must not clip.
+          clipBehavior: Clip.none,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(bottom: widget.badge == null ? 0 : 10),
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: media,
               ),
-              // On the attachment itself: the corner of the media, not the
-              // level of the caption below it.
-              if (widget.badge != null)
-                Positioned(
-                  // On the attachment's bottom edge: half of the pill hangs
-                  // over the edge, the way a badge is pinned to it. Far enough
-                  // from the corner that the rounded side does not cut it.
-                  bottom: -10,
-                  left: widget.message.isMe ? 16 : null,
-                  right: widget.message.isMe ? null : 16,
-                  child: widget.badge!,
-                ),
-            ],
-          ),
+            ),
+            // On the attachment itself: the corner of the media, not the level
+            // of the caption below it. Far enough from the corner that the
+            // rounded side does not cut it.
+            if (widget.badge != null)
+              Positioned(
+                bottom: 0,
+                left: widget.message.isMe ? 16 : null,
+                right: widget.message.isMe ? null : 16,
+                child: widget.badge!,
+              ),
+          ],
         ),
         if (hasCaption)
           Container(
