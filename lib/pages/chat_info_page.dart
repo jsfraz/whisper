@@ -121,6 +121,12 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                 subtitle: Text(DateFormat.yMMMd()
                     .add_Hm()
                     .format(message.sentAt.toLocal())),
+                // Hands the instant back to the chat, which scrolls to it and
+                // flashes the bubble.
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.pop(context, message.sentAt);
+                },
                 trailing: IconButton(
                   icon: const Icon(Icons.close),
                   tooltip: 'unpinMessage'.tr(),

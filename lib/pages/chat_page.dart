@@ -99,6 +99,11 @@ class _ChatPageState extends State<ChatPage> {
   /// Which pin the strip shows; the list is newest pin first.
   int _pinIndex = 0;
 
+  /// Message the last jump landed on, flashing so the user sees which one it
+  /// was; cleared by [_highlightTimer].
+  int? _highlightMicros;
+  Timer? _highlightTimer;
+
   /// Whether this chat publishes and shows read receipts.
   bool _readReceipts = false;
 
@@ -696,6 +701,18 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  /// Flashes the bubble a jump landed on, so the target is obvious even when
+  /// the message itself looks like its neighbours.
+  void _flashMessage(int micros) {
+    _highlightTimer?.cancel();
+    setState(() => _highlightMicros = micros);
+    _highlightTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) {
+        setState(() => _highlightMicros = null);
+      }
+    });
+  }
+
   /// Scrolls to [sentAt], used by the reply quote, the search hits and the
   /// date jump.
   ///
@@ -727,6 +744,7 @@ class _ChatPageState extends State<ChatPage> {
       if (context != null && context.mounted) {
         await Scrollable.ensureVisible(context,
             alignment: 0.2, duration: const Duration(milliseconds: 250));
+        _flashMessage(micros);
         return;
       }
       await _settleAtOldest();
@@ -738,6 +756,7 @@ class _ChatPageState extends State<ChatPage> {
         if (reached != null && reached.mounted) {
           await Scrollable.ensureVisible(reached,
               alignment: 0.3, duration: const Duration(milliseconds: 250));
+          _flashMessage(micros);
           return;
         }
         final position = _scrollController.position;
@@ -1391,6 +1410,7 @@ class _ChatPageState extends State<ChatPage> {
       accentColor: _chatThemeColor ?? Singleton().appTheme.color,
       selectionMode: _selectionMode,
       selected: _selected.contains(micros),
+      highlight: _highlightMicros == micros,
       readAt: micros == _lastOwnMicros && _readReceipts ? _peerReadAt : null,
       onSelect: () => _toggleSelected(message),
       onActions: () => _openMessageActions(message),
@@ -1495,6 +1515,7 @@ class _ChatPageState extends State<ChatPage> {
     _scrollController.removeListener(_onScroll);
     WidgetsBinding.instance.removeObserver(_metricsObserver);
     _recordTimer?.cancel();
+    _highlightTimer?.cancel();
     if (_readPublish?.isActive ?? false) {
       // Leaving within the debounce window used to drop the cursor; send it
       // now, fire and forget (dispose cannot await).

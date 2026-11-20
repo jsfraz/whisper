@@ -27,6 +27,10 @@ class ChatBubble extends StatefulWidget {
   /// Whether this bubble is part of the current selection.
   final bool selected;
 
+  /// Flashes the bubble after a jump, so the user can see which message the
+  /// jump landed on.
+  final bool highlight;
+
   /// Instant up to which the peer read the chat; null when they never
   /// published one (receipts off or nothing read yet).
   final DateTime? readAt;
@@ -52,6 +56,7 @@ class ChatBubble extends StatefulWidget {
       {required this.accentColor,
       this.selectionMode = false,
       this.selected = false,
+      this.highlight = false,
       this.readAt,
       this.onSelect,
       this.onActions,
@@ -369,7 +374,10 @@ class _ChatBubbleState extends State<ChatBubble> {
     // is the bubble, so it is clipped to the corners instead of sitting inside
     // a coloured frame.
     final isMedia = widget.message.isMedia;
-    final bubbleBox = Container(
+    // Animated so a jump flashes in and fades out instead of popping.
+    final bubbleBox = AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
       decoration: BoxDecoration(
         // A reply needs a surface for its quote; the attachment below fills the
         // rest of the bubble.
@@ -380,7 +388,7 @@ class _ChatBubbleState extends State<ChatBubble> {
       ),
       // Above the child: a border in the decoration would sit under an
       // attachment that fills the bubble.
-      foregroundDecoration: widget.selected
+      foregroundDecoration: (widget.selected || widget.highlight)
           ? BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(

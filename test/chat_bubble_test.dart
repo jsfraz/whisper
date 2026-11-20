@@ -267,5 +267,31 @@ void main() {
       accentColor: Colors.blue,
     ));
     expect(find.text('👍'), findsOneWidget);
+
+    // A jump lights the target bubble and drops the frame again afterwards.
+    Future<Decoration?> frame(ChatBubble bubble) async {
+      await show(bubble);
+      return tester
+          .widget<AnimatedContainer>(find
+              .ancestor(
+                  of: find.text('cíl'),
+                  matching: find.byType(AnimatedContainer))
+              .first)
+          .foregroundDecoration;
+    }
+
+    ChatBubble target({required bool highlight, bool selected = false}) =>
+        ChatBubble(
+          null,
+          PrivateMessage('2', 'cíl', DateTime(2026), DateTime(2026), true),
+          null,
+          peer,
+          accentColor: Colors.blue,
+          highlight: highlight,
+          selected: selected,
+        );
+    expect(await frame(target(highlight: false)), isNull);
+    expect(await frame(target(highlight: true)), isNotNull);
+    expect(await frame(target(highlight: true, selected: true)), isNotNull);
   });
 }
