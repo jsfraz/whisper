@@ -939,13 +939,32 @@ class CacheUtils {
   static Future<DateTime?> getPeerReadAt(String userId) async {
     final box = await _openConversationsBox();
     final raw = _metaOf(box, userId)['peerReadAt'];
-    if (raw is! int) {
-      return null;
+    return raw is int ? _decodePeerReadAt(raw) : null;
+  }
+
+  /// Read cursors of every chat that publishes receipts, keyed by peer id: one
+  /// box read for the whole chat list instead of one per row.
+  static Future<Map<String, DateTime>> peerReadAts() async {
+    final box = await _openConversationsBox();
+    final cursors = <String, DateTime>{};
+    for (final entry in box.toMap().entries) {
+      final meta = entry.value;
+      if (meta is! Map || meta['readReceipts'] != true) {
+        continue;
+      }
+      final raw = meta['peerReadAt'];
+      if (raw is int) {
+        cursors[entry.key as String] = _decodePeerReadAt(raw);
+      }
     }
-    // A cursor carries the sentAt of the newest message the peer read, and
-    // sentAt has microseconds: rounding it to milliseconds made the cursor a
-    // little older than the message, so the tick only appeared once the peer
-    // sent something newer. Values below this bound are the old encoding.
+    return cursors;
+  }
+
+  /// A cursor carries the sentAt of the newest message the peer read, and
+  /// sentAt has microseconds: rounding it to milliseconds made the cursor a
+  /// little older than the message, so the tick only appeared once the peer
+  /// sent something newer. Values below this bound are the old encoding.
+  static DateTime _decodePeerReadAt(int raw) {
     return raw < 100000000000000
         ? DateTime.fromMillisecondsSinceEpoch(raw)
         : DateTime.fromMicrosecondsSinceEpoch(raw);

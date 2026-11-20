@@ -88,4 +88,13 @@ void main() {
 
     expect(await CacheUtils.getPinnedConversations(), isEmpty);
   });
+
+  test('the chat list gets cursors only from chats with receipts on', () async {
+    final readAt = DateTime(2026, 5, 1, 12, 0, 0, 123, 456);
+    await CacheUtils.setPeerReadAt('on', readAt);
+    await CacheUtils.setReadReceiptsEnabled('on', true);
+    await CacheUtils.setPeerReadAt('off', readAt);
+
+    expect(await CacheUtils.peerReadAts(), {'on': readAt});
+  });
 }

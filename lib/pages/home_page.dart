@@ -53,6 +53,9 @@ class _HomePageState extends State<HomePage>
   /// Conversation ids pinned to the top of the list.
   Set<String> _pinnedChats = {};
 
+  /// Read cursors of the chats that publish receipts, for the seen ticks.
+  Map<String, DateTime> _peerReadAts = {};
+
   /// Which rows the list shows; folders without extra storage.
   _ChatFilter _filter = _ChatFilter.all;
   bool _firstLoad = true;
@@ -201,6 +204,7 @@ class _HomePageState extends State<HomePage>
     final chats = await CacheUtils.getLatestPrivateMessages();
     final unread = await CacheUtils.getUnreadCounts();
     final pinned = await CacheUtils.getPinnedConversations();
+    final peerReadAts = await CacheUtils.peerReadAts();
     if (!mounted) {
       return;
     }
@@ -208,6 +212,7 @@ class _HomePageState extends State<HomePage>
       _chatEntries = chats.entries.toList();
       _unreadCounts = unread;
       _pinnedChats = pinned;
+      _peerReadAts = peerReadAts;
       _firstLoad = false;
     });
   }
@@ -441,6 +446,7 @@ class _HomePageState extends State<HomePage>
               },
               unreadCount: _unreadCounts[chat.key.id] ?? 0,
               pinned: _pinnedChats.contains(chat.key.id),
+              peerReadAt: _peerReadAts[chat.key.id],
             ),
           ),
         );

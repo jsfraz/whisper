@@ -6,7 +6,7 @@ import '../utils/chat_date.dart';
 
 class ChatListItem extends StatefulWidget {
   const ChatListItem(this.user, this.lastMessage, this.onPressed,
-      {this.unreadCount = 0, this.pinned = false, super.key});
+      {this.unreadCount = 0, this.pinned = false, this.peerReadAt, super.key});
 
   final User user;
   final PrivateMessage lastMessage;
@@ -17,6 +17,10 @@ class ChatListItem extends StatefulWidget {
 
   /// Whether the conversation is pinned to the top of the list.
   final bool pinned;
+
+  /// Instant up to which the peer read this chat; null when the chat does not
+  /// publish receipts or they never read it.
+  final DateTime? peerReadAt;
 
   @override
   State<ChatListItem> createState() => _ChatListItemState();
@@ -56,6 +60,10 @@ class _ChatListItemState extends State<ChatListItem> {
     }
 
     final bool unread = widget.unreadCount > 0 || !widget.lastMessage.read;
+    // Same rule as the bubble's tick, so the row and the chat cannot disagree.
+    final bool seenByPeer = widget.lastMessage.isMe &&
+        widget.peerReadAt != null &&
+        !widget.lastMessage.sentAt.isAfter(widget.peerReadAt!);
 
     return ListTile(
       onTap: widget.onPressed,
@@ -95,9 +103,28 @@ class _ChatListItemState extends State<ChatListItem> {
           ),
         ],
       ),
-      subtitle: Text(
-        getTitle(),
-        style: unread ? const TextStyle(fontWeight: FontWeight.bold) : null,
+      subtitle: Row(
+        children: [
+          // The last own message carries the peer's tick, the way the bubble
+          // does; a row that hides it makes "delivered" and "read" look alike.
+          if (seenByPeer)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Icon(
+                Icons.done_all,
+                size: 14,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          Expanded(
+            child: Text(
+              getTitle(),
+              overflow: TextOverflow.ellipsis,
+              style:
+                  unread ? const TextStyle(fontWeight: FontWeight.bold) : null,
+            ),
+          ),
+        ],
       ),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
