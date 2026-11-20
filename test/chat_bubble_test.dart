@@ -253,5 +253,19 @@ void main() {
         .first);
     expect(mediaFrame.padding, EdgeInsets.zero);
     expect((mediaFrame.decoration as BoxDecoration?)?.color, isNull);
+
+    // A voice message shows the reaction it carries: the badge sits inside the
+    // bubble's edge, so a quick react there is not a silent no-op.
+    await show(ChatBubble(
+      null,
+      PrivateMessage('2', '', DateTime(2026), DateTime(2026), true,
+          mediaTypeStr: MediaType.voice.name,
+          downloadStatus: MediaDownloadStatus.failed)
+        ..reactions = {'2': '👍'},
+      null,
+      peer,
+      accentColor: Colors.blue,
+    ));
+    expect(find.text('👍'), findsOneWidget);
   });
 }

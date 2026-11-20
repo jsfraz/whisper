@@ -184,13 +184,31 @@ class _MediaBubbleState extends State<MediaBubble> {
 
     // Voice and file messages live inside the coloured bubble.
     if (insideBubble) {
-      return Container(
+      final box = Container(
         decoration: BoxDecoration(
           color: widget.bubbleColor,
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: media,
+      );
+      if (widget.badge == null) {
+        return box;
+      }
+      // The reaction hangs over the bubble's bottom edge, the way it does on a
+      // visual attachment. Dropping it here made a reaction on a voice message
+      // look like it never happened.
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          box,
+          Positioned(
+            bottom: -10,
+            left: widget.message.isMe ? 16 : null,
+            right: widget.message.isMe ? null : 16,
+            child: widget.badge!,
+          ),
+        ],
       );
     }
 
