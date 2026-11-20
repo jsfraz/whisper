@@ -10,7 +10,6 @@ import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/media_utils.dart';
-import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import '../utils/theme_utils.dart';
 import '../widgets/media_bubble.dart';
@@ -165,29 +164,31 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     }
   }
 
-  /// Pick a per-chat theme color. The dialog uses the chat color too.
+  /// Open the chat theme dialog: the same palette as the app theme, applied
+  /// live. The dialog is themed with the chat color, so it previews itself.
   Future<void> _pickChatTheme() async {
-    Color? color = await showDialog<Color>(
+    await showDialog<void>(
         context: context,
         builder: (dialogContext) => Theme(
               data: ThemeUtils.chatTheme(context, _chatThemeColor),
               child: Builder(
-                builder: (themedContext) => DialogUtils.colorPickerDialog(
-                    themedContext,
-                    _chatThemeColor ?? Singleton().appTheme.color),
+                builder: (themedContext) => DialogUtils.chatThemeDialog(
+                  themedContext,
+                  current: _chatThemeColor,
+                  onChanged: _applyChatTheme,
+                ),
               ),
             ));
-    if (color == null || !mounted) {
-      return;
-    }
-    await CacheUtils.setChatTheme(widget.userId, color);
     await _loadChatTheme();
   }
 
-  /// Drop the per-chat theme and fall back to the global one
-  Future<void> _clearChatTheme() async {
-    await CacheUtils.clearChatTheme(widget.userId);
-    await _loadChatTheme();
+  /// Stores the picked chat color; null falls back to the global theme.
+  Future<void> _applyChatTheme(Color? color) async {
+    if (color == null) {
+      await CacheUtils.clearChatTheme(widget.userId);
+    } else {
+      await CacheUtils.setChatTheme(widget.userId, color);
+    }
   }
 
   void _openMedia(PrivateMessage message) {
@@ -311,14 +312,6 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                               ),
                             ),
                     ),
-                    // Drop the override
-                    if (_chatThemeColor != null)
-                      SettingsTile(
-                        icon: Icons.restart_alt,
-                        label: 'useGlobalTheme'.tr(),
-                        onPressed: _clearChatTheme,
-                      ),
-
                     Divider(thickness: 1, indent: 10, endIndent: 10),
                   ],
                 ),

@@ -7,6 +7,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
 import '../utils/cache_utils.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
+import '../widgets/theme_palette.dart';
 import 'color_utils.dart';
 import 'singleton.dart';
 import 'theme_notifier.dart';
@@ -86,22 +87,6 @@ class DialogUtils {
     });
   }
 
-  /// Seed colors offered as swatches in the theme dialog.
-  static const List<MaterialColor> themeSeeds = [
-    Colors.blue,
-    Colors.indigo,
-    Colors.deepPurple,
-    Colors.pink,
-    Colors.red,
-    Colors.orange,
-    Colors.amber,
-    Colors.green,
-    Colors.teal,
-    Colors.cyan,
-    Colors.brown,
-    Colors.blueGrey,
-  ];
-
   /// Returns theme dialog
   static Widget themeDialog(BuildContext context) {
     /// Change theme via notifier
@@ -135,7 +120,6 @@ class DialogUtils {
 
       final theme = Singleton().appTheme;
       final seed = theme.color;
-      final inPalette = themeSeeds.any((color) => color == seed);
 
       return BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -151,7 +135,7 @@ class DialogUtils {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _themePreview(context, seed),
+                  ThemePreview(seed: seed),
                   const SizedBox(height: 16),
                   Center(
                     child: SegmentedButton<ThemeMode>(
@@ -185,35 +169,15 @@ class DialogUtils {
                   Text('themeColor'.tr(),
                       style: Theme.of(context).textTheme.labelLarge),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (var i = 0; i < themeSeeds.length; i++)
-                        _colorSwatch(
-                          context,
-                          key: ValueKey('themeSwatch-$i'),
-                          color: themeSeeds[i],
-                          selected: themeSeeds[i] == seed,
-                          onTap: () async {
-                            setState(() {
-                              theme.color = themeSeeds[i];
-                            });
-                            await apply(() {});
-                          },
-                        ),
-                      // The custom color is a tile of its own: a hand picked
-                      // seed is not in the palette, and it still has to show as
-                      // the current choice.
-                      _colorSwatch(
-                        context,
-                        key: const ValueKey('themeSwatch-custom'),
-                        color: inPalette ? null : seed,
-                        selected: !inPalette,
-                        icon: inPalette ? Icons.colorize : null,
-                        onTap: openColorPickerDialog,
-                      ),
-                    ],
+                  ThemePalette(
+                    selected: seed,
+                    onPicked: (color) async {
+                      setState(() {
+                        theme.color = color;
+                      });
+                      await apply(() {});
+                    },
+                    onCustom: openColorPickerDialog,
                   ),
                 ],
               ),
@@ -243,89 +207,93 @@ class DialogUtils {
     });
   }
 
-  /// Live sample of the theme: what the picked seed and mode look like on a
-  /// bubble, on the surface and on a filled button.
-  static Widget _themePreview(BuildContext context, Color seed) {
-    final scheme = ColorScheme.fromSeed(
-        seedColor: seed, brightness: Theme.of(context).brightness);
-    Widget bubble(String text, {required bool mine}) {
-      return Align(
-        alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: mine ? scheme.primary : scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
+  /// Returns the per-chat theme dialog: the same palette and preview as the app
+  /// theme, plus a tile that hands the chat back to the global color. Mode and
+  /// Material version stay global, so they are not offered here.
+  ///
+  /// [onChanged] receives the picked color, or null for "use the global theme",
+  /// and is awaited before the next tap, so the page can persist it.
+  static Widget chatThemeDialog(
+    BuildContext context, {
+    required Color? current,
+    required Future<void> Function(Color? color) onChanged,
+  }) {
+    return StatefulBuilder(builder: (context, setState) {
+      // The dialog applies on tap, so it keeps its own copy: the page reloads
+      // from the cache asynchronously.
+      Color? picked = current;
+
+      Future openColorPickerDialog() async {
+        final value = await showDialog<Color>(
+            context: context,
+            builder: (context) => colorPickerDialog(
+                context, picked ?? Singleton().appTheme.color));
+        if (value != null) {
+          setState(() {
+            picked = value;
+          });
+          await onChanged(value);
+        }
+      }
+
+      return BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: AlertDialog(
+          constraints: const BoxConstraints(maxWidth: 380),
+          title: Text('chatTheme'.tr()),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ThemePreview(seed: picked),
+                  const SizedBox(height: 20),
+                  Text('themeColor'.tr(),
+                      style: Theme.of(context).textTheme.labelLarge),
+                  const SizedBox(height: 8),
+                  ThemePalette(
+                    selected: picked,
+                    inheritSelected: picked == null,
+                    onInherit: () async {
+                      setState(() {
+                        picked = null;
+                      });
+                      await onChanged(null);
+                    },
+                    onPicked: (color) async {
+                      setState(() {
+                        picked = color;
+                      });
+                      await onChanged(color);
+                    },
+                    onCustom: openColorPickerDialog,
+                  ),
+                ],
+              ),
+            ),
           ),
-          child: Text(
-            text,
-            style: TextStyle(
-                fontSize: 13,
-                color: mine ? scheme.onPrimary : scheme.onSurface),
-          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: <Widget>[
+            TextButton(
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.all(
+                    Theme.of(context).colorScheme.primary),
+                shape: WidgetStateProperty.all(
+                  RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(35)),
+                ),
+              ),
+              onPressed: Navigator.of(context).pop,
+              child: Text('okText'.tr(),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary)),
+            ),
+          ],
         ),
       );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          bubble('themePreviewPeer'.tr(), mine: false),
-          const SizedBox(height: 6),
-          bubble('themePreviewOwn'.tr(), mine: true),
-          const SizedBox(height: 10),
-          FilledButton(
-            onPressed: () {},
-            child: Text('themePreviewButton'.tr()),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// One round seed swatch of the theme palette, with a check when it is the
-  /// one in use.
-  static Widget _colorSwatch(
-    BuildContext context, {
-    required Key key,
-    required Color? color,
-    required bool selected,
-    required VoidCallback onTap,
-    IconData? icon,
-  }) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      key: key,
-      onTap: onTap,
-      customBorder: const CircleBorder(),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: color == null ? scheme.outline : scheme.outlineVariant,
-          ),
-        ),
-        child: Icon(
-          selected ? Icons.check : icon,
-          size: 20,
-          color: color == null
-              ? scheme.onSurfaceVariant
-              : ThemeData.estimateBrightnessForColor(color) == Brightness.dark
-                  ? Colors.white
-                  : Colors.black,
-        ),
-      ),
-    );
+    });
   }
 
   /// Returns color picker dialog

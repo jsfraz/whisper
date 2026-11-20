@@ -65,7 +65,14 @@ void main() {
 
     // getMaterialColor builds a fresh MaterialColor, so compare values.
     expect(Singleton().appTheme.color.toARGB32(), Colors.teal.toARGB32());
-    expect(find.byIcon(Icons.check), findsOneWidget);
+    // The check has to move to the picked swatch: comparing the stored
+    // MaterialColor by identity left it on the custom tile forever.
+    expect(
+      find.descendant(
+          of: find.byKey(const ValueKey('themeSwatch-8')),
+          matching: find.byIcon(Icons.check)),
+      findsOneWidget,
+    );
     final swatch = tester.widget<Container>(find
         .descendant(
             of: find.byKey(const ValueKey('themeSwatch-8')),
