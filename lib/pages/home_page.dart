@@ -56,6 +56,11 @@ class _HomePageState extends State<HomePage>
   /// Read cursors of the chats that publish receipts, for the seen ticks.
   Map<String, DateTime> _peerReadAts = {};
 
+  /// The folder strip floats over the list, so its height is measured instead
+  /// of taking layout space; the list pads itself by the same amount.
+  final GlobalKey _filterKey = GlobalKey();
+  double _filterHeight = 0;
+
   /// Which rows the list shows; folders without extra storage.
   _ChatFilter _filter = _ChatFilter.all;
   bool _firstLoad = true;
@@ -409,9 +414,14 @@ class _HomePageState extends State<HomePage>
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
-      // The chips already clear the app bar; a scroll view's automatic
-      // MediaQuery padding would add a second gap above the first row.
-      padding: EdgeInsets.zero,
+      // The list runs behind the translucent app bar and under the floating
+      // folder strip, so it pads itself instead of using the automatic
+      // MediaQuery padding.
+      padding: EdgeInsets.only(
+        top: MediaQuery.viewPaddingOf(context).top +
+            kToolbarHeight +
+            _filterHeight,
+      ),
       itemCount: chats.length,
       itemBuilder: (context, index) {
         // Indexed access: `Map.entries.elementAt` is O(n) and made the list
@@ -454,8 +464,26 @@ class _HomePageState extends State<HomePage>
     );
   }
 
+  /// Measures the folder strip: it floats over the list, so the list needs its
+  /// height as padding rather than as layout space.
+  void _measureFilters() {
+    final render = _filterKey.currentContext?.findRenderObject();
+    if (render is! RenderBox || !render.hasSize) {
+      return;
+    }
+    final height = render.size.height;
+    if ((height - _filterHeight).abs() > 0.5) {
+      setState(() => _filterHeight = height);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _currentPageIndex == 0) {
+        _measureFilters();
+      }
+    });
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: _currentPageIndex == 0
@@ -555,18 +583,11 @@ class _HomePageState extends State<HomePage>
       // Body
       body: <Widget>[
         // Messages
-        Column(
+        Stack(
           children: [
-            // The body sits behind the translucent app bar; the chips do not
-            // scroll, so they start below it.
-            Padding(
-              padding: EdgeInsets.only(
-                top: MediaQuery.viewPaddingOf(context).top + kToolbarHeight,
-              ),
-              child: _filterChips(),
-            ),
-            // Messages and avatar list
-            Expanded(
+            // Messages and avatar list, behind the chips: rows scroll under
+            // them instead of being cut off by a strip of background.
+            Positioned.fill(
               child: _firstLoad
                   ? Center(
                       child: Transform.scale(
@@ -577,6 +598,14 @@ class _HomePageState extends State<HomePage>
                   : _visibleChats.isEmpty
                       ? Center(child: Text('noChatsInFilter'.tr()))
                       : _getContent(_visibleChats),
+            ),
+            // The body sits behind the translucent app bar; the chips do not
+            // scroll, so they start below it.
+            Positioned(
+              top: MediaQuery.viewPaddingOf(context).top + kToolbarHeight,
+              left: 0,
+              right: 0,
+              child: Container(key: _filterKey, child: _filterChips()),
             ),
           ],
         ),
