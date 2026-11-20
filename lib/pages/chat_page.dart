@@ -96,6 +96,9 @@ class _ChatPageState extends State<ChatPage> {
   /// Pinned message ids of this chat with the instant of the pin.
   Map<String, DateTime> _pins = {};
 
+  /// Which pin the strip shows; the list is newest pin first.
+  int _pinIndex = 0;
+
   /// Whether this chat publishes and shows read receipts.
   bool _readReceipts = false;
 
@@ -457,33 +460,36 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// The newest pinned message this device still holds, null when none is left.
-  PrivateMessage? get _newestPin {
-    PrivateMessage? newest;
-    DateTime? newestAt;
+  /// Pinned messages this device holds, newest pin first: the strip walks them.
+  List<PrivateMessage> get _pinnedInOrder {
+    final pinned = <PrivateMessage>[];
     for (final message in _messages) {
       final id = message.id;
-      if (id == null) {
-        continue;
-      }
-      final at = _pins[id];
-      if (at == null) {
-        continue;
-      }
-      if (newestAt == null || at.isAfter(newestAt)) {
-        newest = message;
-        newestAt = at;
+      if (id != null && _pins.containsKey(id)) {
+        pinned.add(message);
       }
     }
-    return newest;
+    pinned.sort((a, b) => _pins[b.id]!.compareTo(_pins[a.id]!));
+    return pinned;
   }
 
-  /// Slim strip under the header: the newest pin, tap to jump, cross to unpin.
+  /// Steps the strip to the next pinned message and jumps to it.
+  Future<void> _cyclePin(List<PrivateMessage> pins) async {
+    final next = (_pinIndex + 1) % pins.length;
+    setState(() {
+      _pinIndex = next;
+    });
+    await _jumpToMessage(pins[next].sentAt);
+  }
+
+  /// Slim strip under the header: one pin, tap to jump, cross to unpin, the
+  /// counter to walk the rest.
   Widget _buildPinBar() {
-    final pinned = _newestPin;
-    if (pinned == null) {
+    final pins = _pinnedInOrder;
+    if (pins.isEmpty) {
       return const SizedBox.shrink();
     }
+    final pinned = pins[_pinIndex % pins.length];
     final preview = pinned.preview;
     return Material(
       // Opaque in the header's tint: the strip sits over the message list, so a
@@ -505,11 +511,25 @@ class _ChatPageState extends State<ChatPage> {
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
-              if (_pins.length > 1)
-                Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: Text('+${_pins.length - 1}',
-                      style: const TextStyle(fontSize: 10)),
+              if (pins.length > 1)
+                // Without this the strip only ever showed the newest pin and
+                // the others were unreachable.
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _cyclePin(pins),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${_pinIndex % pins.length + 1}/${pins.length}',
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                        const Icon(Icons.expand_more, size: 14),
+                      ],
+                    ),
+                  ),
                 ),
               IconButton(
                 icon: const Icon(Icons.close, size: 14),
@@ -681,10 +701,10 @@ class _ChatPageState extends State<ChatPage> {
   ///
   /// Widening the rendered window is not enough: a list only builds what is
   /// near the viewport, so growing the tail never builds an old message. The
-  /// fast path therefore cuts the window down to the target, which puts it one
-  /// screen from the oldest end, and jumping to that end lands on it. The slow
-  /// path walks a viewport at a time towards older messages for a target
-  /// already inside a large window but far from the screen.
+  /// window is therefore cut down to the target first, then the oldest end is
+  /// taken and the viewport walks towards newer messages until the target is
+  /// built. Walking back from the oldest end covers both a target above the
+  /// viewport and one below it.
   Future<void> _jumpToMessage(DateTime sentAt) async {
     final micros = sentAt.microsecondsSinceEpoch;
     _jumping = true;
@@ -702,11 +722,6 @@ class _ChatPageState extends State<ChatPage> {
         if (!mounted || !_scrollController.hasClients) {
           return;
         }
-        // Reversed list: the target sits at the far end of the window.
-        await _settleAtOldest();
-        if (!mounted) {
-          return;
-        }
       }
       final context = _messageKeys[micros]?.currentContext;
       if (context != null && context.mounted) {
@@ -714,8 +729,15 @@ class _ChatPageState extends State<ChatPage> {
             alignment: 0.2, duration: const Duration(milliseconds: 250));
         return;
       }
+      await _settleAtOldest();
       for (var attempt = 0; attempt < 50; attempt++) {
-        if (!_scrollController.hasClients) {
+        if (!mounted || !_scrollController.hasClients) {
+          return;
+        }
+        final reached = _messageKeys[micros]?.currentContext;
+        if (reached != null && reached.mounted) {
+          await Scrollable.ensureVisible(reached,
+              alignment: 0.3, duration: const Duration(milliseconds: 250));
           return;
         }
         final position = _scrollController.position;
@@ -726,15 +748,6 @@ class _ChatPageState extends State<ChatPage> {
         }
         _scrollController.jumpTo(next);
         await WidgetsBinding.instance.endOfFrame;
-        if (!mounted) {
-          return;
-        }
-        final reached = _messageKeys[micros]?.currentContext;
-        if (reached != null && reached.mounted) {
-          await Scrollable.ensureVisible(reached,
-              alignment: 0.3, duration: const Duration(milliseconds: 250));
-          return;
-        }
       }
     } finally {
       _jumping = false;
@@ -1753,7 +1766,7 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 // Right under the header, over the list: the pin is where the
                 // eye looks first and the composer stays clean.
-                if (_newestPin != null)
+                if (_pinnedInOrder.isNotEmpty)
                   Positioned(
                     top: kToolbarHeight + MediaQuery.of(context).padding.top,
                     left: 0,
