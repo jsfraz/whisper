@@ -54,6 +54,37 @@ class MessageActions {
   static bool canSave(PrivateMessage message) =>
       message.isMedia && message.localPath != null;
 
+  /// The emoji row of a reaction sheet: one tap sets the caller's reaction, or
+  /// takes it back when it is the one already picked.
+  static Widget reactionRow(
+      BuildContext context, PrivateMessage message, String conversationUserId) {
+    final mine = message.reactions?[Singleton().profile.user.id];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          for (final emoji in reactionEmojis)
+            IconButton(
+              style: emoji == mine
+                  ? IconButton.styleFrom(
+                      backgroundColor:
+                          Theme.of(context).colorScheme.primaryContainer,
+                      side: BorderSide(
+                          color: Theme.of(context).colorScheme.primary),
+                    )
+                  : null,
+              onPressed: () {
+                Navigator.pop(context);
+                react(message, conversationUserId, emoji);
+              },
+              icon: Text(emoji, style: const TextStyle(fontSize: 22)),
+            ),
+        ],
+      ),
+    );
+  }
+
   /// Reactions grouped by emoji, most used first, with the name of every
   /// participant. [nameOf] resolves a user id, so the grouping stays free of
   /// the user cache and can be tested on its own.
@@ -73,8 +104,8 @@ class MessageActions {
 
   /// Who reacted with what. Names come from the local user cache, so this is a
   /// cache read and never a server call.
-  static Future<void> showReactions(
-      BuildContext context, PrivateMessage message) async {
+  static Future<void> showReactions(BuildContext context,
+      PrivateMessage message, String conversationUserId) async {
     final reactions = message.reactions ?? const <String, String>{};
     if (reactions.isEmpty) {
       return;
@@ -99,8 +130,13 @@ class MessageActions {
         child: ListView(
           shrinkWrap: true,
           children: [
+            // The list is also where a reaction is given: tapping the badge
+            // used to open the action sheet, and a read-only list would take
+            // that away.
+            if (message.id?.isNotEmpty ?? false)
+              reactionRow(ctx, message, conversationUserId),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text('reactionsTitle'.tr(),
                   style: Theme.of(ctx).textTheme.titleMedium),
             ),
@@ -126,40 +162,11 @@ class MessageActions {
       builder: (ctx) {
         final canAddress =
             message.id?.isNotEmpty ?? false; // needs the archive id
-        // The emoji already picked by this user, marked so a second tap reads
-        // as "remove mine" instead of "pick this again".
-        final mine = message.reactions?[Singleton().profile.user.id];
         return SafeArea(
           child: Wrap(
             children: [
               // Reactions first: one tap, and the same emoji again removes it.
-              if (canAddress)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      for (final emoji in reactionEmojis)
-                        IconButton(
-                          style: emoji == mine
-                              ? IconButton.styleFrom(
-                                  backgroundColor: Theme.of(ctx)
-                                      .colorScheme
-                                      .primaryContainer,
-                                  side: BorderSide(
-                                      color: Theme.of(ctx).colorScheme.primary),
-                                )
-                              : null,
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            react(message, conversationUserId, emoji);
-                          },
-                          icon:
-                              Text(emoji, style: const TextStyle(fontSize: 22)),
-                        ),
-                    ],
-                  ),
-                ),
+              if (canAddress) reactionRow(ctx, message, conversationUserId),
               if (message.isMe && !message.isUndecryptable && canAddress)
                 ListTile(
                   leading: const Icon(editIcon),

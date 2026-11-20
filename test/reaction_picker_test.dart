@@ -44,5 +44,14 @@ void main() {
         .toList();
     expect(marked, hasLength(1));
     expect((marked.single.icon as Text).data, '❤️');
+    // The row is the way a reaction is given: every chip has to be actionable,
+    // not decoration. (Tapping one would call the API, so only the wiring is
+    // checked here.)
+    expect(
+      tester
+          .widgetList<IconButton>(find.byType(IconButton))
+          .every((button) => button.onPressed != null),
+      isTrue,
+    );
   });
 }
