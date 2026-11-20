@@ -397,11 +397,6 @@ class _ChatBubbleState extends State<ChatBubble> {
               ),
             )
           : null,
-      // An attachment clips its own media; the bubble must stay unclipped when
-      // a reaction badge hangs over its bottom edge.
-      clipBehavior: isMedia && widget.message.reactionEmojis.isEmpty
-          ? Clip.antiAlias
-          : Clip.none,
       padding: isMedia
           ? (widget.message.isReply
               ? const EdgeInsets.fromLTRB(8, 8, 8, 0)
@@ -412,15 +407,30 @@ class _ChatBubbleState extends State<ChatBubble> {
       child: bubble,
     );
 
+    // An attachment clips its own media; the bubble must stay unclipped when a
+    // reaction badge hangs over its bottom edge. The wrapper is always there and
+    // only stops clipping: toggling Container.clipBehavior adds or drops its
+    // clip widget, which re-mounts the attachment and throws the decoded image
+    // away - the white flash when a reaction was added.
+    final clippedBox = isMedia
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            clipBehavior: widget.message.reactionEmojis.isEmpty
+                ? Clip.antiAlias
+                : Clip.none,
+            child: bubbleBox,
+          )
+        : bubbleBox;
+
     // The reactions hang on the bubble's bottom edge as one badge, on the side
     // opposite the bubble's own side, the way a messenger pins them there.
     final bubbleWithBadge = widget.message.reactionEmojis.isEmpty ||
             widget.message.isMedia
-        ? bubbleBox
+        ? clippedBox
         : Stack(
             clipBehavior: Clip.none,
             children: [
-              bubbleBox,
+              clippedBox,
               Positioned(
                 bottom: -12,
                 left: widget.message.isMe ? 8 : null,
