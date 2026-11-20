@@ -1640,6 +1640,12 @@ class _ChatPageState extends State<ChatPage> {
         _measureComposer();
       }
     });
+    // A bottomNavigationBar is anchored to the screen bottom, not to the
+    // keyboard: with edge-to-edge the window is no longer resized for the IME,
+    // so the bar has to carry the inset itself or the field hides behind the
+    // keyboard. It stays inside the measured composer, so the list reserves
+    // the room.
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return PopScope(
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop && _messages.isNotEmpty) {
@@ -1675,6 +1681,7 @@ class _ChatPageState extends State<ChatPage> {
           // slide under the composer instead of a filled band behind it.
           bottomNavigationBar: Container(
             key: _composerKey,
+            padding: EdgeInsets.only(bottom: keyboardInset),
             child: SafeArea(
               top: false,
               child: Padding(
