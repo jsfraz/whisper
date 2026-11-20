@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'singleton.dart';
 
 class ThemeUtils {
   /// Theme seeded with the per-chat color, or the inherited theme without an override.
@@ -16,7 +15,7 @@ class ThemeUtils {
     return _chatThemes[key] ??= ThemeData.from(
         colorScheme:
             ColorScheme.fromSeed(seedColor: seed, brightness: brightness),
-        useMaterial3: Singleton().appTheme.useMaterial3);
+        useMaterial3: true);
   }
 
   static final Map<int, ThemeData> _chatThemes = {};

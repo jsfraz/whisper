@@ -65,16 +65,14 @@ class WhisperPage extends StatelessWidget {
               colorScheme: ColorScheme.fromSeed(
                   seedColor: Provider.of<ThemeNotifier>(context).appTheme.color,
                   brightness: Brightness.light),
-              useMaterial3:
-                  Provider.of<ThemeNotifier>(context).appTheme.useMaterial3)
+              useMaterial3: true)
           .copyWith(pageTransitionsTheme: _pageTransitionsTheme),
       // Dark theme
       darkTheme: ThemeData.from(
               colorScheme: ColorScheme.fromSeed(
                   seedColor: Provider.of<ThemeNotifier>(context).appTheme.color,
                   brightness: Brightness.dark),
-              useMaterial3:
-                  Provider.of<ThemeNotifier>(context).appTheme.useMaterial3)
+              useMaterial3: true)
           .copyWith(pageTransitionsTheme: _pageTransitionsTheme),
       // Light / Dark / System
       themeMode: Provider.of<ThemeNotifier>(context).appTheme.themeMode,

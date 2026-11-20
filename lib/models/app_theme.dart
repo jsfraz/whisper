@@ -7,19 +7,16 @@ part 'app_theme.g.dart';
 @HiveType(typeId: 2)
 class AppTheme {
   /// Constructor for Hive
-  AppTheme(this.themeModeStr, this.colorHex, this.useMaterial3);
+  AppTheme(this.themeModeStr, this.colorHex);
 
   @HiveField(0)
   String themeModeStr; // String of ThemeMode enum
   @HiveField(1)
   String colorHex; // Color hex
-  @HiveField(2)
-  bool useMaterial3;
 
   /// Factory constructor for user friendly usage
-  factory AppTheme.fromValues(
-      ThemeMode themeMode, Color color, bool material3) {
-    return AppTheme(themeMode.name, ColorUtils.colorToHex(color), material3);
+  factory AppTheme.fromValues(ThemeMode themeMode, Color color) {
+    return AppTheme(themeMode.name, ColorUtils.colorToHex(color));
   }
 
   /// Get ThemeMode from themeModeStr

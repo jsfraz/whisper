@@ -82,7 +82,7 @@ void main() async {
 
   // Default theme
   Singleton().appTheme = await CacheUtils.getTheme() ??
-      AppTheme.fromValues(ThemeMode.system, Colors.blue, true);
+      AppTheme.fromValues(ThemeMode.system, Colors.blue);
   // Save theme
   await CacheUtils.setTheme(Singleton().appTheme);
 

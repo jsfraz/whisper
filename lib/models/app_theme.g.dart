@@ -19,20 +19,17 @@ class AppThemeAdapter extends TypeAdapter<AppTheme> {
     return AppTheme(
       fields[0] as String,
       fields[1] as String,
-      fields[2] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppTheme obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(2)
       ..writeByte(0)
       ..write(obj.themeModeStr)
       ..writeByte(1)
-      ..write(obj.colorHex)
-      ..writeByte(2)
-      ..write(obj.useMaterial3);
+      ..write(obj.colorHex);
   }
 
   @override
