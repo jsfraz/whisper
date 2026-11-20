@@ -447,6 +447,9 @@ class _MediaTileState extends State<_MediaTile> {
     }
   }
 
+  /// One tile of the three-column grid, gaps and padding taken off.
+  double get _tileWidth => (MediaQuery.sizeOf(context).width - 24) / 3;
+
   @override
   Widget build(BuildContext context) {
     final isVideo = widget.message.mediaType == MediaType.video;
@@ -458,7 +461,11 @@ class _MediaTileState extends State<_MediaTile> {
         child: isVideo
             ? _videoTile()
             : _bytes != null
-                ? Image.memory(_bytes!, fit: BoxFit.cover)
+                ? Image.memory(_bytes!,
+                    fit: BoxFit.cover,
+                    // Tile-sized decode: a full-resolution photo per square is
+                    // 40+ MB of bitmap and a visible hitch while scrolling.
+                    cacheWidth: MediaUtils.decodeWidth(context, _tileWidth))
                 : Center(
                     child: _error
                         ? const Icon(Icons.broken_image, size: 24)

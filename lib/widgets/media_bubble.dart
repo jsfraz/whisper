@@ -363,6 +363,7 @@ class _MediaBubbleState extends State<MediaBubble> {
             width: size.width,
             height: size.height,
             fit: BoxFit.cover,
+            cacheWidth: MediaUtils.decodeWidth(context, size.width),
           );
         },
       ),
@@ -597,7 +598,11 @@ class _AlbumTileState extends State<AlbumTile> {
             if (!snapshot.hasData) {
               return const Center(child: Icon(Icons.broken_image));
             }
-            return Image.memory(snapshot.data!, fit: BoxFit.cover);
+            // Album tiles are 110 wide (see _albumWidget); decoding the full
+            // photo for one of them is what made a grid of attachments crawl.
+            return Image.memory(snapshot.data!,
+                fit: BoxFit.cover,
+                cacheWidth: MediaUtils.decodeWidth(context, 110));
           },
         );
       case MediaType.video:

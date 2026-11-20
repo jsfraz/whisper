@@ -6,7 +6,7 @@ import 'dart:ui' as ui;
 import 'package:cryptography/cryptography.dart' as cryptography;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show IconData, Icons;
+import 'package:flutter/material.dart' show BuildContext, IconData, Icons, MediaQuery;
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:path_provider/path_provider.dart';
@@ -143,14 +143,58 @@ class MediaUtils {
   /// Decrypt an at-rest file written by [encryptAtRest].
   ///
   /// Throttled: decrypting spawns an isolate per call, so a chat full of
-  /// attachments would otherwise spawn one burst per scroll.
+  /// attachments would otherwise spawn one burst per scroll. Decrypted bytes
+  /// are kept for the most recently shown attachments: a list disposes its
+  /// rows when they leave the viewport, and decrypting the same photo again
+  /// every time it scrolls back is what kept the spinner up.
   static Future<Uint8List> decryptAtRest(String path) async {
+    final cached = _mediaCache.remove(path);
+    if (cached != null) {
+      _mediaCache[path] = cached;
+      return cached;
+    }
     return _withDecryptSlot(() async {
       final blob = await File(path).readAsBytes();
       final key = Uint8List.fromList(Singleton().boxCollectionKey);
-      return compute(_gcmDecrypt, _GcmArgs(blob, key));
+      final plain = await compute(_gcmDecrypt, _GcmArgs(blob, key));
+      _cacheBytes(path, plain);
+      return plain;
     });
   }
+
+  /// Decoded media kept in memory, oldest first.
+  static final Map<String, Uint8List> _mediaCache = <String, Uint8List>{};
+  static const int _maxCachedMedia = 24;
+  static const int _maxCachedBytes = 64 << 20;
+  static int _cachedBytes = 0;
+
+  static void _cacheBytes(String path, Uint8List bytes) {
+    final previous = _mediaCache.remove(path);
+    if (previous != null) {
+      _cachedBytes -= previous.length;
+    }
+    if (bytes.length > _maxCachedBytes) {
+      return;
+    }
+    _mediaCache[path] = bytes;
+    _cachedBytes += bytes.length;
+    while (_mediaCache.length > _maxCachedMedia ||
+        _cachedBytes > _maxCachedBytes) {
+      _cachedBytes -= _mediaCache.remove(_mediaCache.keys.first)!.length;
+    }
+  }
+
+  /// Drops the plaintext attachments held in memory, e.g. when the local media
+  /// files are deleted.
+  static void clearDecryptCache() {
+    _mediaCache.clear();
+    _cachedBytes = 0;
+  }
+
+  /// Decode width for [Image.memory]: a camera photo must not be decoded at its
+  /// full resolution for a thumbnail-sized box.
+  static int decodeWidth(BuildContext context, double logicalWidth) =>
+      (logicalWidth * MediaQuery.devicePixelRatioOf(context)).round();
 
   static const int _maxConcurrentDecrypts = 2;
   static int _activeDecrypts = 0;
@@ -313,6 +357,7 @@ class MediaUtils {
 
   /// Remove every locally stored media file (used on full cache wipe).
   static Future<void> clearMediaDir() async {
+    clearDecryptCache();
     try {
       final dir = Directory('${await Utils.getCacheDir()}/media');
       if (await dir.exists()) {
