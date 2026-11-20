@@ -73,6 +73,21 @@ void main() {
     expect(await CacheUtils.getPeerReadAt('peer-id'), readAt.toLocal());
   });
 
+  test('the cursor keeps the microseconds of a message sentAt', () async {
+    // A read cursor equals the sentAt of the newest message read; rounding it
+    // to milliseconds made the message look unread.
+    final readAt = DateTime(2026, 11, 20, 10, 30, 0, 123, 456);
+    await CacheUtils.setPeerReadAt('a', readAt);
+    expect(await CacheUtils.getPeerReadAt('a'), readAt);
+  });
+
+  test('a cursor stored in milliseconds still reads', () async {
+    final readAt = DateTime(2026, 11, 20, 10, 30, 0, 123);
+    final box = await Hive.openBox('conversations');
+    await box.put('a', {'peerReadAt': readAt.millisecondsSinceEpoch});
+    expect(await CacheUtils.getPeerReadAt('a'), readAt);
+  });
+
   test('the cursor only moves forward and is keyed per peer', () async {
     final later = DateTime(2026, 11, 20, 11);
     await CacheUtils.setPeerReadAt('a', later);

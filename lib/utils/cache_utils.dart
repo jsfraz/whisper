@@ -939,7 +939,16 @@ class CacheUtils {
   static Future<DateTime?> getPeerReadAt(String userId) async {
     final box = await _openConversationsBox();
     final raw = _metaOf(box, userId)['peerReadAt'];
-    return raw is int ? DateTime.fromMillisecondsSinceEpoch(raw) : null;
+    if (raw is! int) {
+      return null;
+    }
+    // A cursor carries the sentAt of the newest message the peer read, and
+    // sentAt has microseconds: rounding it to milliseconds made the cursor a
+    // little older than the message, so the tick only appeared once the peer
+    // sent something newer. Values below this bound are the old encoding.
+    return raw < 100000000000000
+        ? DateTime.fromMillisecondsSinceEpoch(raw)
+        : DateTime.fromMicrosecondsSinceEpoch(raw);
   }
 
   /// Remembers the peer's read cursor. It only moves forward, so a frame that
@@ -952,7 +961,7 @@ class CacheUtils {
       }
       final box = await _openConversationsBox();
       final meta = _metaOf(box, userId);
-      meta['peerReadAt'] = readAt.millisecondsSinceEpoch;
+      meta['peerReadAt'] = readAt.microsecondsSinceEpoch;
       await box.put(userId, meta);
     });
   }
