@@ -17,6 +17,7 @@ import '../utils/chat_sender.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
+import '../utils/presence.dart';
 import '../utils/singleton.dart';
 import '../utils/text_envelope.dart';
 import '../utils/utils.dart' as utils;
@@ -135,6 +136,7 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     MessageNotifier().addListener(_onMessagesChanged);
+    PresenceNotifier.instance.addListener(_onPresenceChanged);
     _scrollController.addListener(_onScroll);
     _metricsObserver = _KeyboardObserver(() {
       if (_atBottom) {
@@ -147,6 +149,11 @@ class _ChatPageState extends State<ChatPage> {
     getConceptMessage();
     // Load per-chat theme
     _loadChatTheme();
+    // A chat created since the last announcement must learn we are here; the
+    // call is a no-op when presence is off.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      utils.Utils.announcePresence();
+    });
   }
 
   /// The read state must be captured before the chat marks it read, otherwise
@@ -165,6 +172,13 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Keeps the newest message on screen when the keyboard opens.
   late final _KeyboardObserver _metricsObserver;
+
+  /// Typing and presence are ephemeral, so the header redraws on every change.
+  void _onPresenceChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   /// Reload the conversation from the cache when messages or media state change.
   void _onMessagesChanged() {
@@ -1134,6 +1148,13 @@ class _ChatPageState extends State<ChatPage> {
         minLines: 1,
         maxLines: 5,
         textInputAction: TextInputAction.newline,
+        onChanged: (value) {
+          // The receiver clears the indicator on its own; this only throttles
+          // the frames and stays silent when the user opted out.
+          if (value.trim().isNotEmpty) {
+            utils.Utils.sendTypingHint(widget.user.id);
+          }
+        },
         contentInsertionConfiguration: ContentInsertionConfiguration(
           allowedMimeTypes: const ['image/gif', 'image/webp'],
           onContentInserted: _onKeyboardContentInserted,
@@ -1514,6 +1535,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void dispose() {
     MessageNotifier().removeListener(_onMessagesChanged);
+    PresenceNotifier.instance.removeListener(_onPresenceChanged);
     _scrollController.removeListener(_onScroll);
     WidgetsBinding.instance.removeObserver(_metricsObserver);
     _recordTimer?.cancel();
@@ -1644,7 +1666,25 @@ class _ChatPageState extends State<ChatPage> {
       title: GestureDetector(
         onTap: _openChatInfo,
         behavior: HitTestBehavior.opaque,
-        child: Text(widget.user.username),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(widget.user.username),
+            // One line of live status; it disappears when nothing is known so
+            // the header keeps its plain height.
+            if (PresenceNotifier.instance.statusText(widget.user.id)
+                case final status?)
+              Text(
+                status,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.normal,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
       ),
       // Action buttons
       actions: [

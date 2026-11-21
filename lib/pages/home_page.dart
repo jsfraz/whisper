@@ -40,7 +40,7 @@ class HomePage extends StatefulWidget {
 enum _ChatFilter { all, unread, pinned }
 
 class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final WebSocketManager _webSocketManager = WebSocketManager();
   List<User> _serverUsers = [];
   int _currentPageIndex = 0;
@@ -78,6 +78,7 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Load all server users and invites if admin
     if (Singleton().profile.user.admin) {
       _getServerUsers();
@@ -133,8 +134,20 @@ class _HomePageState extends State<HomePage>
   /// and a foreground app has to show that itself.
   StreamSubscription<RemoteMessage>? _fcmSubscription;
 
+  /// Presence is announced when the app comes back and withdrawn when it goes
+  /// away: the server keeps nothing, so a stale "online" would never clear.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      Utils.announcePresence();
+    } else if (state == AppLifecycleState.paused) {
+      Utils.withdrawPresence();
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _fcmSubscription?.cancel();
     _adminTabController.dispose();
     MessageNotifier().removeListener(_onMessagesChanged);

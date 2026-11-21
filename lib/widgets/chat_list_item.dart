@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/private_message.dart';
 import '../models/user.dart';
 import '../utils/chat_date.dart';
+import '../utils/presence.dart';
 
 class ChatListItem extends StatefulWidget {
   const ChatListItem(this.user, this.lastMessage, this.onPressed,
@@ -27,6 +28,25 @@ class ChatListItem extends StatefulWidget {
 }
 
 class _ChatListItemState extends State<ChatListItem> {
+  @override
+  void initState() {
+    super.initState();
+    PresenceNotifier.instance.addListener(_onPresenceChanged);
+  }
+
+  @override
+  void dispose() {
+    PresenceNotifier.instance.removeListener(_onPresenceChanged);
+    super.dispose();
+  }
+
+  /// Presence and typing are ephemeral, so the row redraws on every change.
+  void _onPresenceChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   /// Rounded counter, capped the way every messenger does it.
   Widget _unreadBadge() {
     final scheme = Theme.of(context).colorScheme;
@@ -72,18 +92,42 @@ class _ChatListItemState extends State<ChatListItem> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
       ),
-      leading: CircleAvatar(
-        radius: 22,
-        backgroundColor: widget.user.avatarColor,
-        child: Text(
-          widget.user.username.isNotEmpty
-              ? widget.user.username[0].toUpperCase()
-              : '?',
-          style: TextStyle(
-            fontSize: 20,
-            color: widget.user.avatarTextColor,
+      leading: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: widget.user.avatarColor,
+            child: Text(
+              widget.user.username.isNotEmpty
+                  ? widget.user.username[0].toUpperCase()
+                  : '?',
+              style: TextStyle(
+                fontSize: 20,
+                color: widget.user.avatarTextColor,
+              ),
+            ),
           ),
-        ),
+          // The dot is the whole status badge: presence is opt-in, so an
+          // absent dot means "not sharing", not "offline".
+          if (PresenceNotifier.instance.isOnline(widget.user.id) == true)
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E7D32),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       title: Row(
         children: [
@@ -118,7 +162,10 @@ class _ChatListItemState extends State<ChatListItem> {
             ),
           Expanded(
             child: Text(
-              getTitle(),
+              // A typing peer outranks the last message; it clears itself.
+              PresenceNotifier.instance.isTyping(widget.user.id)
+                  ? 'typing'.tr()
+                  : getTitle(),
               overflow: TextOverflow.ellipsis,
               style:
                   unread ? const TextStyle(fontWeight: FontWeight.bold) : null,

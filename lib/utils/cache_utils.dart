@@ -28,6 +28,8 @@ class CacheUtils {
   static const _pendingSendsKey = 'pendingSends';
   static const _settingsKey = 'settings';
   static const _notificationPreviewKey = 'notificationPreview';
+  static const _typingIndicatorKey = 'typingIndicator';
+  static const _presenceKey = 'presence';
   static const _biometry = 'biometry';
   static const _playbackSpeed = 'playbackSpeed';
   static const String _saltStorageKey = 'whisper_pbkdf2_salt';
@@ -357,6 +359,31 @@ class CacheUtils {
   static Future<void> setNotificationPreview(bool value) async {
     Box box = await Hive.openBox(_settingsKey);
     await box.put(_notificationPreviewKey, value);
+  }
+
+  /// Whether this device tells its peers that it is typing. Default off: with
+  /// it off no frame is ever sent, so the server has nothing to relay.
+  static Future<bool> isTypingIndicatorEnabled() async {
+    Box box = await Hive.openBox(_settingsKey);
+    return box.get(_typingIndicatorKey) as bool? ?? false;
+  }
+
+  /// Turns the typing indicator on or off.
+  static Future<void> setTypingIndicatorEnabled(bool value) async {
+    Box box = await Hive.openBox(_settingsKey);
+    await box.put(_typingIndicatorKey, value);
+  }
+
+  /// Whether this device announces its presence and last seen. Default off.
+  static Future<bool> isPresenceEnabled() async {
+    Box box = await Hive.openBox(_settingsKey);
+    return box.get(_presenceKey) as bool? ?? false;
+  }
+
+  /// Turns presence on or off.
+  static Future<void> setPresenceEnabled(bool value) async {
+    Box box = await Hive.openBox(_settingsKey);
+    await box.put(_presenceKey, value);
   }
 
   /// Opens box with playback preferences

@@ -29,6 +29,8 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   bool _isBiometryEnabled = false;
   bool _notificationPreview = false;
+  bool _typingIndicator = false;
+  bool _presence = false;
 
   /// Guards the retention flow: the settings round-trip is slow, and without it
   /// a second tap stacks another dialog on top of the first.
@@ -43,6 +45,8 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _loadSettings() async {
     _isBiometryEnabled = await CacheUtils.isBiometryEnabled();
     _notificationPreview = await CacheUtils.getNotificationPreview();
+    _typingIndicator = await CacheUtils.isTypingIndicatorEnabled();
+    _presence = await CacheUtils.isPresenceEnabled();
     setState(() {});
   }
 
@@ -234,6 +238,42 @@ class _SettingsPageState extends State<SettingsPage> {
                     });
                     await CacheUtils.setNotificationPreview(
                         _notificationPreview);
+                  },
+                ),
+              ),
+              // Both live-metadata switches are off by default: with them off
+              // no frame is ever sent and the server learns nothing.
+              _settingsTile(
+                icon: Icons.edit_notifications,
+                label: 'typingIndicator'.tr(),
+                trailing: Switch(
+                  value: _typingIndicator,
+                  onChanged: (value) async {
+                    setState(() {
+                      _typingIndicator = !_typingIndicator;
+                    });
+                    await CacheUtils.setTypingIndicatorEnabled(
+                        _typingIndicator);
+                  },
+                ),
+              ),
+              _settingsTile(
+                icon: Icons.circle,
+                label: 'presence'.tr(),
+                trailing: Switch(
+                  value: _presence,
+                  onChanged: (value) async {
+                    setState(() {
+                      _presence = !_presence;
+                    });
+                    await CacheUtils.setPresenceEnabled(_presence);
+                    // Turning it on announces right away; turning it off tells
+                    // the peers, so nobody keeps a stale "online".
+                    if (_presence) {
+                      await Utils.announcePresence();
+                    } else {
+                      await Utils.withdrawPresence();
+                    }
                   },
                 ),
               ),

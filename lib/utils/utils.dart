@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
@@ -14,8 +15,10 @@ import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:whisper_websocket_client_dart/models/delivery_ack.dart';
 import 'package:whisper_websocket_client_dart/models/message_event.dart';
+import 'package:whisper_websocket_client_dart/models/presence.dart';
 import 'package:whisper_websocket_client_dart/models/read_receipt.dart';
 import 'package:whisper_websocket_client_dart/models/synced.dart';
+import 'package:whisper_websocket_client_dart/models/typing.dart';
 import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/private_message.dart';
 import 'package:whisper_websocket_client_dart/models/ws_response.dart';
@@ -25,6 +28,7 @@ import 'chat_sender.dart';
 import 'crypto_utils.dart';
 import 'media_utils.dart';
 import 'message_notifier.dart';
+import 'presence.dart';
 import 'singleton.dart';
 import 'text_envelope.dart';
 import '../models/private_message.dart' as pm;
@@ -594,6 +598,24 @@ class Utils {
         MessageNotifier().notify();
         break;
 
+      // The other participant is typing right now
+      case WsResponseType.typing:
+        PresenceNotifier.instance
+            .applyTyping((wsResponse.payload as TypingFrame).peerId);
+        break;
+
+      // The other participant came online or went away
+      case WsResponseType.presence:
+        final presence = wsResponse.payload as PresenceFrame;
+        PresenceNotifier.instance.applyPresence(presence.peerId,
+            online: presence.online, lastSeenAt: presence.lastSeenAt);
+        break;
+
+      // A live position is rendered by the location landing; until it exists
+      // there is nothing to show.
+      case WsResponseType.liveLocation:
+        break;
+
       // Delete account
       case WsResponseType.deleteAccount:
         await CacheUtils.deleteCache();
@@ -829,6 +851,8 @@ class Utils {
       // Nothing is pushed on connect: ask for the archive delta above the last
       // seq stored here. A phone away for a week fetches only that week.
       await syncArchive();
+      // Then tell the peers we are here, if presence is switched on.
+      await announcePresence();
       final onConnected = Utils.onConnected;
       if (onConnected != null) {
         await onConnected();
@@ -836,6 +860,9 @@ class Utils {
     } catch (e) {
       // WebSocket connection failed
       Singleton().offlineMode = true;
+      // Nothing about the peers is known without a connection.
+      PresenceNotifier.instance.clear();
+      _stopPresenceHeartbeat();
 
       if (kDebugMode) {
         debugPrint('WebSocket connection attempt failed: $e');
@@ -854,6 +881,73 @@ class Utils {
   static bool get isOnline =>
       Singleton().wsClient.isConnected && !Singleton().offlineMode;
 
+  /// Tells every peer of the chat list that this device is online, and keeps
+  /// saying it once a minute so a killed app drops off by itself. Silent when
+  /// presence is off: an off client sends no frame at all.
+  static Future<void> announcePresence() async {
+    final sent = await _sendPresence(online: true);
+    _presenceHeartbeat?.cancel();
+    _presenceHeartbeat = sent
+        ? Timer.periodic(const Duration(seconds: 60), (_) {
+            _sendPresence(online: true);
+          })
+        : null;
+  }
+
+  /// Withdraws presence before the app goes to the background, so a peer does
+  /// not keep a stale "online" with no way to learn better.
+  static Future<void> withdrawPresence() async {
+    _stopPresenceHeartbeat();
+    // No setting check: it is being turned off, and the peers must hear it.
+    await _sendPresence(online: false, force: true);
+  }
+
+  static Timer? _presenceHeartbeat;
+
+  static void _stopPresenceHeartbeat() {
+    _presenceHeartbeat?.cancel();
+    _presenceHeartbeat = null;
+  }
+
+  /// Returns whether a frame was actually sent.
+  static Future<bool> _sendPresence(
+      {required bool online, bool force = false}) async {
+    if (!force && !await CacheUtils.isPresenceEnabled()) {
+      return false;
+    }
+    if (!isOnline) {
+      return false;
+    }
+    final chats = await CacheUtils.getLatestPrivateMessages();
+    final peerIds = chats.keys.map((user) => user.id).toList();
+    if (peerIds.isEmpty) {
+      return false;
+    }
+    Singleton().wsClient.sendPresence(peerIds, online: online);
+    return true;
+  }
+
+  /// At most one typing hint per peer every three seconds; the receiver drops
+  /// the indicator on its own after five.
+  static DateTime? _lastTypingSent;
+  static String? _lastTypingPeer;
+
+  /// Tells [peerId] that this device is typing, if the user opted in.
+  static Future<void> sendTypingHint(String peerId) async {
+    if (!await CacheUtils.isTypingIndicatorEnabled() || !isOnline) {
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastTypingPeer == peerId &&
+        _lastTypingSent != null &&
+        now.difference(_lastTypingSent!) < const Duration(seconds: 3)) {
+      return;
+    }
+    _lastTypingPeer = peerId;
+    _lastTypingSent = now;
+    Singleton().wsClient.sendTyping(peerId);
+  }
+
   /// Force disconnect and set offline mode
   static void forceOfflineMode() {
     try {
@@ -861,6 +955,8 @@ class Utils {
     } catch (_) {
       // Ignore disconnect errors
     }
+    PresenceNotifier.instance.clear();
+    _stopPresenceHeartbeat();
     Singleton().offlineMode = true;
   }
 }
