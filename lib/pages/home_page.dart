@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:screen_protector/screen_protector.dart';
 import '../utils/nav_transitions.dart';
 import 'package:sprintf/sprintf.dart';
 import '../pages/chat_page.dart';
@@ -89,6 +90,9 @@ class _HomePageState extends State<HomePage>
     // Refresh the list when a message arrives or its state changes; the build
     // method must not create a new future on every rebuild.
     MessageNotifier().addListener(_onMessagesChanged);
+    // A screenshot outside the view-once viewer is reported, not blocked: the
+    // app cannot prevent it, and pretending otherwise would be a lie.
+    ScreenProtector.addListener(_onScreenshot, _onScreenRecord);
     // A pending FCM id is retried when the socket comes up instead of polling.
     Utils.onConnected = _sendPendingFid;
     // Open the chat a notification tap pointed at (after unlocking)
@@ -134,12 +138,29 @@ class _HomePageState extends State<HomePage>
   /// and a foreground app has to show that itself.
   StreamSubscription<RemoteMessage>? _fcmSubscription;
 
+  /// A screenshot of an ordinary message cannot be stopped, only noticed.
+  void _onScreenshot() {
+    Fluttertoast.showToast(
+        msg: 'screenshotDetected'.tr(), backgroundColor: Colors.orange);
+  }
+
+  void _onScreenRecord(bool recording) {
+    if (!recording) {
+      return;
+    }
+    Fluttertoast.showToast(
+        msg: 'screenshotDetected'.tr(), backgroundColor: Colors.orange);
+  }
+
   /// Presence is announced when the app comes back and withdrawn when it goes
-  /// away: the server keeps nothing, so a stale "online" would never clear.
+  /// away: the server keeps nothing, so a stale "online" would never clear.  @override
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       Utils.announcePresence();
+      // A message whose deadline passed while the app was in the background is
+      // gone before it paints again.
+      CacheUtils.purgeExpiredMessages().then((_) => MessageNotifier().notify());
     } else if (state == AppLifecycleState.paused) {
       Utils.withdrawPresence();
     }
@@ -148,6 +169,7 @@ class _HomePageState extends State<HomePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    ScreenProtector.removeListener();
     _fcmSubscription?.cancel();
     _adminTabController.dispose();
     MessageNotifier().removeListener(_onMessagesChanged);

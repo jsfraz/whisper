@@ -11,6 +11,7 @@ import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
 import '../pages/media_viewer_page.dart';
 import '../utils/media_utils.dart';
+import '../utils/message_actions.dart';
 import 'voice_player.dart';
 
 /// Renders a media attachment inside a chat bubble: image/gif thumbnail, video
@@ -108,6 +109,77 @@ class _MediaBubbleState extends State<MediaBubble> {
     return Size(dw, dh);
   }
 
+  /// A single-view attachment never shows a thumbnail: nobody sees it before
+  /// opening it, and the open happens exactly once.
+  Widget _viewOnceWidget(bool hasCaption) {
+    final ready = widget.message.localPath != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: () {
+            if (!ready) {
+              if (widget.canRetry) {
+                widget.onRetry();
+              }
+              return;
+            }
+            _openViewOnce();
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: 200,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: widget.bubbleColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.visibility_off, color: widget.textColor),
+                const SizedBox(height: 8),
+                Text(
+                  ready ? 'viewOnceOpen'.tr() : 'viewOnceLoad'.tr(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: widget.textColor),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (hasCaption)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(widget.message.message,
+                style: TextStyle(color: widget.textColor)),
+          ),
+      ],
+    );
+  }
+
+  /// Opens the one allowed view, then burns the attachment.
+  Future<void> _openViewOnce() async {
+    final message = widget.message;
+    await Navigator.of(context).push(
+      fadeRoute(
+        Theme(
+          data: Theme.of(context),
+          child: MediaViewerPage(
+            message: message,
+            conversationUserId: widget.conversationUserId,
+            viewOnce: true,
+          ),
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    await MessageActions.consumeViewOnce(widget.conversationUserId, message);
+  }
+
   void _openViewer({int albumIndex = 0}) {
     final path = widget.message.localPath;
     final type = widget.message.mediaType;
@@ -133,6 +205,10 @@ class _MediaBubbleState extends State<MediaBubble> {
   Widget build(BuildContext context) {
     final type = widget.message.mediaType;
     final hasCaption = widget.message.message.isNotEmpty;
+
+    if (widget.message.viewOnce) {
+      return _viewOnceWidget(hasCaption);
+    }
 
     if (widget.message.isAlbum) {
       return _albumWidget(hasCaption);

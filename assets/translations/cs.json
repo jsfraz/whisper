@@ -262,5 +262,21 @@
   "readReceipts": "Potvrzení o přečtení",
   "messageDelivered": "Doručeno",
   "messageRead": "Přečteno",
-  "attachmentCaptionUneditable": "Tetó příloze nelze upravit popisek"
+  "attachmentCaptionUneditable": "Tetó příloze nelze upravit popisek",
+  "disappearingSettings": "Mizející zprávy",
+  "disappearingHint": "Musí souhlasit obě strany: vaše volba je návrh, dokud ji protistrana nepřijme.",
+  "disappearingAccept": "Přijmout {}",
+  "disappearingDecline": "Odmítnout",
+  "disappearingProposalShort": "návrh {}",
+  "disappearingOff": "vypnuto",
+  "disappearingChanged": "Mizející zprávy se změnily",
+  "disappearingProposalPill": "Navrženy mizející zprávy: {}",
+  "disappearingEnabledPill": "Mizející zprávy: {}",
+  "disappearingDeclinedPill": "Návrh mizejících zpráv odmítnut",
+  "attachViewOnce": "Zobrazit jednou",
+  "viewOnceOneFile": "Jednorázově lze poslat jen jednu přílohu",
+  "viewOnceOpen": "Klepnutím zobrazit jednou",
+  "viewOnceLoad": "Klepnutím stáhnout",
+  "viewOnceMedia": "Jednorázová příloha",
+  "screenshotDetected": "Screenshot zaznamenán"
 }

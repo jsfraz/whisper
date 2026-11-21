@@ -54,6 +54,26 @@ class MessageActions {
   static bool canSave(PrivateMessage message) =>
       message.isMedia && message.localPath != null;
 
+  /// A view-once attachment may not be passed on: it is one open, for one
+  /// conversation.
+  static bool canForward(PrivateMessage message) => !message.viewOnce;
+
+  /// Burns a view-once attachment after its single open: the local copy goes,
+  /// and so does the server row, so the other side loses it too.
+  static Future<void> consumeViewOnce(
+      String conversationUserId, PrivateMessage message) async {
+    final id = message.id;
+    if (id != null && id.isNotEmpty) {
+      try {
+        await Utils.callApi(() => Singleton().messagesApi.deleteMessage(id));
+      } catch (_) {
+        // The server sweep drops the row at its ttl either way.
+      }
+    }
+    await CacheUtils.deletePrivateMessage(conversationUserId, message);
+    MessageNotifier().notify();
+  }
+
   /// The emoji row of a reaction sheet: one tap sets the caller's reaction, or
   /// takes it back when it is the one already picked.
   static Widget reactionRow(
@@ -212,14 +232,15 @@ class MessageActions {
                     copy(message);
                   },
                 ),
-              ListTile(
-                leading: const Icon(forwardIcon),
-                title: Text('forwardMessage'.tr()),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  forward(context, [message]);
-                },
-              ),
+              if (canForward(message))
+                ListTile(
+                  leading: const Icon(forwardIcon),
+                  title: Text('forwardMessage'.tr()),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    forward(context, [message]);
+                  },
+                ),
               if (canSave(message))
                 ListTile(
                   leading: const Icon(saveIcon),

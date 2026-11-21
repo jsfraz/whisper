@@ -211,6 +211,24 @@ class PrivateMessage extends HiveObject {
   @HiveField(23)
   String? mediaRefJson;
 
+  /// When the message must be gone from this device: the disappearing-message
+  /// deadline, or the view-once life. Null means the retention applies.
+  @HiveField(24)
+  DateTime? expiresAt;
+
+  /// Set on a control message that carries no text: "propose", "accept" or
+  /// "decline" of a chat setting. Null on ordinary messages.
+  @HiveField(25)
+  String? systemState;
+
+  /// Seconds carried by a control message.
+  @HiveField(26, defaultValue: 0)
+  int systemSeconds;
+
+  /// A single-view attachment: opened once, then gone for both sides.
+  @HiveField(27, defaultValue: false)
+  bool viewOnce;
+
   /// Cache for [album], keyed by the [albumJson] it was decoded from.
   String? _albumCacheJson;
   List<AlbumItem>? _albumCache;
@@ -239,7 +257,20 @@ class PrivateMessage extends HiveObject {
     this.reactions,
     this.forwarded = false,
     this.mediaRefJson,
+    this.expiresAt,
+    this.systemState,
+    this.systemSeconds = 0,
+    this.viewOnce = false,
   });
+
+  /// A control message: it carries a chat setting, not text to read.
+  bool get isSystem => systemState != null;
+
+  /// True once the disappearing deadline of this message has passed.
+  bool get isExpired {
+    final deadline = expiresAt;
+    return deadline != null && deadline.isBefore(DateTime.now());
+  }
 
   /// References needed to re-encrypt this message with a new caption, null for
   /// text messages and when their key was never kept.
@@ -395,11 +426,17 @@ class PrivateMessage extends HiveObject {
     if (isUndecryptable) {
       return 'messageUndecryptable'.tr();
     }
+    if (isSystem) {
+      return 'disappearingChanged'.tr();
+    }
     if (!isMedia || message.isNotEmpty) {
       return message;
     }
     if (isAlbum) {
       return '${'mediaAlbum'.tr()} (${album.length})';
+    }
+    if (viewOnce) {
+      return 'viewOnceMedia'.tr();
     }
     switch (mediaType) {
       case MediaType.image:

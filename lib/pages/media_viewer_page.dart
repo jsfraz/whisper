@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:chewie/chewie.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:screen_protector/screen_protector.dart';
 import 'package:video_player/video_player.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
@@ -26,10 +27,14 @@ class MediaViewerPage extends StatefulWidget {
   /// Index of the tapped attachment when [message] is an album.
   final int albumIndex;
 
+  /// A view-once attachment: one page, screenshot-blocked, burnt on close.
+  final bool viewOnce;
+
   const MediaViewerPage({
     required this.message,
     required this.conversationUserId,
     this.albumIndex = 0,
+    this.viewOnce = false,
     super.key,
   });
 
@@ -47,12 +52,27 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.viewOnce) {
+      // The one allowed view may not be screenshotted or recorded. Android
+      // enforces it with FLAG_SECURE; iOS has no block, only a best-effort
+      // notification, which is why the app says so on the info screen.
+      ScreenProtector.preventScreenshotOn();
+    }
     _loadMedia();
   }
 
   /// The viewer pages through the same attachments the gallery shows, starting
   /// at the one that was tapped.
   Future<void> _loadMedia() async {
+    if (widget.viewOnce) {
+      // One attachment, one page: swiping to the next would be a second view.
+      setState(() {
+        _media = [widget.message];
+        _index = 0;
+        _controller = PageController(initialPage: 0);
+      });
+      return;
+    }
     if (widget.message.isAlbum) {
       // Album attachments are pages of their own; keep the album order so the
       // tapped tile maps to the same index.
@@ -93,6 +113,9 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
 
   @override
   void dispose() {
+    if (widget.viewOnce) {
+      ScreenProtector.preventScreenshotOff();
+    }
     _controller?.dispose();
     super.dispose();
   }

@@ -6,6 +6,8 @@ import '../utils/nav_transitions.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
 import '../utils/cache_utils.dart';
+import '../utils/chat_sender.dart';
+import '../utils/disappearing.dart';
 import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
 import '../utils/dialog_utils.dart';
@@ -32,6 +34,12 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   Map<String, DateTime> _pins = {};
   bool _readReceipts = false;
 
+  /// Agreed disappearing-message timer of this chat, seconds; 0 when off.
+  int _disappearing = 0;
+
+  /// Timer the peer proposed and this device has not answered yet.
+  int? _disappearingProposal;
+
   /// A toggle in flight: the switch stays disabled until the server call and
   /// the cache write are done, so it cannot be flipped back and forth.
   bool _readReceiptsBusy = false;
@@ -43,6 +51,79 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     _loadMedia();
     _loadPins();
     _loadReadReceipts();
+    _loadDisappearing();
+  }
+
+  Future<void> _loadDisappearing() async {
+    final agreed = await CacheUtils.getDisappearingSeconds(widget.userId);
+    final proposal = await CacheUtils.getDisappearingProposal(widget.userId);
+    if (mounted) {
+      setState(() {
+        _disappearing = agreed;
+        _disappearingProposal = proposal;
+      });
+    }
+  }
+
+  /// A timer is agreed by both sides: this device only ever proposes, and the
+  /// peer's proposal is what the accept row answers.
+  Future<void> _showDisappearingDialog() async {
+    final proposal = _disappearingProposal;
+    final chosen = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('disappearingSettings'.tr()),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text('disappearingHint'.tr()),
+          ),
+          if (proposal != null)
+            ListTile(
+              leading: const Icon(Icons.check),
+              title: Text(
+                  'disappearingAccept'.tr(args: [disappearingLabel(proposal)])),
+              onTap: () => Navigator.pop(ctx, proposal),
+            ),
+          if (proposal != null)
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: Text('disappearingDecline'.tr()),
+              onTap: () => Navigator.pop(ctx, -1),
+            ),
+          const Divider(),
+          for (final option in disappearingOptions)
+            ListTile(
+              title: Text(disappearingLabel(option)),
+              trailing: option == _disappearing
+                  ? const Icon(Icons.check)
+                  : (option == proposal ? const Icon(Icons.schedule) : null),
+              onTap: () => Navigator.pop(ctx, option),
+            ),
+        ],
+      ),
+    );
+    if (chosen == null) {
+      return;
+    }
+    final user = await CacheUtils.getUserById(widget.userId);
+    if (user == null) {
+      return;
+    }
+    if (chosen == -1) {
+      await CacheUtils.setDisappearingProposal(widget.userId, null);
+      await ChatSender.sendSystem(user, 'decline', 0);
+    } else if (proposal != null && chosen == proposal) {
+      await CacheUtils.setDisappearingSeconds(widget.userId, chosen);
+      await CacheUtils.setDisappearingProposal(widget.userId, null);
+      await ChatSender.sendSystem(user, 'accept', chosen);
+    } else {
+      // Nothing changes until the peer accepts, so a proposal is never a new
+      // local timer on its own.
+      await ChatSender.sendSystem(user, 'propose', chosen);
+    }
+    await _loadDisappearing();
+    MessageNotifier().notify();
   }
 
   Future<void> _loadReadReceipts() async {
@@ -292,6 +373,20 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                               padding: const EdgeInsets.only(left: 10),
                               child: Text('${_pins.length}'),
                             ),
+                    ),
+                    // Disappearing messages: a timer both sides agree on.
+                    SettingsTile(
+                      icon: Icons.timer_outlined,
+                      label: 'disappearingSettings'.tr(),
+                      onPressed: _showDisappearingDialog,
+                      extra: Padding(
+                        padding: const EdgeInsets.only(left: 10),
+                        child: Text(_disappearingProposal != null
+                            ? 'disappearingProposalShort'.tr(args: [
+                                disappearingLabel(_disappearingProposal!)
+                              ])
+                            : disappearingLabel(_disappearing)),
+                      ),
                     ),
                     // Chat theme
                     SettingsTile(

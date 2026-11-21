@@ -335,6 +335,7 @@ class Utils {
           // Media message: decode the envelope and create a placeholder.
           final envelope = MediaUtils.tryParseMediaEnvelope(decryptedMessage);
           if (envelope != null) {
+            final expiresAt = await _expiryFor(message.peerId, message.sentAt);
             if (envelope.references.length > 1) {
               // Album: one bubble, one download per attachment.
               final albumMsg = pm.PrivateMessage(
@@ -345,6 +346,7 @@ class Utils {
                 false,
                 downloadStatus: pm.MediaDownloadStatus.pending,
                 forwarded: envelope.forwarded,
+                expiresAt: expiresAt,
               );
               albumMsg.setAlbum(envelope.references
                   .map((ref) => pm.AlbumItem(
@@ -377,9 +379,22 @@ class Utils {
               fileName: ref.fileName,
               downloadStatus: pm.MediaDownloadStatus.pending,
               forwarded: envelope.forwarded,
+              viewOnce: envelope.viewOnce,
+              expiresAt: expiresAt,
               mediaRefJson: jsonEncode(ref.toJson()),
             );
             return (mediaMsg, [ref], message.peerId);
+          }
+          // Control message: the disappearing-message agreement. It carries no
+          // text, so the chat renders it as a pill.
+          final systemEnvelope = tryParseSystemEnvelope(decryptedMessage);
+          if (systemEnvelope != null) {
+            final systemMsg = pm.PrivateMessage(
+                message.senderId, '', message.sentAt, DateTime.now(), false,
+                systemState: systemEnvelope.state,
+                systemSeconds: systemEnvelope.seconds)
+              ..id = message.id;
+            return (systemMsg, const <MediaReference>[], message.peerId);
           }
           // Plain text message (legacy/unchanged path), or a reply that carries
           // its quote in a text envelope.
@@ -390,7 +405,8 @@ class Utils {
               message.sentAt,
               DateTime.now(),
               false,
-              forwarded: textEnvelope?.forwarded ?? false)
+              forwarded: textEnvelope?.forwarded ?? false,
+              expiresAt: await _expiryFor(message.peerId, message.sentAt))
             ..setReplyTo(textEnvelope?.reply);
           return (textMsg, const <MediaReference>[], message.peerId);
         } catch (e) {
@@ -425,6 +441,14 @@ class Utils {
       for (final (message, refs, _) in valid) {
         if (refs.isNotEmpty) {
           pendingMediaRefs.putIfAbsent(message.senderId, () => []).addAll(refs);
+        }
+      }
+      // A control message changes the chat state before the bubble is stored,
+      // so the chat list already shows the new timer.
+      for (final (message, _, _) in valid) {
+        if (message.isSystem) {
+          await applySystemAgreement(
+              message.senderId, message.systemState!, message.systemSeconds);
         }
       }
 
@@ -639,6 +663,32 @@ class Utils {
 
       // A frame from a newer server. Ignoring it keeps this build usable.
       case WsResponseType.unknown:
+        break;
+    }
+  }
+
+  /// The local disappearing deadline of one incoming message, null when the
+  /// chat has no timer.
+  static Future<DateTime?> _expiryFor(String peerId, DateTime sentAt) async {
+    final seconds = await CacheUtils.getDisappearingSeconds(peerId);
+    return seconds > 0 ? sentAt.add(Duration(seconds: seconds)) : null;
+  }
+
+  /// Applies one step of the disappearing-message agreement carried by a
+  /// control message from [peerId].
+  static Future<void> applySystemAgreement(
+      String peerId, String state, int seconds) async {
+    switch (state) {
+      case 'propose':
+        await CacheUtils.setDisappearingProposal(peerId, seconds);
+        break;
+      case 'accept':
+        // The peer accepted what this device proposed.
+        await CacheUtils.setDisappearingSeconds(peerId, seconds);
+        await CacheUtils.setDisappearingProposal(peerId, null);
+        break;
+      case 'decline':
+        await CacheUtils.setDisappearingProposal(peerId, null);
         break;
     }
   }

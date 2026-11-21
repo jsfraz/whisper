@@ -80,6 +80,10 @@ void main() async {
   // restart.
   await MediaUtils.clearTempFiles();
 
+  // A disappearing message that expired while the app was closed is gone
+  // before the first frame: it must not flash up on start.
+  await CacheUtils.purgeExpiredMessages();
+
   // Default theme
   Singleton().appTheme = await CacheUtils.getTheme() ??
       AppTheme.fromValues(ThemeMode.system, Colors.blue);

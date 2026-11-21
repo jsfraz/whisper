@@ -106,3 +106,59 @@ ParsedTextEnvelope? tryParseTextEnvelope(Uint8List plaintext) {
   }
   return null;
 }
+
+/// Envelope version of a control message: a chat setting both participants have
+/// to agree on. It has its own version and kind, so no reader mistakes it for
+/// text; a client that predates it shows raw JSON, which is why a timer is only
+/// proposed towards a peer already on the new build.
+const int systemEnvelopeVersion = 4;
+
+/// The only control message so far: the disappearing-message timer.
+const String systemActionDisappearing = 'disappearing';
+
+class ParsedSystemEnvelope {
+  const ParsedSystemEnvelope(this.state, this.seconds);
+
+  /// "propose", "accept" or "decline".
+  final String state;
+
+  /// The timer in seconds; 0 turns disappearing messages off.
+  final int seconds;
+}
+
+/// Plaintext (pre-encryption) bytes of a disappearing-message proposal, an
+/// acceptance or a refusal.
+Uint8List buildSystemEnvelope(String state, int seconds) {
+  final map = <String, dynamic>{
+    'whisperMsg': systemEnvelopeVersion,
+    'kind': 'system',
+    'action': systemActionDisappearing,
+    'state': state,
+    'seconds': seconds,
+  };
+  return Uint8List.fromList(utf8.encode(jsonEncode(map)));
+}
+
+/// Parses [plaintext] as a control envelope. Null for anything else.
+ParsedSystemEnvelope? tryParseSystemEnvelope(Uint8List plaintext) {
+  try {
+    final decoded = jsonDecode(utf8.decode(plaintext));
+    if (decoded is! Map ||
+        decoded['kind'] != 'system' ||
+        decoded['whisperMsg'] != systemEnvelopeVersion ||
+        decoded['action'] != systemActionDisappearing) {
+      return null;
+    }
+    final state = decoded['state'];
+    final seconds = decoded['seconds'];
+    if (state is! String || seconds is! num) {
+      return null;
+    }
+    if (state != 'propose' && state != 'accept' && state != 'decline') {
+      return null;
+    }
+    return ParsedSystemEnvelope(state, seconds.toInt());
+  } catch (_) {
+    return null;
+  }
+}

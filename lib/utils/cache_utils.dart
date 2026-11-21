@@ -552,6 +552,35 @@ class CacheUtils {
     await box.delete(key);
   }
 
+  /// Deletes every stored message whose disappearing deadline passed, together
+  /// with its media files. [userId] limits the sweep to one chat.
+  static Future<int> purgeExpiredMessages({String? userId}) async {
+    final box = await _openPrivateMessagesBox();
+    final now = DateTime.now();
+    final expired = <String, PrivateMessage>{};
+    for (final key in box.keys) {
+      if (key is! String) {
+        continue;
+      }
+      if (userId != null && !key.startsWith('$userId|')) {
+        continue;
+      }
+      final value = box.get(key);
+      if (value is PrivateMessage &&
+          value.expiresAt != null &&
+          value.expiresAt!.isBefore(now)) {
+        expired[key] = value;
+      }
+    }
+    for (final entry in expired.entries) {
+      await box.delete(entry.key);
+      for (final path in entry.value.localPaths) {
+        await MediaUtils.deleteLocalFile(path);
+      }
+    }
+    return expired.length;
+  }
+
   /// Stores the newest text of an edited message, or drops the edit when the
   /// message is not on this device.
   static Future<void> markMessageEdited(
@@ -954,6 +983,58 @@ class CacheUtils {
     } else {
       meta.remove('readReceipts');
     }
+    if (meta.isEmpty) {
+      await box.delete(userId);
+    } else {
+      await box.put(userId, meta);
+    }
+  }
+
+  /// Active disappearing-message timer of one chat in seconds, 0 when off.
+  /// Both participants store the same value after they agree on it.
+  static Future<int> getDisappearingSeconds(String userId) async {
+    final box = await _openConversationsBox();
+    final value = _metaOf(box, userId)['disappearing'];
+    return value is int ? value : 0;
+  }
+
+  /// Stores the agreed disappearing-message timer of one chat. 0 turns it off.
+  static Future<void> setDisappearingSeconds(String userId, int seconds) {
+    return _serializedMeta(() async {
+      final box = await _openConversationsBox();
+      final meta = _metaOf(box, userId);
+      if (seconds > 0) {
+        meta['disappearing'] = seconds;
+      } else {
+        meta.remove('disappearing');
+      }
+      await _putMeta(box, userId, meta);
+    });
+  }
+
+  /// Timer the other participant proposed and this device has not answered yet,
+  /// null when there is none.
+  static Future<int?> getDisappearingProposal(String userId) async {
+    final box = await _openConversationsBox();
+    final value = _metaOf(box, userId)['disappearingProposal'];
+    return value is int ? value : null;
+  }
+
+  /// Stores or clears the proposal of the other participant.
+  static Future<void> setDisappearingProposal(String userId, int? seconds) {
+    return _serializedMeta(() async {
+      final box = await _openConversationsBox();
+      final meta = _metaOf(box, userId);
+      if (seconds == null) {
+        meta.remove('disappearingProposal');
+      } else {
+        meta['disappearingProposal'] = seconds;
+      }
+      await _putMeta(box, userId, meta);
+    });
+  }
+
+  static Future<void> _putMeta(Box box, String userId, Map meta) async {
     if (meta.isEmpty) {
       await box.delete(userId);
     } else {

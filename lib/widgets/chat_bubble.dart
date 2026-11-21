@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/private_message.dart';
+import '../utils/disappearing.dart';
 import '../utils/message_format.dart';
 import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
@@ -130,8 +131,47 @@ class _ChatBubbleState extends State<ChatBubble> {
     );
   }
 
+  /// A control message rendered as one centred line: the disappearing-message
+  /// agreement, which belongs to the chat state rather than to a speaker.
+  Widget _systemPill(BuildContext context) {
+    final message = widget.message;
+    final label = disappearingLabel(message.systemSeconds);
+    final text = switch (message.systemState) {
+      'propose' => 'disappearingProposalPill'.tr(args: [label]),
+      'accept' => 'disappearingEnabledPill'.tr(args: [label]),
+      'decline' => 'disappearingDeclinedPill'.tr(),
+      _ => 'disappearingChanged'.tr(),
+    };
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // A control message has no bubble of its own: it is one centred line.
+    if (widget.message.isSystem) {
+      return _systemPill(context);
+    }
+
     bool showAvatar() {
       if (widget.message.isMe) return false;
       // Show avatar if next message is null (last message)

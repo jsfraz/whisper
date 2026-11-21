@@ -262,5 +262,21 @@
   "readReceipts": "Read receipts",
   "messageDelivered": "Delivered",
   "messageRead": "Read",
-  "attachmentCaptionUneditable": "This attachment's caption can't be edited"
+  "attachmentCaptionUneditable": "This attachment's caption can't be edited",
+  "disappearingSettings": "Disappearing messages",
+  "disappearingHint": "Both sides have to agree: your choice is a proposal until the other side accepts it.",
+  "disappearingAccept": "Accept {}",
+  "disappearingDecline": "Decline",
+  "disappearingProposalShort": "proposal {}",
+  "disappearingOff": "off",
+  "disappearingChanged": "Disappearing messages changed",
+  "disappearingProposalPill": "Disappearing messages proposed: {}",
+  "disappearingEnabledPill": "Disappearing messages: {}",
+  "disappearingDeclinedPill": "Disappearing messages proposal declined",
+  "attachViewOnce": "View once",
+  "viewOnceOneFile": "Only one attachment can be view-once",
+  "viewOnceOpen": "Tap to view once",
+  "viewOnceLoad": "Tap to download",
+  "viewOnceMedia": "View-once attachment",
+  "screenshotDetected": "Screenshot detected"
 }

@@ -62,16 +62,19 @@ class ChatSender {
   static Future<bool> sendText(User recipient, String text,
       {ReplyRef? reply, bool forwarded = false}) async {
     final now = DateTime.now();
+    final ttl = await _ttlFor(recipient);
     final message = PrivateMessage(
         Singleton().profile.user.id, text, now, now, true,
-        sendStatus: SendStatus.sending, forwarded: forwarded)
+        sendStatus: SendStatus.sending,
+        forwarded: forwarded,
+        expiresAt: ttl > 0 ? now.add(Duration(seconds: ttl)) : null)
       ..setReplyTo(reply);
     try {
       await _persist(recipient, [message]);
       if (!await _ensureConnected()) {
         return await _fail(recipient.id, message);
       }
-      await _sendText(recipient, message);
+      await _sendText(recipient, message, ttl: ttl);
       // No ack yet: the message stays `sending` until the server confirms.
       return true;
     } catch (e) {
@@ -88,7 +91,8 @@ class ChatSender {
       int? height,
       int? durationMs,
       String? fileName,
-      bool forwarded = false}) async {
+      bool forwarded = false,
+      bool viewOnce = false}) async {
     if (!MediaUtils.uploadFits(bytes.length)) {
       _toastTooLarge();
       return false;
@@ -97,6 +101,9 @@ class ChatSender {
     // the content while the upload is still running.
     final localPath = await MediaUtils.encryptAtRest(bytes);
     final now = DateTime.now();
+    // A view-once attachment lives a day whatever the chat timer says; anything
+    // else follows the agreed timer.
+    final ttl = viewOnce ? viewOnceTtlSeconds : await _ttlFor(recipient);
     final message = PrivateMessage(
       Singleton().profile.user.id,
       caption,
@@ -113,6 +120,8 @@ class ChatSender {
       fileName: fileName,
       sendStatus: SendStatus.sending,
       forwarded: forwarded,
+      viewOnce: viewOnce,
+      expiresAt: ttl > 0 ? now.add(Duration(seconds: ttl)) : null,
     );
     try {
       await _persist(recipient, [message]);
@@ -132,8 +141,8 @@ class ChatSender {
       _outgoingReferences[CacheUtils.messageKey(recipient.id, message.sentAt)] =
           [reference];
       final envelope = MediaUtils.buildMediaEnvelope(reference, caption,
-          forwarded: forwarded);
-      await _sendEnvelope(recipient, envelope, message.sentAt);
+          forwarded: forwarded, viewOnce: viewOnce);
+      await _sendEnvelope(recipient, envelope, message.sentAt, ttlSeconds: ttl);
       await CacheUtils.updateStoredMessage(recipient.id, message, (stored) {
         stored.mediaId = reference.mediaId;
         // Keep the reference (with its transport key) so the caption can be
@@ -428,7 +437,8 @@ class ChatSender {
 
   /// Encrypt [message] for [recipient] and hand it to the WebSocket. The
   /// original timestamp is kept so a resend maps onto the same server entry.
-  static Future<void> _sendText(User recipient, PrivateMessage message) async {
+  static Future<void> _sendText(User recipient, PrivateMessage message,
+      {int ttl = 0}) async {
     // A reply needs the quote next to the body; everything else stays raw text
     // so an older client can still read it.
     final reply = message.replyTo;
@@ -444,7 +454,8 @@ class ChatSender {
         data['encryptedKey']!,
         data['nonce']!,
         data['mac']!,
-        sentAt: message.sentAt)));
+        sentAt: message.sentAt,
+        ttlSeconds: ttl > 0 ? ttl : null)));
   }
 
   /// Upload one already transport-encrypted attachment and build its reference.
@@ -484,7 +495,8 @@ class ChatSender {
 
   /// E2E-encrypt [envelope] for [recipient] and hand it to the WebSocket.
   static Future<void> _sendEnvelope(
-      User recipient, Uint8List envelope, DateTime sentAt) async {
+      User recipient, Uint8List envelope, DateTime sentAt,
+      {int ttlSeconds = 0}) async {
     final data = await CryptoUtils.encryptMessageData(
         envelope, bu.CryptoUtils.rsaPublicKeyFromPem(recipient.publicKey));
     Singleton().wsClient.sendMessage(WsMessage.privateMessage(NewPrivateMessage(
@@ -493,7 +505,40 @@ class ChatSender {
         data['encryptedKey']!,
         data['nonce']!,
         data['mac']!,
-        sentAt: sentAt)));
+        sentAt: sentAt,
+        ttlSeconds: ttlSeconds > 0 ? ttlSeconds : null)));
+  }
+
+  /// Life of a view-once attachment: one day, whether or not the chat has a
+  /// disappearing timer.
+  static const int viewOnceTtlSeconds = 86400;
+
+  /// The agreed disappearing timer of one chat in seconds, 0 when off.
+  static Future<int> _ttlFor(User recipient) =>
+      CacheUtils.getDisappearingSeconds(recipient.id);
+
+  /// Sends one step of the disappearing-message agreement. The message is
+  /// archived and encrypted like any other, so the other device and a device
+  /// that syncs later all see the same state.
+  static Future<bool> sendSystem(
+      User recipient, String state, int seconds) async {
+    final now = DateTime.now();
+    final message = PrivateMessage(
+        Singleton().profile.user.id, '', now, now, true,
+        sendStatus: SendStatus.sending,
+        systemState: state,
+        systemSeconds: seconds);
+    try {
+      await _persist(recipient, [message]);
+      if (!await _ensureConnected()) {
+        return await _fail(recipient.id, message);
+      }
+      await _sendEnvelope(recipient, buildSystemEnvelope(state, seconds), now);
+      return true;
+    } catch (e) {
+      Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+      return await _fail(recipient.id, message);
+    }
   }
 
   /// Connect the WebSocket if needed; toasts and reports false when offline.

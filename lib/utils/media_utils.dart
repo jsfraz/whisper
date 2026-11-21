@@ -6,7 +6,8 @@ import 'dart:ui' as ui;
 import 'package:cryptography/cryptography.dart' as cryptography;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show BuildContext, IconData, Icons, MediaQuery;
+import 'package:flutter/material.dart'
+    show BuildContext, IconData, Icons, MediaQuery;
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:path_provider/path_provider.dart';
@@ -545,15 +546,18 @@ class MediaUtils {
   // ---------------------------------------------------------------------------
 
   /// Build the plaintext (pre-encryption) bytes for a media message: a JSON
-  /// envelope wrapping the [reference] and optional [caption].
+  /// envelope wrapping the [reference] and optional [caption]. [viewOnce] marks
+  /// a single-view attachment; the flag rides inside the ciphertext, so only
+  /// the two participants know.
   static Uint8List buildMediaEnvelope(MediaReference reference, String caption,
-      {bool forwarded = false}) {
+      {bool forwarded = false, bool viewOnce = false}) {
     final map = <String, dynamic>{
       'whisperMsg': envelopeVersion,
       'kind': 'media',
       'caption': caption,
       'media': reference.toJson(),
       if (forwarded) 'forwarded': true,
+      if (viewOnce) 'viewOnce': true,
     };
     return Uint8List.fromList(utf8.encode(jsonEncode(map)));
   }
@@ -581,12 +585,13 @@ class MediaUtils {
       if (decoded is Map && decoded['kind'] == 'media') {
         final caption = (decoded['caption'] as String?) ?? '';
         final forwarded = decoded['forwarded'] == true;
+        final viewOnce = decoded['viewOnce'] == true;
         if (decoded['whisperMsg'] == envelopeVersion &&
             decoded['media'] is Map) {
           final reference = MediaReference.fromJson(
               Map<String, dynamic>.from(decoded['media'] as Map));
           return ParsedMediaEnvelope([reference], caption,
-              forwarded: forwarded);
+              forwarded: forwarded, viewOnce: viewOnce);
         }
         if (decoded['whisperMsg'] == envelopeVersionAlbum &&
             decoded['media'] is List) {
@@ -672,8 +677,11 @@ class ParsedMediaEnvelope {
   /// The sender passed on somebody else's attachment instead of writing it.
   final bool forwarded;
 
+  /// A single-view attachment: one open, then gone for both sides.
+  final bool viewOnce;
+
   const ParsedMediaEnvelope(this.references, this.caption,
-      {this.forwarded = false});
+      {this.forwarded = false, this.viewOnce = false});
 }
 
 /// Thin wrapper around the [AudioRecorder] for hold-to-record voice messages.

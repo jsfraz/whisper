@@ -821,7 +821,7 @@ class _ChatPageState extends State<ChatPage> {
   /// Send a media attachment: probe what the type needs, then the shared send
   /// path (encrypt, upload, persist a bubble, send).
   Future<void> _sendMedia(MediaType type, File file,
-      {String caption = '', int? durationMs}) async {
+      {String caption = '', int? durationMs, bool viewOnce = false}) async {
     setState(() {
       _isSending = true;
     });
@@ -833,7 +833,8 @@ class _ChatPageState extends State<ChatPage> {
           width: probe.width,
           height: probe.height,
           durationMs: probe.durationMs,
-          fileName: MediaUtils.baseName(file.path));
+          fileName: MediaUtils.baseName(file.path),
+          viewOnce: viewOnce);
       _afterSend(sent, caption);
     } catch (e) {
       await Fluttertoast.showToast(
@@ -912,13 +913,21 @@ class _ChatPageState extends State<ChatPage> {
   /// [forcedType] fixes the type for camera picks; [filesOnly] rejects photos
   /// and videos (the "File" entry must stay a document picker).
   Future<void> _pickAndSend(Future<List<File>> Function() picker,
-      {MediaType? forcedType, bool filesOnly = false}) async {
+      {MediaType? forcedType,
+      bool filesOnly = false,
+      bool viewOnce = false}) async {
     try {
       final picked = await picker();
       if (picked.isEmpty) {
         return;
       }
       var files = picked;
+      if (viewOnce && files.length > 1) {
+        // One view, one attachment: a single-view album cannot be honest.
+        files = [files.first];
+        await Fluttertoast.showToast(
+            msg: 'viewOnceOneFile'.tr(), backgroundColor: Colors.orange);
+      }
       if (filesOnly) {
         files =
             picked.where((file) => !MediaUtils.isVisualMedia(file)).toList();
@@ -948,7 +957,8 @@ class _ChatPageState extends State<ChatPage> {
       }
       if (files.length == 1) {
         final type = forcedType ?? MediaUtils.detectType(files.first.path);
-        await _sendMedia(type, files.first, caption: caption);
+        await _sendMedia(type, files.first,
+            caption: caption, viewOnce: viewOnce);
       } else {
         await _sendAlbum(files, caption: caption);
       }
@@ -1028,6 +1038,19 @@ class _ChatPageState extends State<ChatPage> {
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickAndSend(MediaUtils.pickMultipleFiles, filesOnly: true);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.visibility_off),
+                title: Text('attachViewOnce'.tr()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  // One photo or video, gone for both sides after the first
+                  // open; the picker stays the same.
+                  _pickAndSend(() async {
+                    final file = await MediaUtils.pickMediaFromGallery();
+                    return file == null ? <File>[] : [file];
+                  }, viewOnce: true);
                 },
               ),
             ],

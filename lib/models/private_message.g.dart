@@ -40,13 +40,17 @@ class PrivateMessageAdapter extends TypeAdapter<PrivateMessage> {
       reactions: (fields[21] as Map?)?.cast<String, String>(),
       forwarded: fields[22] == null ? false : fields[22] as bool,
       mediaRefJson: fields[23] as String?,
+      expiresAt: fields[24] as DateTime?,
+      systemState: fields[25] as String?,
+      systemSeconds: fields[26] == null ? 0 : fields[26] as int,
+      viewOnce: fields[27] == null ? false : fields[27] as bool,
     )..id = fields[19] as String?;
   }
 
   @override
   void write(BinaryWriter writer, PrivateMessage obj) {
     writer
-      ..writeByte(24)
+      ..writeByte(28)
       ..writeByte(0)
       ..write(obj.senderId)
       ..writeByte(1)
@@ -94,7 +98,15 @@ class PrivateMessageAdapter extends TypeAdapter<PrivateMessage> {
       ..writeByte(22)
       ..write(obj.forwarded)
       ..writeByte(23)
-      ..write(obj.mediaRefJson);
+      ..write(obj.mediaRefJson)
+      ..writeByte(24)
+      ..write(obj.expiresAt)
+      ..writeByte(25)
+      ..write(obj.systemState)
+      ..writeByte(26)
+      ..write(obj.systemSeconds)
+      ..writeByte(27)
+      ..write(obj.viewOnce);
   }
 
   @override
