@@ -392,7 +392,13 @@ class Utils {
           final systemEnvelope = tryParseSystemEnvelope(decryptedMessage);
           if (systemEnvelope != null) {
             final systemMsg = pm.PrivateMessage(
-                message.senderId, '', message.sentAt, DateTime.now(), false,
+                message.senderId,
+                '',
+                message.sentAt,
+                DateTime.now(),
+                // Chat state, already applied above: it must not raise an
+                // unread badge.
+                true,
                 systemState: systemEnvelope.state,
                 systemSeconds: systemEnvelope.seconds)
               ..id = message.id;
@@ -527,6 +533,9 @@ class Utils {
     if (!notify) {
       return;
     }
+
+    // A control message is chat state, not correspondence: it never rings.
+    decryptedMessages.removeWhere((message) => message.isSystem);
 
     // Remove messages from notifications if user was not online when they were sent
     decryptedMessages.removeWhere((x) => !messages
