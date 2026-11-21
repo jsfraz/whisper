@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/private_message.dart';
 import '../utils/disappearing.dart';
+import '../utils/message_actions.dart';
 import '../utils/message_format.dart';
+import '../utils/text_envelope.dart';
 import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
 import 'formatted_text.dart';
@@ -165,11 +167,71 @@ class _ChatBubbleState extends State<ChatBubble> {
     );
   }
 
+  /// A static location: a pin, the coordinates and a way into the platform map
+  /// app. No tiles are fetched, so nothing leaves the device until the tap.
+  Widget _locationBubble(BuildContext context, LocationRef location) {
+    final scheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment:
+          widget.message.isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+        constraints: const BoxConstraints(maxWidth: 260),
+        decoration: BoxDecoration(
+          color: widget.accentColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.place, size: 20),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    (location.label?.isNotEmpty ?? false)
+                        ? location.label!
+                        : 'locationMessage'.tr(),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 2, left: 26),
+              child: Text(location.body,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: scheme.onSurfaceVariant)),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => MessageActions.openLocation(location),
+                icon: const Icon(Icons.map, size: 18),
+                label: Text('openInMaps'.tr()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // A control message has no bubble of its own: it is one centred line.
     if (widget.message.isSystem) {
       return _systemPill(context);
+    }
+    // A static location is a card, not text with a pin in it.
+    final location = widget.message.location;
+    if (location != null) {
+      return _locationBubble(context, location);
     }
 
     bool showAvatar() {

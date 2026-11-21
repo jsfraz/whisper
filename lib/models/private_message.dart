@@ -229,6 +229,11 @@ class PrivateMessage extends HiveObject {
   @HiveField(27, defaultValue: false)
   bool viewOnce;
 
+  /// JSON of a static location ({lat, lng, accuracy?, label?}) sent as a
+  /// message; null for everything else.
+  @HiveField(28)
+  String? locationJson;
+
   /// Cache for [album], keyed by the [albumJson] it was decoded from.
   String? _albumCacheJson;
   List<AlbumItem>? _albumCache;
@@ -261,7 +266,21 @@ class PrivateMessage extends HiveObject {
     this.systemState,
     this.systemSeconds = 0,
     this.viewOnce = false,
+    this.locationJson,
   });
+
+  /// The static location carried by this message, null for everything else.
+  LocationRef? get location {
+    final raw = locationJson;
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    try {
+      return LocationRef.fromJson(jsonDecode(raw));
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// A control message: it carries a chat setting, not text to read.
   bool get isSystem => systemState != null;

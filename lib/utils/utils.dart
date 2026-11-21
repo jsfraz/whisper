@@ -14,6 +14,7 @@ import '../pages/chat_page.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:whisper_websocket_client_dart/models/delivery_ack.dart';
+import 'package:whisper_websocket_client_dart/models/live_location.dart';
 import 'package:whisper_websocket_client_dart/models/message_event.dart';
 import 'package:whisper_websocket_client_dart/models/presence.dart';
 import 'package:whisper_websocket_client_dart/models/read_receipt.dart';
@@ -28,6 +29,7 @@ import 'chat_sender.dart';
 import 'crypto_utils.dart';
 import 'media_utils.dart';
 import 'message_notifier.dart';
+import 'live_location.dart';
 import 'presence.dart';
 import 'singleton.dart';
 import 'text_envelope.dart';
@@ -406,6 +408,9 @@ class Utils {
               DateTime.now(),
               false,
               forwarded: textEnvelope?.forwarded ?? false,
+              locationJson: textEnvelope?.location == null
+                  ? null
+                  : jsonEncode(textEnvelope!.location!.toJson()),
               expiresAt: await _expiryFor(message.peerId, message.sentAt))
             ..setReplyTo(textEnvelope?.reply);
           return (textMsg, const <MediaReference>[], message.peerId);
@@ -635,9 +640,13 @@ class Utils {
             online: presence.online, lastSeenAt: presence.lastSeenAt);
         break;
 
-      // A live position is rendered by the location landing; until it exists
-      // there is nothing to show.
+      // A live position: relayed encrypted, kept in memory until it expires.
       case WsResponseType.liveLocation:
+        final frame = wsResponse.payload as LiveLocationFrame;
+        final point = await decryptLiveLocation(frame.payload);
+        if (point != null) {
+          PresenceNotifier.instance.applyLiveLocation(frame.peerId, point);
+        }
         break;
 
       // Delete account

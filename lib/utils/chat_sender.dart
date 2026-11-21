@@ -438,14 +438,15 @@ class ChatSender {
   /// Encrypt [message] for [recipient] and hand it to the WebSocket. The
   /// original timestamp is kept so a resend maps onto the same server entry.
   static Future<void> _sendText(User recipient, PrivateMessage message,
-      {int ttl = 0}) async {
+      {int ttl = 0, Uint8List? plaintextOverride}) async {
     // A reply needs the quote next to the body; everything else stays raw text
     // so an older client can still read it.
     final reply = message.replyTo;
-    final plaintext = reply == null && !message.forwarded
-        ? utf8.encode(message.message)
-        : buildTextEnvelope(message.message, reply,
-            forwarded: message.forwarded);
+    final plaintext = plaintextOverride ??
+        (reply == null && !message.forwarded
+            ? utf8.encode(message.message)
+            : buildTextEnvelope(message.message, reply,
+                forwarded: message.forwarded));
     final data = await CryptoUtils.encryptMessageData(
         plaintext, bu.CryptoUtils.rsaPublicKeyFromPem(recipient.publicKey));
     Singleton().wsClient.sendMessage(WsMessage.privateMessage(NewPrivateMessage(
@@ -512,6 +513,34 @@ class ChatSender {
   /// Life of a view-once attachment: one day, whether or not the chat has a
   /// disappearing timer.
   static const int viewOnceTtlSeconds = 86400;
+
+  /// Sends a static location: an ordinary text message whose envelope also
+  /// carries the coordinates. The server sees only the ciphertext.
+  static Future<bool> sendLocation(User recipient, double lat, double lng,
+      {double? accuracy, String? label}) async {
+    final now = DateTime.now();
+    final ttl = await _ttlFor(recipient);
+    final location = LocationRef(lat, lng, accuracy: accuracy, label: label);
+    final message = PrivateMessage(
+        Singleton().profile.user.id, location.body, now, now, true,
+        sendStatus: SendStatus.sending,
+        locationJson: jsonEncode(location.toJson()),
+        expiresAt: ttl > 0 ? now.add(Duration(seconds: ttl)) : null);
+    try {
+      await _persist(recipient, [message]);
+      if (!await _ensureConnected()) {
+        return await _fail(recipient.id, message);
+      }
+      await _sendText(recipient, message,
+          ttl: ttl,
+          plaintextOverride:
+              buildTextEnvelope(location.body, null, location: location));
+      return true;
+    } catch (e) {
+      Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
+      return await _fail(recipient.id, message);
+    }
+  }
 
   /// The agreed disappearing timer of one chat in seconds, 0 when off.
   static Future<int> _ttlFor(User recipient) =>

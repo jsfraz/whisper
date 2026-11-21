@@ -278,5 +278,15 @@
   "viewOnceOpen": "Tap to view once",
   "viewOnceLoad": "Tap to download",
   "viewOnceMedia": "View-once attachment",
-  "screenshotDetected": "Screenshot detected"
+  "screenshotDetected": "Screenshot detected",
+  "locationMessage": "Location",
+  "openInMaps": "Open in maps",
+  "attachLocation": "Send location",
+  "attachLiveLocation": "Share live location",
+  "liveLocationShare": "Share live location",
+  "liveLocationFor": "For {}",
+  "liveLocationMine": "Sharing location",
+  "liveLocationTheirs": "Sharing location",
+  "liveLocationStop": "Stop sharing",
+  "locationUnavailable": "Location is not available"
 }

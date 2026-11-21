@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 
+import 'live_location.dart';
+
 /// Live, in-memory status of the other participants: who is online, when they
 /// were last seen and whether they are typing. Nothing here is stored, and the
 /// server keeps no presence either, so a restart or a disconnect empties it.
@@ -25,6 +27,32 @@ class PresenceNotifier extends ChangeNotifier {
   final Map<String, DateTime> _typingUntil = {};
   final Map<String, Timer> _typingTimers = {};
   final Map<String, bool> _online = {};
+
+  /// Live positions shared with this device, dropped at their own deadline.
+  final Map<String, LiveLocationPoint> _live = {};
+  final Map<String, Timer> _liveTimers = {};
+
+  /// The position [peerId] is sharing right now, null when they are not.
+  LiveLocationPoint? liveLocation(String peerId) {
+    final point = _live[peerId];
+    if (point == null || point.until.isBefore(DateTime.now())) {
+      return null;
+    }
+    return point;
+  }
+
+  /// Keeps one relayed position and forgets it at its deadline.
+  void applyLiveLocation(String peerId, LiveLocationPoint point) {
+    _live[peerId] = point;
+    _liveTimers.remove(peerId)?.cancel();
+    final left = point.until.difference(DateTime.now());
+    _liveTimers[peerId] = Timer(left.isNegative ? Duration.zero : left, () {
+      _live.remove(peerId);
+      _liveTimers.remove(peerId);
+      notifyListeners();
+    });
+    notifyListeners();
+  }
 
   /// True when [peerId] is known to be online; null when nothing is known.
   bool? isOnline(String peerId) => _online[peerId];
@@ -81,11 +109,16 @@ class PresenceNotifier extends ChangeNotifier {
     for (final timer in _presenceTimers.values) {
       timer.cancel();
     }
+    for (final timer in _liveTimers.values) {
+      timer.cancel();
+    }
     _typingTimers.clear();
     _presenceTimers.clear();
+    _liveTimers.clear();
     _typingUntil.clear();
     _online.clear();
     _lastSeen.clear();
+    _live.clear();
     notifyListeners();
   }
 

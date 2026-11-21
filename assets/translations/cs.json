@@ -278,5 +278,15 @@
   "viewOnceOpen": "Klepnutím zobrazit jednou",
   "viewOnceLoad": "Klepnutím stáhnout",
   "viewOnceMedia": "Jednorázová příloha",
-  "screenshotDetected": "Screenshot zaznamenán"
+  "screenshotDetected": "Screenshot zaznamenán",
+  "locationMessage": "Poloha",
+  "openInMaps": "Otevřít v Mapách",
+  "attachLocation": "Poslat polohu",
+  "attachLiveLocation": "Sdílet živou polohu",
+  "liveLocationShare": "Sdílet živou polohu",
+  "liveLocationFor": "Na {}",
+  "liveLocationMine": "Sdílím polohu",
+  "liveLocationTheirs": "Sdílí polohu",
+  "liveLocationStop": "Ukončit sdílení",
+  "locationUnavailable": "Poloha není dostupná"
 }

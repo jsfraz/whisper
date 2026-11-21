@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 
 import '../models/private_message.dart';
@@ -57,6 +58,18 @@ class MessageActions {
   /// A view-once attachment may not be passed on: it is one open, for one
   /// conversation.
   static bool canForward(PrivateMessage message) => !message.viewOnce;
+
+  /// Opens a static location in the platform map app. The coordinates leave the
+  /// app only through this explicit tap.
+  static Future<void> openLocation(LocationRef location,
+      {void Function()? onError}) async {
+    final uri = Uri.parse(
+        'geo:${location.lat},${location.lng}?q=${location.lat},${location.lng}');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened) {
+      onError?.call();
+    }
+  }
 
   /// Burns a view-once attachment after its single open: the local copy goes,
   /// and so does the server row, so the other side loses it too.

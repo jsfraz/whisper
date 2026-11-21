@@ -14,6 +14,7 @@ import '../models/user.dart';
 import '../utils/cache_utils.dart';
 import '../utils/chat_scroll.dart';
 import '../utils/chat_sender.dart';
+import '../utils/live_location.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
@@ -24,6 +25,7 @@ import '../utils/utils.dart' as utils;
 import '../utils/theme_utils.dart';
 import '../widgets/attachment_confirm_sheet.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/live_location_banner.dart';
 import 'chat_info_page.dart';
 import 'forward_page.dart';
 
@@ -968,6 +970,57 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  /// Sends one fix as a location message. No coordinates are read until the
+  /// user picks this action, and they travel only inside the ciphertext.
+  Future<void> _sendCurrentLocation() async {
+    setState(() => _isSending = true);
+    try {
+      final position = await LiveLocationSharer.currentPosition();
+      if (position == null) {
+        await Fluttertoast.showToast(
+            msg: 'locationUnavailable'.tr(), backgroundColor: Colors.red);
+        return;
+      }
+      final sent = await ChatSender.sendLocation(
+          widget.user, position.latitude, position.longitude,
+          accuracy: position.accuracy);
+      _afterSend(sent, '');
+    } catch (e) {
+      await Fluttertoast.showToast(
+          msg: e.toString(), backgroundColor: Colors.red);
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
+  }
+
+  /// Live location is opt-in, ends on its own and can be stopped in the banner.
+  Future<void> _startLiveLocation() async {
+    const options = [15, 60, 480];
+    final minutes = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('liveLocationShare'.tr()),
+        children: [
+          for (final option in options)
+            ListTile(
+              title: Text('liveLocationFor'.tr(args: ['$option min'])),
+              onTap: () => Navigator.pop(ctx, option),
+            ),
+        ],
+      ),
+    );
+    if (minutes == null) {
+      return;
+    }
+    final started = await LiveLocationSharer.instance
+        .start(widget.user, Duration(minutes: minutes));
+    if (started && mounted) {
+      setState(() {});
+    }
+  }
+
   /// Bottom sheet with a caption field; returns the caption, or null to cancel.
   Future<String?> _confirmAttachment(int count) {
     return AttachmentConfirmSheet.show(
@@ -1051,6 +1104,22 @@ class _ChatPageState extends State<ChatPage> {
                     final file = await MediaUtils.pickMediaFromGallery();
                     return file == null ? <File>[] : [file];
                   }, viewOnce: true);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.place),
+                title: Text('attachLocation'.tr()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _sendCurrentLocation();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.my_location),
+                title: Text('attachLiveLocation'.tr()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _startLiveLocation();
                 },
               ),
             ],
@@ -1789,6 +1858,9 @@ class _ChatPageState extends State<ChatPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (_replyTo != null) _buildReplyBar(),
+                    // Above the field, inside the measured composer, so the
+                    // message list keeps clearing it.
+                    LiveLocationBanner(widget.user),
                     Stack(
                       alignment: Alignment.center,
                       children: [

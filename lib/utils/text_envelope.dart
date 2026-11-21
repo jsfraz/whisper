@@ -53,13 +53,53 @@ class ReplyRef {
 
 /// Payload of a text message that quotes another one.
 class ParsedTextEnvelope {
-  const ParsedTextEnvelope(this.body, this.reply, {this.forwarded = false});
+  const ParsedTextEnvelope(this.body, this.reply,
+      {this.forwarded = false, this.location});
 
   final String body;
   final ReplyRef? reply;
 
   /// The sender passed on somebody else's text instead of writing it.
   final bool forwarded;
+
+  /// A static location, null for an ordinary text message.
+  final LocationRef? location;
+}
+
+/// A static location inside a text envelope. It stays a `text` message with an
+/// optional key, so an older client shows the body ("📍 50.08, 14.42") instead
+/// of raw JSON.
+class LocationRef {
+  final double lat;
+  final double lng;
+  final double? accuracy;
+  final String? label;
+
+  const LocationRef(this.lat, this.lng, {this.accuracy, this.label});
+
+  /// What a client without location support still shows.
+  String get body => '📍 ${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
+
+  Map<String, dynamic> toJson() => {
+        'lat': lat,
+        'lng': lng,
+        if (accuracy != null) 'accuracy': accuracy,
+        if (label != null && label!.isNotEmpty) 'label': label,
+      };
+
+  static LocationRef? fromJson(dynamic json) {
+    if (json is! Map) {
+      return null;
+    }
+    final lat = json['lat'];
+    final lng = json['lng'];
+    if (lat is! num || lng is! num) {
+      return null;
+    }
+    return LocationRef(lat.toDouble(), lng.toDouble(),
+        accuracy: (json['accuracy'] as num?)?.toDouble(),
+        label: json['label'] as String?);
+  }
 }
 
 /// Envelope version of a text message carrying a quote. Versions 1 and 2 are
@@ -72,13 +112,14 @@ const int textEnvelopeVersion = 3;
 /// The envelope stays version 3 and the flags are optional keys, so a reader
 /// that predates them still shows the body instead of raw JSON.
 Uint8List buildTextEnvelope(String body, ReplyRef? reply,
-    {bool forwarded = false}) {
+    {bool forwarded = false, LocationRef? location}) {
   final map = <String, dynamic>{
     'whisperMsg': textEnvelopeVersion,
     'kind': 'text',
     'body': body,
     if (reply != null) 'replyTo': reply.toJson(),
     if (forwarded) 'forwarded': true,
+    if (location != null) 'location': location.toJson(),
   };
   return Uint8List.fromList(utf8.encode(jsonEncode(map)));
 }
@@ -99,6 +140,7 @@ ParsedTextEnvelope? tryParseTextEnvelope(Uint8List plaintext) {
         body,
         ReplyRef.fromJson(decoded['replyTo']),
         forwarded: decoded['forwarded'] == true,
+        location: LocationRef.fromJson(decoded['location']),
       );
     }
   } catch (_) {
