@@ -329,5 +329,6 @@
   "shareToChat": "Share to a chat",
   "shareFailed": "Sharing failed",
   "videoNote": "Round video",
-  "cameraUnavailable": "Camera is not available"
+  "cameraUnavailable": "Camera is not available",
+  "applyTrim": "Trim"
 }
