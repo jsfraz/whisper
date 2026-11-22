@@ -7,6 +7,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:sprintf/sprintf.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
+import '../utils/auto_download.dart';
 import '../utils/biometric_auth.dart';
 import '../utils/cache_utils.dart';
 import '../utils/singleton.dart';
@@ -32,6 +33,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _notificationPreview = false;
   bool _typingIndicator = false;
   bool _presence = false;
+  AutoDownloadPolicy _autoDownload = AutoDownloadPolicy.wifi;
 
   /// Guards the retention flow: the settings round-trip is slow, and without it
   /// a second tap stacks another dialog on top of the first.
@@ -48,6 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _notificationPreview = await CacheUtils.getNotificationPreview();
     _typingIndicator = await CacheUtils.isTypingIndicatorEnabled();
     _presence = await CacheUtils.isPresenceEnabled();
+    _autoDownload = await CacheUtils.getAutoDownloadPolicy();
     setState(() {});
   }
 
@@ -300,6 +303,35 @@ class _SettingsPageState extends State<SettingsPage> {
                 onPressed: () async {
                   await Navigator.push(context, stepRoute(const StoragePage()));
                 },
+              ),
+              _settingsTile(
+                icon: Icons.download_for_offline_outlined,
+                label: 'autoDownloadTitle'.tr(),
+                trailing: DropdownButton<AutoDownloadPolicy>(
+                  value: _autoDownload,
+                  underline: const SizedBox.shrink(),
+                  onChanged: (policy) async {
+                    if (policy == null) {
+                      return;
+                    }
+                    setState(() => _autoDownload = policy);
+                    await CacheUtils.setAutoDownloadPolicy(policy);
+                  },
+                  items: [
+                    DropdownMenuItem(
+                      value: AutoDownloadPolicy.always,
+                      child: Text('autoDownloadAlways'.tr()),
+                    ),
+                    DropdownMenuItem(
+                      value: AutoDownloadPolicy.wifi,
+                      child: Text('autoDownloadWifi'.tr()),
+                    ),
+                    DropdownMenuItem(
+                      value: AutoDownloadPolicy.never,
+                      child: Text('autoDownloadNever'.tr()),
+                    ),
+                  ],
+                ),
               ),
               _settingsTile(
                 icon: Icons.archive,

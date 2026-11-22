@@ -248,7 +248,7 @@ class _MediaBubbleState extends State<MediaBubble> {
             )
           : _fileWidget();
     } else if (widget.message.downloadStatus == MediaDownloadStatus.pending) {
-      media = _placeholder(child: const CircularProgressIndicator());
+      media = _pendingMedia();
     } else if (widget.message.downloadStatus == MediaDownloadStatus.failed ||
         widget.message.downloadStatus == MediaDownloadStatus.expired) {
       media = _failed();
@@ -379,6 +379,29 @@ class _MediaBubbleState extends State<MediaBubble> {
             ),
           ),
       ],
+    );
+  }
+
+  /// A pending attachment waits for the network setting; the icon is also the
+  /// way to fetch it now.
+  Widget _pendingMedia() {
+    final retryable = widget.canRetry;
+    return InkWell(
+      onTap: retryable ? widget.onRetry : null,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: retryable
+            ? Tooltip(
+                message: 'downloadMedia'.tr(),
+                child: Icon(Icons.download_for_offline_outlined,
+                    size: 28, color: widget.textColor),
+              )
+            : const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+      ),
     );
   }
 

@@ -13,6 +13,7 @@ import '../models/profile.dart';
 import '../models/user.dart';
 import 'color_utils.dart';
 import 'crypto_utils.dart';
+import 'auto_download.dart';
 import 'media_utils.dart';
 import 'message_search.dart';
 import 'singleton.dart';
@@ -426,6 +427,24 @@ class CacheUtils {
   }
 
   static const String _autoDeleteMediaKey = 'autoDeleteMediaDays';
+  static const String _autoDownloadKey = 'autoDownloadPolicy';
+
+  /// When an incoming attachment is downloaded automatically. Default Wi-Fi:
+  /// arriving photos must not spend a mobile data plan on their own.
+  static Future<AutoDownloadPolicy> getAutoDownloadPolicy() async {
+    Box box = await Hive.openBox(_settingsKey);
+    final stored = box.get(_autoDownloadKey) as String?;
+    return AutoDownloadPolicy.values.firstWhere(
+      (policy) => policy.name == stored,
+      orElse: () => AutoDownloadPolicy.wifi,
+    );
+  }
+
+  /// Sets when attachments are downloaded automatically.
+  static Future<void> setAutoDownloadPolicy(AutoDownloadPolicy policy) async {
+    Box box = await Hive.openBox(_settingsKey);
+    await box.put(_autoDownloadKey, policy.name);
+  }
 
   /// Days after which this device drops an attachment's local copy, 0 = never.
   static Future<int> getAutoDeleteMediaDays() async {

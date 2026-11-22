@@ -24,6 +24,7 @@ import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/private_message.dart';
 import 'package:whisper_websocket_client_dart/models/ws_response.dart';
 import 'package:whisper_websocket_client_dart/models/ws_response_type.dart';
+import 'auto_download.dart';
 import 'cache_utils.dart';
 import 'chat_sender.dart';
 import 'crypto_utils.dart';
@@ -513,8 +514,13 @@ class Utils {
     }
     for (final entry in byPeer.entries) {
       await MessageNotifier().addMessages(entry.key, entry.value);
-      // Kick off media downloads now that placeholders are persisted.
+      // Kick off media downloads now that placeholders are persisted. The
+      // network setting decides which ones: what is skipped stays pending and
+      // the bubble offers a download button.
       for (final ref in pendingMediaRefs[entry.key] ?? const []) {
+        if (!await AutoDownload.allows(ref)) {
+          continue;
+        }
         // Fire-and-forget; updates the message + notifies on completion.
         MessageNotifier().downloadMediaMessage(entry.key, ref);
       }

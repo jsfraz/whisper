@@ -307,5 +307,10 @@
   "storagePurged": "Freed",
   "storageEmpty": "No media yet",
   "recordingLocked": "Recording locked, stop it with the button",
-  "mediaSticker": "Sticker"
+  "mediaSticker": "Sticker",
+  "autoDownloadTitle": "Media download",
+  "autoDownloadAlways": "Always",
+  "autoDownloadWifi": "Wi-Fi only",
+  "autoDownloadNever": "Never",
+  "downloadMedia": "Download"
 }

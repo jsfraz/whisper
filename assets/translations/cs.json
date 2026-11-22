@@ -307,5 +307,10 @@
   "storagePurged": "Uvolněno",
   "storageEmpty": "Zatím žádná média",
   "recordingLocked": "Nahrávání zamčeno, zastavte ho tlačítkem",
-  "mediaSticker": "Nálepka"
+  "mediaSticker": "Nálepka",
+  "autoDownloadTitle": "Stahování médií",
+  "autoDownloadAlways": "Vždy",
+  "autoDownloadWifi": "Jen Wi-Fi",
+  "autoDownloadNever": "Nikdy",
+  "downloadMedia": "Stáhnout"
 }
