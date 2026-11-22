@@ -292,6 +292,20 @@ class _MediaBubbleState extends State<MediaBubble> {
       );
     }
 
+    // A round video note keeps its circle whatever state it is in.
+    if (type == MediaType.video && _isVideoNote) {
+      return _withCaption(
+        ClipOval(
+          child: SizedBox(
+            width: 200,
+            height: 200,
+            child: media,
+          ),
+        ),
+        hasCaption,
+      );
+    }
+
     // A sticker is drawn bare: no bubble, no rounded frame, its own size.
     if (type == MediaType.sticker) {
       return _withCaption(
@@ -388,6 +402,14 @@ class _MediaBubbleState extends State<MediaBubble> {
           ),
       ],
     );
+  }
+
+  /// Whether this video was recorded as a round video note.
+  bool get _isVideoNote {
+    final references = widget.message.mediaReferences;
+    return references != null &&
+        references.isNotEmpty &&
+        references.first.videoNote;
   }
 
   /// A pending attachment waits for the network setting; the icon is also the

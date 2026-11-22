@@ -327,5 +327,7 @@
   "deleteStickerConfirm": "The sticker is removed from this device. Continue?",
   "shareMessage": "Share to another app",
   "shareToChat": "Share to a chat",
-  "shareFailed": "Sharing failed"
+  "shareFailed": "Sharing failed",
+  "videoNote": "Round video",
+  "cameraUnavailable": "Camera is not available"
 }

@@ -92,6 +92,7 @@ class ChatSender {
       int? durationMs,
       String? fileName,
       List<int>? waveform,
+      bool videoNote = false,
       bool forwarded = false,
       bool viewOnce = false}) async {
     if (!MediaUtils.uploadFits(bytes.length)) {
@@ -135,7 +136,9 @@ class ChatSender {
           height: height,
           durationMs: durationMs,
           fileName: fileName,
-          waveform: waveform);
+          waveform: waveform,
+          // Only a single video is ever a note; the stored reference says so.
+          videoNote: message.mediaReferences?.first.videoNote ?? false);
       if (reference == null) {
         return await _fail(recipient.id, message);
       }
@@ -438,7 +441,9 @@ class ChatSender {
           height: height,
           durationMs: durationMs,
           fileName: fileName,
-          waveform: waveform);
+          waveform: waveform,
+          // Only a single video is ever a note; the stored reference says so.
+          videoNote: message.mediaReferences?.first.videoNote ?? false);
     }
 
     final references = <MediaReference>[];
@@ -511,6 +516,7 @@ class ChatSender {
     int? durationMs,
     String? fileName,
     List<int>? waveform,
+    bool videoNote = false,
   }) async {
     try {
       final (mediaId, transport) = await MediaUploader.upload(
@@ -529,6 +535,7 @@ class ChatSender {
         durationMs: durationMs,
         fileName: fileName,
         waveform: waveform,
+        videoNote: videoNote,
       );
     } catch (e) {
       if (kDebugMode) {

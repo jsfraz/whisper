@@ -31,6 +31,7 @@ import '../widgets/typing_dots.dart';
 import 'chat_info_page.dart';
 import '../widgets/sticker_sheet.dart';
 import 'image_editor_page.dart';
+import 'video_note_page.dart';
 import 'video_trim_page.dart';
 import 'forward_page.dart';
 
@@ -848,6 +849,7 @@ class _ChatPageState extends State<ChatPage> {
       {String caption = '',
       int? durationMs,
       List<int>? waveform,
+      bool videoNote = false,
       bool viewOnce = false}) async {
     setState(() {
       _isSending = true;
@@ -862,6 +864,7 @@ class _ChatPageState extends State<ChatPage> {
           durationMs: probe.durationMs,
           fileName: MediaUtils.baseName(file.path),
           waveform: waveform,
+          videoNote: videoNote,
           viewOnce: viewOnce);
       _afterSend(sent, caption);
     } catch (e) {
@@ -1003,6 +1006,16 @@ class _ChatPageState extends State<ChatPage> {
       await Fluttertoast.showToast(
           msg: e.toString(), backgroundColor: Colors.red);
     }
+  }
+
+  /// Records a round video note and sends it as it is: it is a glance, so no
+  /// caption and no editor.
+  Future<void> _recordVideoNote() async {
+    final file = await VideoNotePage.open(context);
+    if (file == null) {
+      return;
+    }
+    await _sendMedia(MediaType.video, file, videoNote: true);
   }
 
   /// Opens the sticker collection and sends the picked one as it is: a sticker
@@ -1184,6 +1197,14 @@ class _ChatPageState extends State<ChatPage> {
                     final file = await MediaUtils.pickVideoFromCamera();
                     return file == null ? <File>[] : [file];
                   }, forcedType: MediaType.video);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.videocam_outlined),
+                title: Text('videoNote'.tr()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _recordVideoNote();
                 },
               ),
               ListTile(

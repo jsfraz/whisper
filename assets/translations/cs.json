@@ -327,5 +327,7 @@
   "deleteStickerConfirm": "Nálepka se z tohoto zařízení smaže. Opravdu?",
   "shareMessage": "Sdílet do jiné aplikace",
   "shareToChat": "Sdílet do chatu",
-  "shareFailed": "Sdílení se nepovedlo"
+  "shareFailed": "Sdílení se nepovedlo",
+  "videoNote": "Kruhové video",
+  "cameraUnavailable": "Kamera není dostupná"
 }
