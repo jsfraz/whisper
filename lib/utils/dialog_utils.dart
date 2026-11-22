@@ -218,11 +218,10 @@ class DialogUtils {
     required Color? current,
     required Future<void> Function(Color? color) onChanged,
   }) {
+    // Outside the builder: a rebuild must not reset the pick back to the value
+    // the page had when the dialog opened.
+    Color? picked = current;
     return StatefulBuilder(builder: (context, setState) {
-      // The dialog applies on tap, so it keeps its own copy: the page reloads
-      // from the cache asynchronously.
-      Color? picked = current;
-
       Future openColorPickerDialog() async {
         final value = await showDialog<Color>(
             context: context,
