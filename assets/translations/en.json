@@ -312,5 +312,13 @@
   "autoDownloadAlways": "Always",
   "autoDownloadWifi": "Wi-Fi only",
   "autoDownloadNever": "Never",
-  "downloadMedia": "Download"
+  "downloadMedia": "Download",
+  "editAttachment": "Edit",
+  "editImage": "Edit photo",
+  "rotate": "Rotate",
+  "crop": "Crop",
+  "draw": "Draw",
+  "undo": "Undo",
+  "applyCrop": "Apply crop",
+  "trimVideo": "Trim video"
 }

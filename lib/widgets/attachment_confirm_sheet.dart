@@ -1,13 +1,18 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-/// What the sender chose in [AttachmentConfirmSheet]: the caption, and whether
-/// the attachment travels as a view-once one.
+/// What the sender chose in [AttachmentConfirmSheet]: the caption, whether the
+/// attachment travels as a view-once one, and whether it should be edited first.
 class AttachmentConfirmResult {
-  const AttachmentConfirmResult({required this.caption, this.viewOnce = false});
+  const AttachmentConfirmResult(
+      {required this.caption, this.viewOnce = false, this.edit = false});
 
   final String caption;
   final bool viewOnce;
+
+  /// The sender wants the editor before sending: crop/draw for a photo, trim
+  /// for a video.
+  final bool edit;
 }
 
 /// Sheet shown after picking an attachment: an optional caption, an optional
@@ -23,10 +28,14 @@ class AttachmentConfirmSheet extends StatefulWidget {
   /// attachment, never an album or a file).
   final bool allowViewOnce;
 
+  /// Whether the picker offers the editor (one photo or one video).
+  final bool allowEdit;
+
   const AttachmentConfirmSheet({
     required this.count,
     this.initialCaption = '',
     this.allowViewOnce = false,
+    this.allowEdit = false,
     super.key,
   });
 
@@ -39,6 +48,7 @@ class AttachmentConfirmSheet extends StatefulWidget {
       {required int count,
       String initialCaption = '',
       bool allowViewOnce = false,
+      bool allowEdit = false,
       ThemeData? theme,
       Color? backgroundColor}) {
     return showModalBottomSheet<AttachmentConfirmResult>(
@@ -51,6 +61,7 @@ class AttachmentConfirmSheet extends StatefulWidget {
           count: count,
           initialCaption: initialCaption,
           allowViewOnce: allowViewOnce,
+          allowEdit: allowEdit,
         );
         return theme == null ? sheet : Theme(data: theme, child: sheet);
       },
@@ -66,12 +77,13 @@ class _AttachmentConfirmSheetState extends State<AttachmentConfirmSheet> {
       TextEditingController(text: widget.initialCaption);
   bool _viewOnce = false;
 
-  void _send() {
+  void _send({bool edit = false}) {
     Navigator.pop(
         context,
         AttachmentConfirmResult(
           caption: _controller.text.trim(),
           viewOnce: _viewOnce,
+          edit: edit,
         ));
   }
 
@@ -127,6 +139,13 @@ class _AttachmentConfirmSheetState extends State<AttachmentConfirmSheet> {
                 onPressed: () => Navigator.pop(context),
                 child: Text('cancel'.tr()),
               ),
+              const Spacer(),
+              if (widget.allowEdit)
+                TextButton.icon(
+                  onPressed: () => _send(edit: true),
+                  icon: const Icon(Icons.tune),
+                  label: Text('editAttachment'.tr()),
+                ),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: _send,

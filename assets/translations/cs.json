@@ -312,5 +312,13 @@
   "autoDownloadAlways": "Vždy",
   "autoDownloadWifi": "Jen Wi-Fi",
   "autoDownloadNever": "Nikdy",
-  "downloadMedia": "Stáhnout"
+  "downloadMedia": "Stáhnout",
+  "editAttachment": "Upravit",
+  "editImage": "Upravit fotku",
+  "rotate": "Otočit",
+  "crop": "Ořez",
+  "draw": "Kreslit",
+  "undo": "Zpět",
+  "applyCrop": "Použít ořez",
+  "trimVideo": "Oříznout video"
 }

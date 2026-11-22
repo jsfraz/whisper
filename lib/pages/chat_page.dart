@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sprintf/sprintf.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/nav_transitions.dart';
@@ -28,6 +29,8 @@ import '../widgets/chat_bubble.dart';
 import '../widgets/live_location_bubble.dart';
 import '../widgets/typing_dots.dart';
 import 'chat_info_page.dart';
+import 'image_editor_page.dart';
+import 'video_trim_page.dart';
 import 'forward_page.dart';
 
 class ChatPage extends StatefulWidget {
@@ -972,11 +975,21 @@ class _ChatPageState extends State<ChatPage> {
       final type =
           single ? forcedType ?? MediaUtils.detectType(files.first.path) : null;
       // Any picked attachment can travel as a single view: one visual file, a
-      // gallery album or a plain document all burn the same way.
-      final confirmed =
-          await _confirmAttachment(files.length, allowViewOnce: true);
+      // gallery album or a plain document all burn the same way. Only a single
+      // photo or video can be edited first.
+      final editable =
+          single && (type == MediaType.image || type == MediaType.video);
+      final confirmed = await _confirmAttachment(files.length,
+          allowViewOnce: true, allowEdit: editable);
       if (confirmed == null) {
         return;
+      }
+      if (single && confirmed.edit) {
+        final edited = await _editAttachment(type!, files.first);
+        if (edited == null) {
+          return;
+        }
+        files = [edited];
       }
       if (single) {
         await _sendMedia(type!, files.first,
@@ -989,6 +1002,29 @@ class _ChatPageState extends State<ChatPage> {
       await Fluttertoast.showToast(
           msg: e.toString(), backgroundColor: Colors.red);
     }
+  }
+
+  /// Runs the editor for one picked attachment. Returns null when the user
+  /// backs out, which aborts the send instead of silently sending the original.
+  Future<File?> _editAttachment(MediaType type, File file) async {
+    if (type == MediaType.image) {
+      final bytes = await file.readAsBytes();
+      if (!mounted) {
+        return null;
+      }
+      final edited = await ImageEditorPage.open(context, bytes);
+      if (edited == null) {
+        return null;
+      }
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/whisper_edited_${DateTime.now().microsecondsSinceEpoch}.png';
+      return File(path)..writeAsBytesSync(edited, flush: true);
+    }
+    if (!mounted) {
+      return null;
+    }
+    return VideoTrimPage.open(context, file);
   }
 
   /// Sends one fix as a location message. No coordinates are read until the
@@ -1078,11 +1114,12 @@ class _ChatPageState extends State<ChatPage> {
   /// Bottom sheet with a caption field; returns the caption and the view-once
   /// choice, or null to cancel.
   Future<AttachmentConfirmResult?> _confirmAttachment(int count,
-      {bool allowViewOnce = false}) {
+      {bool allowViewOnce = false, bool allowEdit = false}) {
     return AttachmentConfirmSheet.show(
       context,
       count: count,
       allowViewOnce: allowViewOnce,
+      allowEdit: allowEdit,
       initialCaption: _controllerMessage.text.trim(),
       theme: ThemeUtils.chatTheme(context, _chatThemeColor),
       backgroundColor: chatBackground(tintAlpha: 0.18),
