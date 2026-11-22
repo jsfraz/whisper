@@ -5,7 +5,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:http/http.dart' as http;
 import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import 'package:whisper_websocket_client_dart/models/new_private_message.dart';
@@ -15,6 +14,7 @@ import '../models/private_message.dart';
 import '../models/user.dart';
 import 'cache_utils.dart';
 import 'crypto_utils.dart';
+import 'media_upload.dart';
 import 'media_utils.dart';
 import 'message_notifier.dart';
 import 'singleton.dart';
@@ -128,9 +128,8 @@ class ChatSender {
       if (!await _ensureConnected()) {
         return await _fail(recipient.id, message);
       }
-      final transport = await MediaUtils.encryptForTransport(bytes);
-      final reference = await _uploadReference(
-          recipient, type, transport.key, transport.blob,
+      final reference = await _uploadReference(recipient, type, bytes,
+          messageKey: CacheUtils.messageKey(recipient.id, message.sentAt),
           width: width,
           height: height,
           durationMs: durationMs,
@@ -224,11 +223,13 @@ class ChatSender {
 
       // The server takes one file per request, so the album is N uploads.
       final references = <MediaReference>[];
-      for (final attachment in attachments) {
-        final transport =
-            await MediaUtils.encryptForTransport(attachment.bytes);
-        final reference = await _uploadReference(
-            recipient, attachment.type, transport.key, transport.blob,
+      final messageKey = CacheUtils.messageKey(recipient.id, message.sentAt);
+      for (var i = 0; i < attachments.length; i++) {
+        final attachment = attachments[i];
+        final reference = await _uploadReference(recipient, attachment.type,
+            attachment.bytes,
+            messageKey: messageKey,
+            index: i,
             width: attachment.width,
             height: attachment.height,
             durationMs: attachment.durationMs,
@@ -413,7 +414,8 @@ class ChatSender {
   /// is missing or the upload failed.
   static Future<List<MediaReference>?> _uploadLocalCopies(
       User recipient, PrivateMessage message) async {
-    Future<MediaReference?> upload(String? path, MediaType? type,
+    final messageKey = CacheUtils.messageKey(recipient.id, message.sentAt);
+    Future<MediaReference?> upload(String? path, MediaType? type, int index,
         {int? width, int? height, int? durationMs, String? fileName}) async {
       if (path == null || type == null) {
         return null;
@@ -423,8 +425,9 @@ class ChatSender {
         _toastTooLarge();
         return null;
       }
-      final transport = await MediaUtils.encryptForTransport(bytes);
-      return _uploadReference(recipient, type, transport.key, transport.blob,
+      return _uploadReference(recipient, type, bytes,
+          messageKey: messageKey,
+          index: index,
           width: width,
           height: height,
           durationMs: durationMs,
@@ -433,8 +436,9 @@ class ChatSender {
 
     final references = <MediaReference>[];
     if (message.isAlbum) {
-      for (final item in message.album) {
-        final reference = await upload(item.localPath, item.mediaType,
+      for (var i = 0; i < message.album.length; i++) {
+        final item = message.album[i];
+        final reference = await upload(item.localPath, item.mediaType, i,
             width: item.width,
             height: item.height,
             durationMs: item.durationMs,
@@ -445,7 +449,7 @@ class ChatSender {
         references.add(reference);
       }
     } else {
-      final reference = await upload(message.localPath, message.mediaType,
+      final reference = await upload(message.localPath, message.mediaType, 0,
           width: message.width,
           height: message.height,
           durationMs: message.durationMs,
@@ -482,39 +486,47 @@ class ChatSender {
         ttlSeconds: ttl > 0 ? ttl : null)));
   }
 
-  /// Upload one already transport-encrypted attachment and build its reference.
+  /// Upload one attachment and build its reference.
+  ///
+  /// Returns null when the upload failed. The recorded session is kept, so the
+  /// retry of that message continues where the connection broke instead of
+  /// starting from zero.
   static Future<MediaReference?> _uploadReference(
     User recipient,
     MediaType type,
-    Uint8List key,
-    Uint8List blob, {
+    Uint8List bytes, {
+    required String messageKey,
+    int index = 0,
     int? width,
     int? height,
     int? durationMs,
     String? fileName,
   }) async {
-    final uploadResponse = await Utils.callApi(
-      () => Singleton().mediaApi.uploadMedia(
-            http.MultipartFile.fromBytes('file', blob, filename: 'media.bin'),
-            recipient.id,
-          ),
-      rethrowErr: true,
-    );
-    if (uploadResponse == null) {
+    try {
+      final (mediaId, transport) = await MediaUploader.upload(
+        bytes,
+        receiverId: recipient.id,
+        messageKey: messageKey,
+        index: index,
+      );
+      return MediaReference(
+        mediaId,
+        transport.key,
+        type,
+        transport.blob.length,
+        width: width,
+        height: height,
+        durationMs: durationMs,
+        fileName: fileName,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('media upload failed: $e');
+      }
       Fluttertoast.showToast(
           msg: 'mediaUploadFailed'.tr(), backgroundColor: Colors.red);
       return null;
     }
-    return MediaReference(
-      uploadResponse.id,
-      key,
-      type,
-      blob.length,
-      width: width,
-      height: height,
-      durationMs: durationMs,
-      fileName: fileName,
-    );
   }
 
   /// E2E-encrypt [envelope] for [recipient] and hand it to the WebSocket.

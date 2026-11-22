@@ -27,7 +27,10 @@ class TransportEncryption {
   final Uint8List blob;
   final Uint8List key;
 
-  const TransportEncryption(this.blob, this.key);
+  /// Nonce of [blob]; kept so a resumed upload reproduces the same ciphertext.
+  final Uint8List nonce;
+
+  const TransportEncryption(this.blob, this.key, this.nonce);
 }
 
 /// Metadata extracted from a media file before sending.
@@ -44,7 +47,10 @@ class _GcmArgs {
   final Uint8List data;
   final Uint8List key;
 
-  const _GcmArgs(this.data, this.key);
+  /// Pinned nonce, used to reproduce a blob that is already partly uploaded.
+  final Uint8List? nonce;
+
+  const _GcmArgs(this.data, this.key, [this.nonce]);
 }
 
 /// AES-GCM nonce length (bytes).
@@ -58,7 +64,8 @@ const int _macLength = 16;
 Future<Uint8List> _gcmEncrypt(_GcmArgs args) async {
   final algorithm = cryptography.AesGcm.with256bits();
   final secretKey = cryptography.SecretKey(args.key);
-  final box = await algorithm.encrypt(args.data, secretKey: secretKey);
+  final box = await algorithm.encrypt(args.data,
+      secretKey: secretKey, nonce: args.nonce);
   final nonce = box.nonce;
   final mac = box.mac.bytes;
   final out = Uint8List(nonce.length + mac.length + box.cipherText.length);
@@ -111,14 +118,22 @@ class MediaUtils {
   // Transport encryption
   // ---------------------------------------------------------------------------
 
-  /// Encrypt [bytes] with a fresh random key for upload.
-  static Future<TransportEncryption> encryptForTransport(
-      Uint8List bytes) async {
-    final algorithm = cryptography.AesGcm.with256bits();
-    final secretKey = await algorithm.newSecretKey();
-    final keyBytes = Uint8List.fromList(await secretKey.extractBytes());
-    final blob = await compute(_gcmEncrypt, _GcmArgs(bytes, keyBytes));
-    return TransportEncryption(blob, keyBytes);
+  /// Encrypt [bytes] for upload.
+  ///
+  /// A fresh key and nonce per file, unless [key] and [nonce] are given: a
+  /// resumed upload must append the bytes the server already holds, so it
+  /// re-encrypts with the same pair.
+  static Future<TransportEncryption> encryptForTransport(Uint8List bytes,
+      {Uint8List? key, Uint8List? nonce}) async {
+    var keyBytes = key;
+    if (keyBytes == null) {
+      final algorithm = cryptography.AesGcm.with256bits();
+      keyBytes = Uint8List.fromList(
+          await (await algorithm.newSecretKey()).extractBytes());
+    }
+    final blob = await compute(_gcmEncrypt, _GcmArgs(bytes, keyBytes, nonce));
+    return TransportEncryption(
+        blob, keyBytes, Uint8List.fromList(blob.sublist(0, _nonceLength)));
   }
 
   /// Decrypt a downloaded [blob] using the transport [key] from the reference.
@@ -413,7 +428,13 @@ class MediaUtils {
   }
 
   /// Largest upload the server accepts (mirrors MEDIA_MAX_UPLOAD_SIZE).
-  static const int maxUploadBytes = 25 * 1024 * 1024;
+  ///
+  /// shortcut: a file is still encrypted, chunked and decrypted in memory, so
+  /// raising this much further needs streaming GCM before it is safe.
+  static const int maxUploadBytes = 100 * 1024 * 1024;
+
+  /// Upload chunk size (mirrors what the server appends per request).
+  static const int uploadChunkBytes = 1024 * 1024;
 
   /// AES-GCM overhead added to every uploaded file (nonce + mac).
   static const int transportOverheadBytes = _nonceLength + _macLength;

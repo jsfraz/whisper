@@ -403,6 +403,28 @@ class CacheUtils {
     await box.put(_playbackSpeed, speed);
   }
 
+  /// Session of an unfinished attachment upload, keyed by `<messageKey>|<index>`.
+  /// Encrypted like the rest of the cache: it names the attachment in flight.
+  static const String _pendingUploadsKey = 'pendingUploads';
+
+  /// The recorded upload session of one attachment, or null.
+  static Future<String?> getPendingUpload(String key) async {
+    CollectionBox box = await _openBox(_pendingUploadsKey);
+    return await box.get(key);
+  }
+
+  /// Records the upload session of one attachment so a retry can resume it.
+  static Future<void> setPendingUpload(String key, String value) async {
+    CollectionBox box = await _openBox(_pendingUploadsKey);
+    await box.put(key, value);
+  }
+
+  /// Forgets the upload session of one attachment.
+  static Future<void> removePendingUpload(String key) async {
+    CollectionBox box = await _openBox(_pendingUploadsKey);
+    await box.delete(key);
+  }
+
   /// Opens the message box. One key per message, so a write touches one entry
   /// instead of rewriting a whole conversation.
   static Future<Box> _openPrivateMessagesBox() async {
