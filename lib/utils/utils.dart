@@ -490,12 +490,14 @@ class Utils {
     final peerOfMessage = <String, String>{};
     final idOfMessage = <String, String>{};
     final editedOfMessage = <String, DateTime?>{};
+    final openedOfMessage = <String, DateTime?>{};
     for (final message in messages) {
       final key =
           '${message.senderId}|${message.sentAt.toUtc().toIso8601String()}';
       peerOfMessage[key] = message.peerId;
       idOfMessage[key] = message.id;
       editedOfMessage[key] = message.editedAt;
+      openedOfMessage[key] = message.openedAt;
     }
     for (final message in decryptedMessages) {
       final key =
@@ -503,6 +505,7 @@ class Utils {
       // The archive id is what a delete on the server needs.
       message.id ??= idOfMessage[key];
       message.editedAt ??= editedOfMessage[key];
+      message.openedAt ??= openedOfMessage[key]?.toLocal();
       final peer = peerOfMessage[key] ?? message.senderId;
       byPeer.putIfAbsent(peer, () => []).add(message);
     }
@@ -625,6 +628,7 @@ class Utils {
       case WsResponseType.delete:
       case WsResponseType.reaction:
       case WsResponseType.pin:
+      case WsResponseType.open:
         await applyEvent(wsResponse.payload as MessageEvent);
         break;
 
@@ -758,6 +762,11 @@ class Utils {
         await CacheUtils.setMessagePinned(event.peerId, event.messageId,
             event.pinned == true ? event.createdAt.toLocal() : null);
         break;
+
+      case MessageEventKind.open:
+        await CacheUtils.markMessageOpened(event.peerId, event.sentAt,
+            (event.openedAt ?? event.createdAt).toLocal());
+        break;
     }
     MessageNotifier().notify();
   }
@@ -812,6 +821,7 @@ class Utils {
               'mac': message.mac,
               'sentAt': message.sentAt.toIso8601String(),
               'editedAt': message.editedAt?.toIso8601String(),
+              'openedAt': message.openedAt?.toIso8601String(),
               'recipientOnline': false,
             }))
         .toList();

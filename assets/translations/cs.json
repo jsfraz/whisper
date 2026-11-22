@@ -288,5 +288,8 @@
   "liveLocationMine": "Sdílím polohu",
   "liveLocationTheirs": "Sdílí polohu",
   "liveLocationStop": "Ukončit sdílení",
-  "locationUnavailable": "Poloha není dostupná"
+  "locationUnavailable": "Poloha není dostupná",
+  "viewOnceSent": "Jednorázová příloha odeslána",
+  "viewOnceOpened": "Zobrazeno",
+  "viewOnceOpenedByPeer": "Otevřeno"
 }

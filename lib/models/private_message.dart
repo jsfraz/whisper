@@ -234,6 +234,11 @@ class PrivateMessage extends HiveObject {
   @HiveField(28)
   String? locationJson;
 
+  /// When the receiver opened this view-once attachment; null while it is still
+  /// unopened. Server-reported, so both sides see the same instant.
+  @HiveField(29)
+  DateTime? openedAt;
+
   /// Cache for [album], keyed by the [albumJson] it was decoded from.
   String? _albumCacheJson;
   List<AlbumItem>? _albumCache;
@@ -267,6 +272,7 @@ class PrivateMessage extends HiveObject {
     this.systemSeconds = 0,
     this.viewOnce = false,
     this.locationJson,
+    this.openedAt,
   });
 
   /// The static location carried by this message, null for everything else.

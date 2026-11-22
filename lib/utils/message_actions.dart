@@ -71,19 +71,22 @@ class MessageActions {
     }
   }
 
-  /// Burns a view-once attachment after its single open: the local copy goes,
-  /// and so does the server row, so the other side loses it too.
+  /// Spends the one view of a view-once attachment: the local copy goes, the
+  /// archive row stays as a tombstone and the server records the instant, so
+  /// the sender learns it too. The server call is best effort — a torn network
+  /// only costs the sender the signal, never the one-view rule.
   static Future<void> consumeViewOnce(
       String conversationUserId, PrivateMessage message) async {
     final id = message.id;
     if (id != null && id.isNotEmpty) {
       try {
-        await Utils.callApi(() => Singleton().messagesApi.deleteMessage(id));
+        await Utils.callApi(() => Singleton().messagesApi.openMessage(id));
       } catch (_) {
-        // The server sweep drops the row at its ttl either way.
+        // The tombstone is local either way.
       }
     }
-    await CacheUtils.deletePrivateMessage(conversationUserId, message);
+    await CacheUtils.markMessageOpened(
+        conversationUserId, message.sentAt, DateTime.now());
     MessageNotifier().notify();
   }
 

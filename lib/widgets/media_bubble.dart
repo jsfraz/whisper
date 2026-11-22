@@ -12,6 +12,7 @@ import '../models/private_message.dart';
 import '../pages/media_viewer_page.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
+import '../utils/singleton.dart';
 import 'voice_player.dart';
 
 /// Renders a media attachment inside a chat bubble: image/gif thumbnail, video
@@ -110,52 +111,63 @@ class _MediaBubbleState extends State<MediaBubble> {
   }
 
   /// A single-view attachment never shows a thumbnail: nobody sees it before
-  /// opening it, and the open happens exactly once.
-  Widget _viewOnceWidget(bool hasCaption) {
+  /// opening it, and the open happens exactly once. Its caption stays hidden
+  /// too, since it already shows inside the viewer once opened. An opened
+  /// attachment, and the sender's own copy, are read-only tombstones.
+  Widget _viewOnceWidget() {
+    final opened = widget.message.openedAt != null;
+    final mine = widget.message.isMe &&
+        widget.conversationUserId != Singleton().profile.user.id;
     final ready = widget.message.localPath != null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        InkWell(
-          onTap: () {
-            if (!ready) {
-              if (widget.canRetry) {
-                widget.onRetry();
-              }
-              return;
-            }
-            _openViewOnce();
-          },
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            width: 200,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: widget.bubbleColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.visibility_off, color: widget.textColor),
-                const SizedBox(height: 8),
-                Text(
-                  ready ? 'viewOnceOpen'.tr() : 'viewOnceLoad'.tr(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: widget.textColor),
-                ),
-              ],
-            ),
+
+    Widget frame(Widget child, {VoidCallback? onTap}) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 200,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: widget.bubbleColor,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.visibility_off, color: widget.textColor),
+              const SizedBox(height: 8),
+              child,
+            ],
           ),
         ),
-        if (hasCaption)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(widget.message.message,
-                style: TextStyle(color: widget.textColor)),
-          ),
-      ],
+      );
+    }
+
+    Widget label(String text) => Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: widget.textColor),
+        );
+
+    if (mine) {
+      // The sender keeps no copy: one open is the recipient's, never theirs.
+      return frame(
+          label(opened ? 'viewOnceOpenedByPeer'.tr() : 'viewOnceSent'.tr()));
+    }
+    if (opened) {
+      return frame(label('viewOnceOpened'.tr()));
+    }
+    return frame(
+      label(ready ? 'viewOnceOpen'.tr() : 'viewOnceLoad'.tr()),
+      onTap: () {
+        if (!ready) {
+          if (widget.canRetry) {
+            widget.onRetry();
+          }
+          return;
+        }
+        _openViewOnce();
+      },
     );
   }
 
@@ -207,7 +219,7 @@ class _MediaBubbleState extends State<MediaBubble> {
     final hasCaption = widget.message.message.isNotEmpty;
 
     if (widget.message.viewOnce) {
-      return _viewOnceWidget(hasCaption);
+      return _viewOnceWidget();
     }
 
     if (widget.message.isAlbum) {

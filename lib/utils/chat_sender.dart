@@ -148,7 +148,15 @@ class ChatSender {
         // Keep the reference (with its transport key) so the caption can be
         // edited later without the original upload.
         stored.mediaRefJson = jsonEncode(reference.toJson());
+        // The sender never keeps the content of a view-once attachment: one
+        // open belongs to the recipient, so the local copy goes right away.
+        if (viewOnce) {
+          stored.localPath = null;
+        }
       });
+      if (viewOnce) {
+        await MediaUtils.deleteLocalFile(localPath);
+      }
       return true;
     } catch (e) {
       Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);

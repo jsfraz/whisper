@@ -596,6 +596,29 @@ class CacheUtils {
     await box.put(key, value);
   }
 
+  /// Marks a stored message as opened by the receiver and drops its local
+  /// media: the one view is spent, so the bytes must not survive on any side.
+  /// A message that is not on this device is skipped.
+  static Future<void> markMessageOpened(
+      String userId, DateTime sentAt, DateTime openedAt) async {
+    final box = await _openPrivateMessagesBox();
+    final key = messageKey(userId, sentAt);
+    final value = box.get(key);
+    if (value is! PrivateMessage) {
+      return;
+    }
+    final paths = value.localPaths;
+    value.openedAt = openedAt;
+    value.localPath = null;
+    for (final item in value.album) {
+      item.localPath = null;
+    }
+    await box.put(key, value);
+    for (final path in paths) {
+      await MediaUtils.deleteLocalFile(path);
+    }
+  }
+
   /// Sets or clears one participant's reaction on a stored message.
   static Future<void> setMessageReaction(
       String userId, DateTime sentAt, String reactorId, String? emoji) async {
