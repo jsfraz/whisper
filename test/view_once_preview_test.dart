@@ -57,10 +57,10 @@ void main() {
     expect(locationMessage(viewOnce: false).preview, '50.17595, 14.42000');
   });
 
-  test('previews drop emojis from the text', () {
+  test('other previews keep their emojis', () {
     final message = PrivateMessage('1', 'ahoj 😀👍 svět', now, now, true);
 
-    expect(message.preview, 'ahoj svět');
+    expect(message.preview, 'ahoj 😀👍 svět');
   });
 
   test('opening a view-once message clears its text and coordinates', () async {
