@@ -168,7 +168,9 @@ class ChatSender {
   /// envelope carrying all references, one WebSocket message.
   static Future<bool> sendAlbum(
       User recipient, List<OutgoingAttachment> attachments,
-      {String caption = '', bool forwarded = false}) async {
+      {String caption = '',
+      bool forwarded = false,
+      bool viewOnce = false}) async {
     if (attachments.isEmpty) {
       return false;
     }
@@ -185,6 +187,8 @@ class ChatSender {
       localPaths.add(await MediaUtils.encryptAtRest(attachment.bytes));
     }
     final now = DateTime.now();
+    // A view-once album follows the same one-day life as a single attachment.
+    final ttl = viewOnce ? viewOnceTtlSeconds : await _ttlFor(recipient);
     final message = PrivateMessage(
       Singleton().profile.user.id,
       caption,
@@ -194,6 +198,8 @@ class ChatSender {
       downloadStatus: MediaDownloadStatus.ready,
       sendStatus: SendStatus.sending,
       forwarded: forwarded,
+      viewOnce: viewOnce,
+      expiresAt: ttl > 0 ? now.add(Duration(seconds: ttl)) : null,
     );
     message.setAlbum([
       for (var i = 0; i < attachments.length; i++)
@@ -236,16 +242,25 @@ class ChatSender {
       _outgoingReferences[CacheUtils.messageKey(recipient.id, message.sentAt)] =
           references;
       final envelope = MediaUtils.buildAlbumEnvelope(references, caption,
-          forwarded: forwarded);
-      await _sendEnvelope(recipient, envelope, message.sentAt);
+          forwarded: forwarded, viewOnce: viewOnce);
+      await _sendEnvelope(recipient, envelope, message.sentAt, ttlSeconds: ttl);
       await CacheUtils.updateStoredMessage(recipient.id, message, (stored) {
         final items = stored.album;
         for (var i = 0; i < items.length && i < references.length; i++) {
           items[i].mediaId = references[i].mediaId;
           items[i].keyB64 = base64Encode(references[i].key);
+          // A view-once album keeps no copy on the sending side.
+          if (viewOnce) {
+            items[i].localPath = null;
+          }
         }
         stored.setAlbum(items);
       });
+      if (viewOnce) {
+        for (final path in localPaths) {
+          await MediaUtils.deleteLocalFile(path);
+        }
+      }
       return true;
     } catch (e) {
       Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);
@@ -525,14 +540,15 @@ class ChatSender {
   /// Sends a static location: an ordinary text message whose envelope also
   /// carries the coordinates. The server sees only the ciphertext.
   static Future<bool> sendLocation(User recipient, double lat, double lng,
-      {double? accuracy, String? label}) async {
+      {double? accuracy, String? label, bool viewOnce = false}) async {
     final now = DateTime.now();
-    final ttl = await _ttlFor(recipient);
+    final ttl = viewOnce ? viewOnceTtlSeconds : await _ttlFor(recipient);
     final location = LocationRef(lat, lng, accuracy: accuracy, label: label);
     final message = PrivateMessage(
         Singleton().profile.user.id, location.body, now, now, true,
         sendStatus: SendStatus.sending,
         locationJson: jsonEncode(location.toJson()),
+        viewOnce: viewOnce,
         expiresAt: ttl > 0 ? now.add(Duration(seconds: ttl)) : null);
     try {
       await _persist(recipient, [message]);
@@ -541,8 +557,8 @@ class ChatSender {
       }
       await _sendText(recipient, message,
           ttl: ttl,
-          plaintextOverride:
-              buildTextEnvelope(location.body, null, location: location));
+          plaintextOverride: buildTextEnvelope(location.body, null,
+              location: location, viewOnce: viewOnce));
       return true;
     } catch (e) {
       Fluttertoast.showToast(msg: e.toString(), backgroundColor: Colors.red);

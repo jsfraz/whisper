@@ -81,4 +81,31 @@ void main() {
     expect(find.text('viewOnceLoad'), findsOneWidget);
     expect(tester.widget<InkWell>(find.byType(InkWell)).onTap, isNotNull);
   });
+
+  testWidgets('a downloaded album is ready to open, not stuck on download', (
+    tester,
+  ) async {
+    // An album keeps its copies per item: the message itself has no localPath.
+    final album = once();
+    album.setAlbum([
+      AlbumItem(mediaId: 'a', type: 'image', size: 10, localPath: '/a'),
+      AlbumItem(mediaId: 'b', type: 'video', size: 20, localPath: '/b'),
+    ]);
+    await tester.pumpWidget(app(album));
+    expect(find.text('viewOnceOpen'), findsOneWidget);
+    expect(find.text('viewOnceLoad'), findsNothing);
+    expect(tester.widget<InkWell>(find.byType(InkWell)).onTap, isNotNull);
+  });
+
+  testWidgets('an album missing a copy still offers the download', (
+    tester,
+  ) async {
+    final album = once();
+    album.setAlbum([
+      AlbumItem(mediaId: 'a', type: 'image', size: 10, localPath: '/a'),
+      AlbumItem(mediaId: 'b', type: 'video', size: 20),
+    ]);
+    await tester.pumpWidget(app(album));
+    expect(find.text('viewOnceLoad'), findsOneWidget);
+  });
 }

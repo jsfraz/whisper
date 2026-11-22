@@ -53,6 +53,18 @@ void main() {
     expect(parsed!.forwarded, isFalse);
   });
 
+  test('a one-time location carries its flag', () {
+    final envelope = buildTextEnvelope('📍 50.08, 14.42', null,
+        location: const LocationRef(50.08, 14.42), viewOnce: true);
+
+    final parsed = tryParseTextEnvelope(envelope);
+    expect(parsed!.viewOnce, isTrue);
+    expect(parsed.location!.lat, 50.08);
+    // An older reader still opens the body instead of raw JSON.
+    final decoded = jsonDecode(utf8.decode(envelope)) as Map;
+    expect(decoded['whisperMsg'], textEnvelopeVersion);
+  });
+
   test('plain text is not an envelope', () {
     expect(tryParseTextEnvelope(bytes('ahoj')), isNull);
   });

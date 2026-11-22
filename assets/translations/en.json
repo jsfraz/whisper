@@ -274,7 +274,6 @@
   "disappearingEnabledPill": "Disappearing messages: {}",
   "disappearingDeclinedPill": "Disappearing messages proposal declined",
   "attachViewOnce": "View once",
-  "viewOnceOneFile": "Only one attachment can be view-once",
   "viewOnceOpen": "Tap to view once",
   "viewOnceLoad": "Tap to download",
   "viewOnceMedia": "View-once attachment",
@@ -291,5 +290,7 @@
   "locationUnavailable": "Location is not available",
   "viewOnceSent": "View-once attachment sent",
   "viewOnceOpened": "Opened",
-  "viewOnceOpenedByPeer": "Opened"
+  "viewOnceOpenedByPeer": "Opened",
+  "messageDeleted": "Message deleted",
+  "viewOnceHint": "Gone for both sides after it is opened once"
 }

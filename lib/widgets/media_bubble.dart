@@ -13,6 +13,7 @@ import '../pages/media_viewer_page.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
 import '../utils/singleton.dart';
+import 'view_once_frame.dart';
 import 'voice_player.dart';
 
 /// Renders a media attachment inside a chat bubble: image/gif thumbnail, video
@@ -118,47 +119,31 @@ class _MediaBubbleState extends State<MediaBubble> {
     final opened = widget.message.openedAt != null;
     final mine = widget.message.isMe &&
         widget.conversationUserId != Singleton().profile.user.id;
-    final ready = widget.message.localPath != null;
-
-    Widget frame(Widget child, {VoidCallback? onTap}) {
-      return InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 200,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: widget.bubbleColor,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.visibility_off, color: widget.textColor),
-              const SizedBox(height: 8),
-              child,
-            ],
-          ),
-        ),
-      );
-    }
-
-    Widget label(String text) => Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: widget.textColor),
-        );
+    // An album carries its copies per item; the message itself never has one.
+    final ready = widget.message.isAlbum
+        ? widget.message.album.isNotEmpty &&
+            widget.message.album.every((item) => item.localPath != null)
+        : widget.message.localPath != null;
 
     if (mine) {
       // The sender keeps no copy: one open is the recipient's, never theirs.
-      return frame(
-          label(opened ? 'viewOnceOpenedByPeer'.tr() : 'viewOnceSent'.tr()));
+      return ViewOnceFrame(
+        label: opened ? 'viewOnceOpenedByPeer'.tr() : 'viewOnceSent'.tr(),
+        bubbleColor: widget.bubbleColor,
+        textColor: widget.textColor,
+      );
     }
     if (opened) {
-      return frame(label('viewOnceOpened'.tr()));
+      return ViewOnceFrame(
+        label: 'viewOnceOpened'.tr(),
+        bubbleColor: widget.bubbleColor,
+        textColor: widget.textColor,
+      );
     }
-    return frame(
-      label(ready ? 'viewOnceOpen'.tr() : 'viewOnceLoad'.tr()),
+    return ViewOnceFrame(
+      label: ready ? 'viewOnceOpen'.tr() : 'viewOnceLoad'.tr(),
+      bubbleColor: widget.bubbleColor,
+      textColor: widget.textColor,
       onTap: () {
         if (!ready) {
           if (widget.canRetry) {

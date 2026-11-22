@@ -40,4 +40,26 @@ void main() {
     // The other conversation is untouched
     expect(await CacheUtils.getPrivateMessages('2'), isEmpty);
   });
+
+  test('delete for everyone keeps a tombstone instead of a gap', () async {
+    final media = PrivateMessage(
+        '1', 'with a photo', DateTime(2026, 1, 3), DateTime(2026, 1, 3), false,
+        mediaTypeStr: 'image', localPath: dir.path, reactions: {'1': '👍'});
+    await CacheUtils.addPrivateMessages('1', [media]);
+
+    final at = DateTime(2026, 1, 4);
+    await CacheUtils.markMessageDeleted('1', media.sentAt, at);
+
+    final messages = await CacheUtils.getPrivateMessages('1');
+    final tombstone =
+        messages.firstWhere((message) => message.sentAt == media.sentAt);
+    expect(tombstone.isDeleted, isTrue);
+    expect(tombstone.deletedAt, at);
+    expect(tombstone.message, isEmpty);
+    expect(tombstone.isMedia, isFalse);
+    expect(tombstone.reactions, isNull);
+    // Nothing left to read, so it cannot raise a badge.
+    expect(tombstone.read, isTrue);
+    expect(messages.length, 3);
+  });
 }

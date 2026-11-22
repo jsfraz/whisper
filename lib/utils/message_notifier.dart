@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 import 'package:whisper_openapi_client_dart/media_download.dart';
@@ -155,6 +157,58 @@ class MessageNotifier extends ChangeNotifier {
 
   /// Whether a failed media download can be retried this session.
   bool canRetryMedia(String mediaId) => _pendingMediaRefs.containsKey(mediaId);
+
+  /// Fetches an attachment whose reference is no longer in memory (after a
+  /// restart) from what the stored row kept: a single message holds the media
+  /// envelope, an album item holds its own key.
+  Future<void> downloadFromStored(
+      String conversationUserId, PrivateMessage message, String mediaId) async {
+    final reference = _storedReference(message, mediaId);
+    if (reference == null) {
+      return;
+    }
+    await CacheUtils.updatePrivateMessageMedia(
+      conversationUserId,
+      mediaId,
+      downloadStatus: MediaDownloadStatus.pending,
+    );
+    notifyListeners();
+    await downloadMediaMessage(conversationUserId, reference);
+  }
+
+  /// Rebuilds one attachment reference from the stored message, null when the
+  /// row does not carry it (an old build, or a foreign media id).
+  MediaReference? _storedReference(PrivateMessage message, String mediaId) {
+    for (final item in message.album) {
+      if (item.mediaId != mediaId || item.keyB64 == null) {
+        continue;
+      }
+      return MediaReference(
+        item.mediaId,
+        base64Decode(item.keyB64!),
+        MediaType.values.byName(item.type),
+        item.size,
+        width: item.width,
+        height: item.height,
+        durationMs: item.durationMs,
+        fileName: item.fileName,
+      );
+    }
+    final raw = message.mediaRefJson;
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    try {
+      final decoded =
+          MediaReference.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      if (decoded.mediaId == mediaId) {
+        return decoded;
+      }
+    } catch (_) {
+      // A reference this build cannot read: nothing to retry.
+    }
+    return null;
+  }
 
   /// Add messages to cache
   Future<void> addMessages(String userId, List<PrivateMessage> messages) async {

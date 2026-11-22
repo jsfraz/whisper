@@ -54,7 +54,7 @@ class ReplyRef {
 /// Payload of a text message that quotes another one.
 class ParsedTextEnvelope {
   const ParsedTextEnvelope(this.body, this.reply,
-      {this.forwarded = false, this.location});
+      {this.forwarded = false, this.location, this.viewOnce = false});
 
   final String body;
   final ReplyRef? reply;
@@ -64,6 +64,10 @@ class ParsedTextEnvelope {
 
   /// A static location, null for an ordinary text message.
   final LocationRef? location;
+
+  /// A single-view message: the body is revealed once and then burnt. Only a
+  /// location uses it; an attachment carries the flag in its media envelope.
+  final bool viewOnce;
 }
 
 /// A static location inside a text envelope. It stays a `text` message with an
@@ -112,7 +116,7 @@ const int textEnvelopeVersion = 3;
 /// The envelope stays version 3 and the flags are optional keys, so a reader
 /// that predates them still shows the body instead of raw JSON.
 Uint8List buildTextEnvelope(String body, ReplyRef? reply,
-    {bool forwarded = false, LocationRef? location}) {
+    {bool forwarded = false, LocationRef? location, bool viewOnce = false}) {
   final map = <String, dynamic>{
     'whisperMsg': textEnvelopeVersion,
     'kind': 'text',
@@ -120,6 +124,7 @@ Uint8List buildTextEnvelope(String body, ReplyRef? reply,
     if (reply != null) 'replyTo': reply.toJson(),
     if (forwarded) 'forwarded': true,
     if (location != null) 'location': location.toJson(),
+    if (viewOnce) 'viewOnce': true,
   };
   return Uint8List.fromList(utf8.encode(jsonEncode(map)));
 }
@@ -141,6 +146,7 @@ ParsedTextEnvelope? tryParseTextEnvelope(Uint8List plaintext) {
         ReplyRef.fromJson(decoded['replyTo']),
         forwarded: decoded['forwarded'] == true,
         location: LocationRef.fromJson(decoded['location']),
+        viewOnce: decoded['viewOnce'] == true,
       );
     }
   } catch (_) {

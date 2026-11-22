@@ -851,7 +851,8 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   /// Send several attachments as one album message.
-  Future<void> _sendAlbum(List<File> files, {String caption = ''}) async {
+  Future<void> _sendAlbum(List<File> files,
+      {String caption = '', bool viewOnce = false}) async {
     setState(() {
       _isSending = true;
     });
@@ -871,7 +872,7 @@ class _ChatPageState extends State<ChatPage> {
         ));
       }
       final sent = await ChatSender.sendAlbum(widget.user, attachments,
-          caption: caption);
+          caption: caption, viewOnce: viewOnce);
       _afterSend(sent, caption);
     } catch (e) {
       await Fluttertoast.showToast(
@@ -915,21 +916,13 @@ class _ChatPageState extends State<ChatPage> {
   /// [forcedType] fixes the type for camera picks; [filesOnly] rejects photos
   /// and videos (the "File" entry must stay a document picker).
   Future<void> _pickAndSend(Future<List<File>> Function() picker,
-      {MediaType? forcedType,
-      bool filesOnly = false,
-      bool viewOnce = false}) async {
+      {MediaType? forcedType, bool filesOnly = false}) async {
     try {
       final picked = await picker();
       if (picked.isEmpty) {
         return;
       }
       var files = picked;
-      if (viewOnce && files.length > 1) {
-        // One view, one attachment: a single-view album cannot be honest.
-        files = [files.first];
-        await Fluttertoast.showToast(
-            msg: 'viewOnceOneFile'.tr(), backgroundColor: Colors.orange);
-      }
       if (filesOnly) {
         files =
             picked.where((file) => !MediaUtils.isVisualMedia(file)).toList();
@@ -953,16 +946,22 @@ class _ChatPageState extends State<ChatPage> {
         }
       }
 
-      final caption = await _confirmAttachment(files.length);
-      if (caption == null) {
+      final single = files.length == 1;
+      final type =
+          single ? forcedType ?? MediaUtils.detectType(files.first.path) : null;
+      // Any picked attachment can travel as a single view: one visual file, a
+      // gallery album or a plain document all burn the same way.
+      final confirmed =
+          await _confirmAttachment(files.length, allowViewOnce: true);
+      if (confirmed == null) {
         return;
       }
-      if (files.length == 1) {
-        final type = forcedType ?? MediaUtils.detectType(files.first.path);
-        await _sendMedia(type, files.first,
-            caption: caption, viewOnce: viewOnce);
+      if (single) {
+        await _sendMedia(type!, files.first,
+            caption: confirmed.caption, viewOnce: confirmed.viewOnce);
       } else {
-        await _sendAlbum(files, caption: caption);
+        await _sendAlbum(files,
+            caption: confirmed.caption, viewOnce: confirmed.viewOnce);
       }
     } catch (e) {
       await Fluttertoast.showToast(
@@ -973,6 +972,30 @@ class _ChatPageState extends State<ChatPage> {
   /// Sends one fix as a location message. No coordinates are read until the
   /// user picks this action, and they travel only inside the ciphertext.
   Future<void> _sendCurrentLocation() async {
+    // A location is a message of its own, so the single view is a choice made
+    // here rather than in an attachment sheet.
+    final viewOnce = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('attachLocation'.tr()),
+        children: [
+          ListTile(
+            leading: const Icon(Icons.place),
+            title: Text('attachLocation'.tr()),
+            onTap: () => Navigator.pop(ctx, false),
+          ),
+          ListTile(
+            leading: const Icon(Icons.visibility_off),
+            title: Text('attachViewOnce'.tr()),
+            subtitle: Text('viewOnceHint'.tr()),
+            onTap: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
+    if (viewOnce == null || !mounted) {
+      return;
+    }
     setState(() => _isSending = true);
     try {
       final position = await LiveLocationSharer.currentPosition();
@@ -983,7 +1006,7 @@ class _ChatPageState extends State<ChatPage> {
       }
       final sent = await ChatSender.sendLocation(
           widget.user, position.latitude, position.longitude,
-          accuracy: position.accuracy);
+          accuracy: position.accuracy, viewOnce: viewOnce);
       _afterSend(sent, '');
     } catch (e) {
       await Fluttertoast.showToast(
@@ -1021,11 +1044,14 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// Bottom sheet with a caption field; returns the caption, or null to cancel.
-  Future<String?> _confirmAttachment(int count) {
+  /// Bottom sheet with a caption field; returns the caption and the view-once
+  /// choice, or null to cancel.
+  Future<AttachmentConfirmResult?> _confirmAttachment(int count,
+      {bool allowViewOnce = false}) {
     return AttachmentConfirmSheet.show(
       context,
       count: count,
+      allowViewOnce: allowViewOnce,
       initialCaption: _controllerMessage.text.trim(),
       theme: ThemeUtils.chatTheme(context, _chatThemeColor),
       backgroundColor: chatBackground(tintAlpha: 0.18),
@@ -1091,19 +1117,6 @@ class _ChatPageState extends State<ChatPage> {
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickAndSend(MediaUtils.pickMultipleFiles, filesOnly: true);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.visibility_off),
-                title: Text('attachViewOnce'.tr()),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  // One photo or video, gone for both sides after the first
-                  // open; the picker stays the same.
-                  _pickAndSend(() async {
-                    final file = await MediaUtils.pickMediaFromGallery();
-                    return file == null ? <File>[] : [file];
-                  }, viewOnce: true);
                 },
               ),
               ListTile(

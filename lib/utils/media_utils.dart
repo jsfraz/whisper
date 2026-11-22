@@ -566,13 +566,14 @@ class MediaUtils {
   /// envelope wrapping [references] and an optional [caption].
   static Uint8List buildAlbumEnvelope(
       List<MediaReference> references, String caption,
-      {bool forwarded = false}) {
+      {bool forwarded = false, bool viewOnce = false}) {
     final map = <String, dynamic>{
       'whisperMsg': envelopeVersionAlbum,
       'kind': 'media',
       'caption': caption,
       'media': references.map((reference) => reference.toJson()).toList(),
       if (forwarded) 'forwarded': true,
+      if (viewOnce) 'viewOnce': true,
     };
     return Uint8List.fromList(utf8.encode(jsonEncode(map)));
   }
@@ -602,7 +603,7 @@ class MediaUtils {
               .toList();
           if (references.isNotEmpty) {
             return ParsedMediaEnvelope(references, caption,
-                forwarded: forwarded);
+                forwarded: forwarded, viewOnce: viewOnce);
           }
         }
       }
@@ -627,12 +628,6 @@ class MediaUtils {
   static Future<File?> pickVideoFromCamera() async {
     final picked = await _imagePicker.pickVideo(
         source: ImageSource.camera, maxDuration: const Duration(minutes: 1));
-    return picked == null ? null : File(picked.path);
-  }
-
-  /// Pick a single image or video from the gallery.
-  static Future<File?> pickMediaFromGallery() async {
-    final picked = await _imagePicker.pickMedia();
     return picked == null ? null : File(picked.path);
   }
 

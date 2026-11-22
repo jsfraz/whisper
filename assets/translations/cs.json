@@ -274,7 +274,6 @@
   "disappearingEnabledPill": "Mizející zprávy: {}",
   "disappearingDeclinedPill": "Návrh mizejících zpráv odmítnut",
   "attachViewOnce": "Zobrazit jednou",
-  "viewOnceOneFile": "Jednorázově lze poslat jen jednu přílohu",
   "viewOnceOpen": "Klepnutím zobrazit jednou",
   "viewOnceLoad": "Klepnutím stáhnout",
   "viewOnceMedia": "Jednorázová příloha",
@@ -291,5 +290,7 @@
   "locationUnavailable": "Poloha není dostupná",
   "viewOnceSent": "Jednorázová příloha odeslána",
   "viewOnceOpened": "Zobrazeno",
-  "viewOnceOpenedByPeer": "Otevřeno"
+  "viewOnceOpenedByPeer": "Otevřeno",
+  "messageDeleted": "Zpráva byla smazána",
+  "viewOnceHint": "Po prvním otevření zmizí oběma stranám"
 }

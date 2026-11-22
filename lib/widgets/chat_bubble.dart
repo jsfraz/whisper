@@ -10,6 +10,7 @@ import '../utils/message_notifier.dart';
 import '../utils/singleton.dart';
 import 'formatted_text.dart';
 import 'media_bubble.dart';
+import 'view_once_frame.dart';
 
 /// One message bubble.
 ///
@@ -167,6 +168,38 @@ class _ChatBubbleState extends State<ChatBubble> {
     );
   }
 
+  /// A view-once location: one reveal, then a tombstone. The reveal is the
+  /// platform map app, and it spends the single view on the way out.
+  Widget _viewOnceMessage(BuildContext context, LocationRef? location) {
+    final opened = widget.message.openedAt != null;
+    final mine =
+        widget.message.isMe && widget.user.id != Singleton().profile.user.id;
+    final bubbleColor = widget.accentColor;
+    final textColor =
+        bubbleColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    return Align(
+      alignment:
+          widget.message.isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+        child: ViewOnceFrame(
+          label: mine
+              ? (opened ? 'viewOnceOpenedByPeer'.tr() : 'viewOnceSent'.tr())
+              : (opened ? 'viewOnceOpened'.tr() : 'viewOnceOpen'.tr()),
+          bubbleColor: bubbleColor,
+          textColor: textColor,
+          onTap: mine || opened || location == null
+              ? null
+              : () async {
+                  await MessageActions.openLocation(location);
+                  await MessageActions.consumeViewOnce(
+                      widget.user.id, widget.message);
+                },
+        ),
+      ),
+    );
+  }
+
   /// A static location: a pin, the coordinates and a way into the platform map
   /// app. No tiles are fetched, so nothing leaves the device until the tap.
   Widget _locationBubble(BuildContext context, LocationRef location) {
@@ -228,8 +261,13 @@ class _ChatBubbleState extends State<ChatBubble> {
     if (widget.message.isSystem) {
       return _systemPill(context);
     }
-    // A static location is a card, not text with a pin in it.
+    // A static location is a card, not text with a pin in it. A view-once
+    // location is the same card, but revealed once: a placeholder first, a
+    // tombstone after.
     final location = widget.message.location;
+    if (widget.message.viewOnce && !widget.message.isMedia) {
+      return _viewOnceMessage(context, location);
+    }
     if (location != null) {
       return _locationBubble(context, location);
     }
@@ -328,7 +366,8 @@ class _ChatBubbleState extends State<ChatBubble> {
     }
 
     Widget content() {
-      if (widget.message.isMedia) {
+      // A tombstone is text even when it used to be an attachment.
+      if (widget.message.isMedia && !widget.message.isDeleted) {
         return MediaBubble(
           message: widget.message,
           badge: widget.message.reactionEmojis.isEmpty
@@ -340,18 +379,54 @@ class _ChatBubbleState extends State<ChatBubble> {
           conversationUserId: widget.user.id,
           bubbleColor: bubbleBackground(),
           textColor: bubbleTextColor(),
-          canRetry: widget.message.mediaId != null &&
-              MessageNotifier().canRetryMedia(widget.message.mediaId!),
+          // An album keeps its copies per item, so the retry has to walk them
+          // rather than look at the message's own media id.
+          canRetry: widget.message.isAlbum
+              ? widget.message.album.any((item) =>
+                  item.mediaId.isNotEmpty &&
+                  item.localPath == null &&
+                  (MessageNotifier().canRetryMedia(item.mediaId) ||
+                      item.keyB64 != null))
+              : widget.message.mediaId != null &&
+                  (MessageNotifier().canRetryMedia(widget.message.mediaId!) ||
+                      widget.message.mediaRefJson != null),
           onRetry: () {
-            if (widget.message.mediaId != null) {
+            if (widget.message.isAlbum) {
+              for (final item in widget.message.album) {
+                if (item.mediaId.isEmpty || item.localPath != null) {
+                  continue;
+                }
+                if (MessageNotifier().canRetryMedia(item.mediaId)) {
+                  MessageNotifier()
+                      .retryMediaDownload(widget.user.id, item.mediaId);
+                } else {
+                  MessageNotifier().downloadFromStored(
+                      widget.user.id, widget.message, item.mediaId);
+                }
+              }
+              return;
+            }
+            final mediaId = widget.message.mediaId;
+            if (mediaId == null) {
+              return;
+            }
+            if (MessageNotifier().canRetryMedia(mediaId)) {
+              MessageNotifier().retryMediaDownload(widget.user.id, mediaId);
+            } else {
               MessageNotifier()
-                  .retryMediaDownload(widget.user.id, widget.message.mediaId!);
+                  .downloadFromStored(widget.user.id, widget.message, mediaId);
             }
           },
         );
       }
 
       final color = bubbleTextColor();
+      if (widget.message.isDeleted) {
+        return Text(
+          'messageDeleted'.tr(),
+          style: TextStyle(color: color, fontStyle: FontStyle.italic),
+        );
+      }
       if (widget.message.isUndecryptable) {
         return Text(
           'messageUndecryptable'.tr(),

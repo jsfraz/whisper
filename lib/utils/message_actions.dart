@@ -198,6 +198,25 @@ class MessageActions {
       builder: (ctx) {
         final canAddress =
             message.id?.isNotEmpty ?? false; // needs the archive id
+        // A tombstone carries nothing to act on; hiding it for this account is
+        // the only thing left.
+        if (message.isDeleted) {
+          return SafeArea(
+            child: Wrap(
+              children: [
+                ListTile(
+                  leading: const Icon(deleteIcon),
+                  title: Text('deleteMessageForMe'.tr()),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    delete(context, message, conversationUserId,
+                        onDeleted: onDeleted);
+                  },
+                ),
+              ],
+            ),
+          );
+        }
         return SafeArea(
           child: Wrap(
             children: [
@@ -512,7 +531,14 @@ class MessageActions {
           backgroundColor: Colors.red);
       return;
     }
-    await CacheUtils.deletePrivateMessage(conversationUserId, message);
+    if (forEveryone) {
+      // The row stays as a tombstone: the conversation keeps the place where
+      // the message was instead of closing the gap.
+      await CacheUtils.markMessageDeleted(
+          conversationUserId, message.sentAt, DateTime.now());
+    } else {
+      await CacheUtils.deletePrivateMessage(conversationUserId, message);
+    }
     MessageNotifier().notify();
     onDeleted?.call();
   }

@@ -348,6 +348,7 @@ class Utils {
                 false,
                 downloadStatus: pm.MediaDownloadStatus.pending,
                 forwarded: envelope.forwarded,
+                viewOnce: envelope.viewOnce,
                 expiresAt: expiresAt,
               );
               albumMsg.setAlbum(envelope.references
@@ -414,6 +415,7 @@ class Utils {
               DateTime.now(),
               false,
               forwarded: textEnvelope?.forwarded ?? false,
+              viewOnce: textEnvelope?.viewOnce ?? false,
               locationJson: textEnvelope?.location == null
                   ? null
                   : jsonEncode(textEnvelope!.location!.toJson()),
@@ -586,11 +588,12 @@ class Utils {
           await CacheUtils.addUser(
               User(peer.id, peer.username, peer.publicKey, false));
         }
-        // A tombstone carries no ciphertext: drop the local copy instead of
-        // storing an undecryptable placeholder.
+        // A tombstone carries no ciphertext: keep the row as the "deleted"
+        // placeholder instead of storing an undecryptable bubble.
         for (final dead
             in synced.messages.where((message) => message.deletedAt != null)) {
-          await CacheUtils.deletePrivateMessageAt(dead.peerId, dead.sentAt);
+          await CacheUtils.markMessageDeleted(
+              dead.peerId, dead.sentAt, dead.deletedAt!.toLocal());
         }
         if (synced.messages.isNotEmpty) {
           // History is silent: a week offline must not ring once per old
@@ -722,7 +725,8 @@ class Utils {
   static Future<void> applyEvent(MessageEvent event) async {
     switch (event.kind) {
       case MessageEventKind.delete:
-        await CacheUtils.deletePrivateMessageAt(event.peerId, event.sentAt);
+        await CacheUtils.markMessageDeleted(
+            event.peerId, event.sentAt, event.createdAt.toLocal());
         await CacheUtils.setMessagePinned(event.peerId, event.messageId, null);
         break;
 
@@ -801,9 +805,11 @@ class Utils {
       return;
     }
     // A tombstone carries no ciphertext (the sender deleted it for everyone):
-    // drop the local copy instead of storing an undecryptable placeholder.
+    // keep the row as the "deleted" placeholder instead of an undecryptable
+    // bubble. The content is already gone, so only the marker is stored.
     for (final dead in messages.where((message) => message.deletedAt != null)) {
-      await CacheUtils.deletePrivateMessageAt(dead.peerId, dead.sentAt);
+      await CacheUtils.markMessageDeleted(
+          dead.peerId, dead.sentAt, dead.deletedAt!.toLocal());
     }
     messages = messages.where((message) => message.deletedAt == null).toList();
     if (messages.isEmpty) {

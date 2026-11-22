@@ -239,6 +239,11 @@ class PrivateMessage extends HiveObject {
   @HiveField(29)
   DateTime? openedAt;
 
+  /// When the sender deleted this message for everyone. The row stays as a
+  /// tombstone in the conversation, with no content left.
+  @HiveField(30)
+  DateTime? deletedAt;
+
   /// Cache for [album], keyed by the [albumJson] it was decoded from.
   String? _albumCacheJson;
   List<AlbumItem>? _albumCache;
@@ -273,6 +278,7 @@ class PrivateMessage extends HiveObject {
     this.viewOnce = false,
     this.locationJson,
     this.openedAt,
+    this.deletedAt,
   });
 
   /// The static location carried by this message, null for everything else.
@@ -371,6 +377,10 @@ class PrivateMessage extends HiveObject {
   /// Whether the stored text is the placeholder of an undecryptable message.
   bool get isUndecryptable => message == undecryptableMarker;
 
+  /// Whether the sender deleted this message for everyone: the row stays as a
+  /// tombstone and carries nothing.
+  bool get isDeleted => deletedAt != null;
+
   int get notificationId => receivedAt.microsecondsSinceEpoch % 0x7FFFFFFF;
 
   /// Whether this message carries a media attachment (single or album).
@@ -448,6 +458,9 @@ class PrivateMessage extends HiveObject {
   /// Short text used in chat list previews and notifications. Falls back to a
   /// localized media label when a media message has no caption.
   String get preview {
+    if (isDeleted) {
+      return 'messageDeleted'.tr();
+    }
     if (isUndecryptable) {
       return 'messageUndecryptable'.tr();
     }

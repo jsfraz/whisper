@@ -46,6 +46,17 @@ void main() {
       expect(parsed.caption, 'album caption');
     });
 
+    test('an album can be a single view', () {
+      final envelope = MediaUtils.buildAlbumEnvelope(
+        [_reference('a'), _reference('b')],
+        '',
+        viewOnce: true,
+      );
+      final parsed = MediaUtils.tryParseMediaEnvelope(envelope);
+      expect(parsed!.viewOnce, isTrue);
+      expect(parsed.references.length, 2);
+    });
+
     test('plain text is not an envelope', () {
       final parsed = MediaUtils.tryParseMediaEnvelope(
           Uint8List.fromList(utf8.encode('just text')));

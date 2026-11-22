@@ -1,30 +1,47 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-/// Sheet shown after picking an attachment: an optional caption and a
-/// Send/Cancel decision. Owns its [TextEditingController], because the sheet
-/// route keeps rebuilding while it animates out.
+/// What the sender chose in [AttachmentConfirmSheet]: the caption, and whether
+/// the attachment travels as a view-once one.
+class AttachmentConfirmResult {
+  const AttachmentConfirmResult({required this.caption, this.viewOnce = false});
+
+  final String caption;
+  final bool viewOnce;
+}
+
+/// Sheet shown after picking an attachment: an optional caption, an optional
+/// "view once" switch and a Send/Cancel decision. Owns its
+/// [TextEditingController], because the sheet route keeps rebuilding while it
+/// animates out.
 class AttachmentConfirmSheet extends StatefulWidget {
   /// Number of picked attachments; more than one means an album.
   final int count;
   final String initialCaption;
 
+  /// Whether the picked attachment may be sent as a single view (one visual
+  /// attachment, never an album or a file).
+  final bool allowViewOnce;
+
   const AttachmentConfirmSheet({
     required this.count,
     this.initialCaption = '',
+    this.allowViewOnce = false,
     super.key,
   });
 
-  /// Shows the sheet and returns the caption, or null when cancelled.
+  /// Shows the sheet and returns the chosen caption and flags, or null when
+  /// cancelled.
   ///
   /// [theme] and [backgroundColor] come from the caller: a modal route renders
   /// above the chat's own Theme, so without them the sheet uses the app theme.
-  static Future<String?> show(BuildContext context,
+  static Future<AttachmentConfirmResult?> show(BuildContext context,
       {required int count,
       String initialCaption = '',
+      bool allowViewOnce = false,
       ThemeData? theme,
       Color? backgroundColor}) {
-    return showModalBottomSheet<String>(
+    return showModalBottomSheet<AttachmentConfirmResult>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -33,6 +50,7 @@ class AttachmentConfirmSheet extends StatefulWidget {
         final sheet = AttachmentConfirmSheet(
           count: count,
           initialCaption: initialCaption,
+          allowViewOnce: allowViewOnce,
         );
         return theme == null ? sheet : Theme(data: theme, child: sheet);
       },
@@ -46,6 +64,16 @@ class AttachmentConfirmSheet extends StatefulWidget {
 class _AttachmentConfirmSheetState extends State<AttachmentConfirmSheet> {
   late final TextEditingController _controller =
       TextEditingController(text: widget.initialCaption);
+  bool _viewOnce = false;
+
+  void _send() {
+    Navigator.pop(
+        context,
+        AttachmentConfirmResult(
+          caption: _controller.text.trim(),
+          viewOnce: _viewOnce,
+        ));
+  }
 
   @override
   void dispose() {
@@ -79,6 +107,18 @@ class _AttachmentConfirmSheetState extends State<AttachmentConfirmSheet> {
             autofocus: true,
             decoration: InputDecoration(hintText: 'addCaption'.tr()),
           ),
+          // One visual attachment can be turned into a single view right here,
+          // instead of being a separate entry in the attach sheet.
+          if (widget.allowViewOnce)
+            CheckboxListTile(
+              value: _viewOnce,
+              onChanged: (value) => setState(() => _viewOnce = value ?? false),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.visibility_off),
+              title: Text('attachViewOnce'.tr()),
+              subtitle: Text('viewOnceHint'.tr()),
+            ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -89,8 +129,7 @@ class _AttachmentConfirmSheetState extends State<AttachmentConfirmSheet> {
               ),
               const SizedBox(width: 8),
               FilledButton(
-                onPressed: () =>
-                    Navigator.pop(context, _controller.text.trim()),
+                onPressed: _send,
                 child: Text('send'.tr()),
               ),
             ],

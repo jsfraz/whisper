@@ -65,9 +65,13 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
   /// at the one that was tapped.
   Future<void> _loadMedia() async {
     if (widget.viewOnce) {
-      // One attachment, one page: swiping to the next would be a second view.
+      // One attachment, one reveal: an album is one reveal of all its pages,
+      // and swiping past them is still that single open.
+      final pages = widget.message.isAlbum
+          ? MessageNotifier.albumMedia(widget.message)
+          : [widget.message];
       setState(() {
-        _media = [widget.message];
+        _media = pages;
         _index = 0;
         _controller = PageController(initialPage: 0);
       });

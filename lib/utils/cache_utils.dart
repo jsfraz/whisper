@@ -610,9 +610,45 @@ class CacheUtils {
     final paths = value.localPaths;
     value.openedAt = openedAt;
     value.localPath = null;
+    // A spent location leaves nothing behind either; the bubble reads the
+    // opened instant, not the coordinates.
+    value.locationJson = null;
     for (final item in value.album) {
       item.localPath = null;
     }
+    await box.put(key, value);
+    for (final path in paths) {
+      await MediaUtils.deleteLocalFile(path);
+    }
+  }
+
+  /// Marks a stored message as deleted for everyone and drops its content: the
+  /// text, the media reference and the local file all go, the row stays so the
+  /// chat keeps a tombstone where the bubble used to be. A message that is not
+  /// on this device is skipped.
+  static Future<void> markMessageDeleted(
+      String userId, DateTime sentAt, DateTime deletedAt) async {
+    final box = await _openPrivateMessagesBox();
+    final key = messageKey(userId, sentAt);
+    final value = box.get(key);
+    if (value is! PrivateMessage) {
+      return;
+    }
+    final paths = value.localPaths;
+    value
+      ..deletedAt = deletedAt
+      ..message = ''
+      ..mediaId = null
+      ..mediaTypeStr = null
+      ..albumJson = null
+      ..mediaRefJson = null
+      ..localPath = null
+      ..viewOnce = false
+      ..openedAt = null
+      ..reactions = null
+      ..locationJson = null
+      // Nothing is left to read, so a tombstone must not raise an unread badge.
+      ..read = true;
     await box.put(key, value);
     for (final path in paths) {
       await MediaUtils.deleteLocalFile(path);

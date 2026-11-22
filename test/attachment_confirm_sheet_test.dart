@@ -13,9 +13,11 @@ void main() {
     await EasyLocalization.ensureInitialized();
   });
 
-  testWidgets('cancel returns null and send returns the caption',
+  // One app for the whole test: easy_localization loads its bundle once, and a
+  // second pumpWidget would leave the tree without translations.
+  testWidgets('the sheet returns the caption and the view-once choice',
       (tester) async {
-    String? result = 'unset';
+    AttachmentConfirmResult? result;
     await tester.pumpWidget(EasyLocalization(
       path: 'assets/translations',
       supportedLocales: const [Locale('en'), Locale('cs')],
@@ -27,14 +29,30 @@ void main() {
           locale: context.locale,
           home: Builder(
             builder: (inner) => Scaffold(
-              body: Center(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    result = await AttachmentConfirmSheet.show(inner,
-                        count: 2, initialCaption: 'draft');
-                  },
-                  child: const Text('open'),
-                ),
+              body: Column(
+                children: [
+                  ElevatedButton(
+                    onPressed: () async {
+                      result = await AttachmentConfirmSheet.show(inner,
+                          count: 2, initialCaption: 'draft');
+                    },
+                    child: const Text('album'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      result = await AttachmentConfirmSheet.show(inner,
+                          count: 1, allowViewOnce: true);
+                    },
+                    child: const Text('single'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      result = await AttachmentConfirmSheet.show(inner,
+                          count: 1, allowViewOnce: false);
+                    },
+                    child: const Text('plain'),
+                  ),
+                ],
               ),
             ),
           ),
@@ -45,7 +63,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Cancel
-    await tester.tap(find.text('open'));
+    await tester.tap(find.text('album'));
     await tester.pumpAndSettle();
     expect(find.text('draft'), findsOneWidget);
     await tester.tap(find.byType(TextButton));
@@ -55,11 +73,29 @@ void main() {
 
     // Send: the exit animation keeps rebuilding the sheet, which used to touch
     // a controller that had already been disposed.
-    await tester.tap(find.text('open'));
+    await tester.tap(find.text('album'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(result, 'draft');
+    expect(result!.caption, 'draft');
+    expect(result!.viewOnce, isFalse);
+
+    // One visual attachment can be turned into a single view.
+    await tester.tap(find.text('single'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CheckboxListTile), findsOneWidget);
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+    expect(result!.viewOnce, isTrue);
+
+    // An album or a file is never offered the switch.
+    await tester.tap(find.text('plain'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CheckboxListTile), findsNothing);
+    await tester.tap(find.byType(TextButton));
+    await tester.pumpAndSettle();
   });
 }

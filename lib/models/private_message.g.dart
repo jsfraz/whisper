@@ -46,13 +46,14 @@ class PrivateMessageAdapter extends TypeAdapter<PrivateMessage> {
       viewOnce: fields[27] == null ? false : fields[27] as bool,
       locationJson: fields[28] as String?,
       openedAt: fields[29] as DateTime?,
+      deletedAt: fields[30] as DateTime?,
     )..id = fields[19] as String?;
   }
 
   @override
   void write(BinaryWriter writer, PrivateMessage obj) {
     writer
-      ..writeByte(30)
+      ..writeByte(31)
       ..writeByte(0)
       ..write(obj.senderId)
       ..writeByte(1)
@@ -112,7 +113,9 @@ class PrivateMessageAdapter extends TypeAdapter<PrivateMessage> {
       ..writeByte(28)
       ..write(obj.locationJson)
       ..writeByte(29)
-      ..write(obj.openedAt);
+      ..write(obj.openedAt)
+      ..writeByte(30)
+      ..write(obj.deletedAt);
   }
 
   @override
