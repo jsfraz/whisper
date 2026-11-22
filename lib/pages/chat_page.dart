@@ -132,6 +132,10 @@ class _ChatPageState extends State<ChatPage> {
   /// after it while scrolled up counts as unseen.
   int _newestSeenSentAt = 0;
   int _unseenCount = 0;
+  // Whether the floating "jump to latest" button is up because the viewport is
+  // far from the newest message. Hysteresis keeps it from blinking around the
+  // threshold while the finger is still moving.
+  bool _farFromBottom = false;
 
   bool get _selectionMode => _selected.isNotEmpty;
 
@@ -324,9 +328,10 @@ class _ChatPageState extends State<ChatPage> {
     } else {
       _scrollController.jumpTo(0);
     }
-    if (_unseenCount != 0) {
+    if (_unseenCount != 0 || _farFromBottom) {
       setState(() {
         _unseenCount = 0;
+        _farFromBottom = false;
       });
     }
   }
@@ -373,6 +378,14 @@ class _ChatPageState extends State<ChatPage> {
     if (_atBottom && _unseenCount != 0) {
       setState(() {
         _unseenCount = 0;
+      });
+    }
+    // Show after scrolling past a short threshold, hide closer to the bottom:
+    // one state with two edges, so the button does not flicker on the edge.
+    final far = _farFromBottom ? position.pixels > 60 : position.pixels > 120;
+    if (far != _farFromBottom) {
+      setState(() {
+        _farFromBottom = far;
       });
     }
     // Reversed list: older messages are at the far end of the scroll extent.
@@ -1979,31 +1992,50 @@ class _ChatPageState extends State<ChatPage> {
                                   ),
                                 )
                               : _getContent(_messages),
-                          // Floating "down" button with the count of messages that
-                          // arrived while the user was reading further up.
-                          if (!_firstLoad && _unseenCount > 0)
-                            Positioned(
-                              right: 16,
-                              bottom: _composerHeight + 16,
-                              child: FloatingActionButton.small(
-                                heroTag: 'jumpToBottom',
-                                tooltip: 'jumpToLatest'.tr(),
-                                onPressed: () => _jumpToBottom(animate: true),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.arrow_downward, size: 16),
-                                    if (_unseenCount > 1)
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 2),
-                                        child: Text('$_unseenCount',
-                                            style:
-                                                const TextStyle(fontSize: 11)),
-                                      ),
-                                  ],
+                          // Floating "down" button: up whenever the viewport is
+                          // far from the newest message, and carrying the count
+                          // of what arrived while the user was reading above.
+                          Positioned(
+                            right: 16,
+                            bottom: _composerHeight + 16,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                opacity: animation,
+                                child: ScaleTransition(
+                                  scale: Tween<double>(begin: 0.8, end: 1)
+                                      .animate(animation),
+                                  child: child,
                                 ),
                               ),
+                              child: !_firstLoad &&
+                                      (_farFromBottom || _unseenCount > 0)
+                                  ? FloatingActionButton.small(
+                                      key: const ValueKey('jumpToLatest'),
+                                      heroTag: 'jumpToBottom',
+                                      tooltip: 'jumpToLatest'.tr(),
+                                      onPressed: () =>
+                                          _jumpToBottom(animate: true),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.arrow_downward,
+                                              size: 16),
+                                          if (_unseenCount > 1)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  left: 2),
+                                              child: Text('$_unseenCount',
+                                                  style: const TextStyle(
+                                                      fontSize: 11)),
+                                            ),
+                                        ],
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
                             ),
+                          ),
                         ],
                       ),
                     ),
