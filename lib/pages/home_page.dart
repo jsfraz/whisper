@@ -6,7 +6,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:screen_protector/screen_protector.dart';
 import '../utils/nav_transitions.dart';
 import 'package:sprintf/sprintf.dart';
 import '../pages/chat_page.dart';
@@ -24,6 +23,7 @@ import 'package:whisper_openapi_client_dart/api.dart';
 import '../models/user.dart';
 import '../utils/admin_format.dart';
 import '../utils/singleton.dart';
+import '../utils/screen_guard.dart';
 import '../utils/utils.dart';
 import '../widgets/admin_user_list_item.dart';
 
@@ -92,7 +92,8 @@ class _HomePageState extends State<HomePage>
     MessageNotifier().addListener(_onMessagesChanged);
     // A screenshot outside the view-once viewer is reported, not blocked: the
     // app cannot prevent it, and pretending otherwise would be a lie.
-    ScreenProtector.addListener(_onScreenshot, _onScreenRecord);
+    ScreenGuard.onScreenshot = _onScreenshot;
+    ScreenGuard.start();
     // A pending FCM id is retried when the socket comes up instead of polling.
     Utils.onConnected = _sendPendingFid;
     // Open the chat a notification tap pointed at (after unlocking)
@@ -144,14 +145,6 @@ class _HomePageState extends State<HomePage>
         msg: 'screenshotDetected'.tr(), backgroundColor: Colors.orange);
   }
 
-  void _onScreenRecord(bool recording) {
-    if (!recording) {
-      return;
-    }
-    Fluttertoast.showToast(
-        msg: 'screenshotDetected'.tr(), backgroundColor: Colors.orange);
-  }
-
   /// Presence is announced when the app comes back and withdrawn when it goes
   /// away: the server keeps nothing, so a stale "online" would never clear.  @override
   @override
@@ -169,7 +162,7 @@ class _HomePageState extends State<HomePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    ScreenProtector.removeListener();
+    ScreenGuard.onScreenshot = null;
     _fcmSubscription?.cancel();
     _adminTabController.dispose();
     MessageNotifier().removeListener(_onMessagesChanged);

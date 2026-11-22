@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:chewie/chewie.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:screen_protector/screen_protector.dart';
 import 'package:video_player/video_player.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
@@ -14,6 +13,7 @@ import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
 import '../utils/playback_lock.dart';
+import '../utils/screen_guard.dart';
 
 /// Fullscreen viewer for the media of one conversation, stored
 /// encrypted-at-rest. Swiping moves between the attachments.
@@ -56,7 +56,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
       // The one allowed view may not be screenshotted or recorded. Android
       // enforces it with FLAG_SECURE; iOS has no block, only a best-effort
       // notification, which is why the app says so on the info screen.
-      ScreenProtector.preventScreenshotOn();
+      ScreenGuard.enableSecure();
     }
     _loadMedia();
   }
@@ -114,7 +114,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
   @override
   void dispose() {
     if (widget.viewOnce) {
-      ScreenProtector.preventScreenshotOff();
+      ScreenGuard.disableSecure();
     }
     _controller?.dispose();
     super.dispose();

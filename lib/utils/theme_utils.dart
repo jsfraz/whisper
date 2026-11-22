@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 class ThemeUtils {
   /// Theme seeded with the per-chat color, or the inherited theme without an override.
   ///
