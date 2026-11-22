@@ -324,5 +324,8 @@
   "attachStickers": "Nálepky",
   "stickerUnsupported": "Tenhle soubor nejde použít jako nálepku",
   "deleteSticker": "Smazat nálepku",
-  "deleteStickerConfirm": "Nálepka se z tohoto zařízení smaže. Opravdu?"
+  "deleteStickerConfirm": "Nálepka se z tohoto zařízení smaže. Opravdu?",
+  "shareMessage": "Sdílet do jiné aplikace",
+  "shareToChat": "Sdílet do chatu",
+  "shareFailed": "Sdílení se nepovedlo"
 }

@@ -1045,6 +1045,12 @@ class CacheUtils {
     return Hive.openBox(_userKey);
   }
 
+  /// Every cached contact, for pickers that are not tied to one chat.
+  static Future<List<User>> getAllUsers() async {
+    Box box = await _openUserBox();
+    return box.values.whereType<User>().toList();
+  }
+
   /// Gets user by ID
   static Future<User?> getUserById(String userId) async {
     Box box = await _openUserBox();

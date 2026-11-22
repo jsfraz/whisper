@@ -21,6 +21,7 @@ import 'models/profile.dart';
 import 'models/user.dart';
 import 'pages/whisper_page.dart';
 import 'utils/media_utils.dart';
+import 'utils/share_intent.dart';
 import 'utils/storage_utils.dart';
 import 'utils/notification_service.dart';
 import 'utils/singleton.dart';
@@ -87,6 +88,9 @@ void main() async {
 
   // Same for attachments the user asked to drop after a while.
   await StorageUtils.purgeIfDue();
+
+  // Pictures and files shared from other apps arrive here.
+  SharedInbox.start();
 
   // Default theme
   Singleton().appTheme = await CacheUtils.getTheme() ??

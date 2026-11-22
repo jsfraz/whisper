@@ -324,5 +324,8 @@
   "attachStickers": "Stickers",
   "stickerUnsupported": "This file cannot be used as a sticker",
   "deleteSticker": "Delete sticker",
-  "deleteStickerConfirm": "The sticker is removed from this device. Continue?"
+  "deleteStickerConfirm": "The sticker is removed from this device. Continue?",
+  "shareMessage": "Share to another app",
+  "shareToChat": "Share to a chat",
+  "shareFailed": "Sharing failed"
 }

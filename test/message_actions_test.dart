@@ -58,6 +58,7 @@ void main() {
     expect(find.text('Forward'), findsOneWidget);
     expect(find.text('Delete for me'), findsOneWidget);
     expect(find.text('Save attachment'), findsNothing);
+    expect(find.text('Share to another app'), findsOneWidget);
 
     // Close the sheet
     await tester.tapAt(const Offset(10, 10));

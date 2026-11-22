@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:easy_localization/easy_localization.dart';
@@ -6,7 +7,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:whisper_websocket_client_dart/models/media_type.dart';
 import 'package:whisper_openapi_client_dart/api.dart';
 
 import '../models/private_message.dart';
@@ -276,6 +280,15 @@ class MessageActions {
                     forward(context, [message]);
                   },
                 ),
+              if (canShare(message))
+                ListTile(
+                  leading: const Icon(Icons.ios_share),
+                  title: Text('shareMessage'.tr()),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    shareToApp(message);
+                  },
+                ),
               if (canSave(message))
                 ListTile(
                   leading: const Icon(saveIcon),
@@ -446,6 +459,39 @@ class MessageActions {
       MessageNotifier().notify();
     } catch (_) {
       // The old text stays in place.
+    }
+  }
+
+  /// Whether the message can be handed to another app.
+  static bool canShare(PrivateMessage message) =>
+      !message.viewOnce &&
+      (message.message.isNotEmpty || message.localPath != null);
+
+  /// Hand the text, or a decrypted copy of the attachment, to another app.
+  ///
+  /// The plaintext copy is written under the temporary-media prefix, so it is
+  /// swept on the next start even if the app is killed while sharing; here it
+  /// is deleted as soon as the share sheet returns.
+  static Future<void> shareToApp(PrivateMessage message) async {
+    final path = message.localPath;
+    try {
+      if (path == null) {
+        await SharePlus.instance.share(ShareParams(text: message.message));
+        return;
+      }
+      final bytes = await MediaUtils.decryptAtRest(path);
+      final dir = await getTemporaryDirectory();
+      final file = File(
+          '${dir.path}/whisper_send_share_${message.sentAt.microsecondsSinceEpoch}${MediaUtils.extensionForType(message.mediaType ?? MediaType.file)}');
+      await file.writeAsBytes(bytes, flush: true);
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path)],
+        text: message.message.isEmpty ? null : message.message,
+      ));
+      await MediaUtils.deleteLocalFile(file.path);
+    } catch (_) {
+      Fluttertoast.showToast(
+          msg: 'shareFailed'.tr(), backgroundColor: Colors.red);
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../utils/app_navigator.dart';
 import '../utils/page_navigator_observer.dart';
 import '../utils/theme_notifier.dart';
 import '../pages/scan_invite_button_page.dart';
@@ -52,6 +53,7 @@ class WhisperPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       navigatorObservers: [PageNavigatorObserver()],
       debugShowCheckedModeBanner: true,
       // Every DateFormat in the app (chat rows, bubbles, day headers, search)
