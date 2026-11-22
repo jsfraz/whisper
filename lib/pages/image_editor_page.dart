@@ -28,7 +28,19 @@ class ImageEditorPage extends StatefulWidget {
 }
 
 class _ImageEditorPageState extends State<ImageEditorPage> {
-  static const Color _ink = Color(0xFFFF3B30);
+  /// Colours a stroke can be drawn in: enough to stand out on a photo, few
+  /// enough to pick without a dialog.
+  static const List<Color> _palette = [
+    Color(0xFFFF3B30),
+    Color(0xFFFFCC00),
+    Color(0xFF34C759),
+    Color(0xFF007AFF),
+    Color(0xFFAF52DE),
+    Color(0xFFFFFFFF),
+    Color(0xFF000000),
+  ];
+
+  Color _ink = _palette.first;
 
   final CropController _cropController = CropController();
   late Uint8List _bytes = widget.bytes;
@@ -195,7 +207,12 @@ class _ImageEditorPageState extends State<ImageEditorPage> {
           ? const Center(child: CircularProgressIndicator())
           : _mode == _EditMode.crop
               ? _cropView()
-              : _drawView(),
+              : Column(
+                  children: [
+                    Expanded(child: _drawView()),
+                    if (_mode == _EditMode.draw) _paletteBar(),
+                  ],
+                ),
     );
   }
 
@@ -274,6 +291,42 @@ class _ImageEditorPageState extends State<ImageEditorPage> {
     );
   }
 
+  /// Colour choices for drawing. Shown only while drawing, so the picture keeps
+  /// the whole screen otherwise.
+  Widget _paletteBar() {
+    final outline = Theme.of(context).colorScheme.onSurface;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (final color in _palette)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: GestureDetector(
+                  onTap: () => setState(() => _ink = color),
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: color == _ink ? outline : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Strokes are kept relative to the picture, so the export does not depend on
   /// the size it was drawn at.
   Offset _normalize(Offset local, BoxConstraints constraints) {
@@ -323,6 +376,7 @@ class _StrokePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _StrokePainter oldDelegate) =>
+      oldDelegate.color != color ||
       oldDelegate.strokes.length != strokes.length ||
       (strokes.isNotEmpty &&
           oldDelegate.strokes.last.length != strokes.last.length);
