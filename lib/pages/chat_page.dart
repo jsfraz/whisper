@@ -1051,10 +1051,19 @@ class _ChatPageState extends State<ChatPage> {
     if (minutes == null) {
       return;
     }
-    final started = await LiveLocationSharer.instance
-        .start(widget.user, Duration(minutes: minutes));
-    if (started && mounted) {
-      setState(() {});
+    // The first frame needs a GPS fix and a round trip: without a sending state
+    // the sheet closes into a silent screen with nothing to look at.
+    setState(() => _isSending = true);
+    try {
+      final started = await LiveLocationSharer.instance
+          .start(widget.user, Duration(minutes: minutes));
+      if (started && mounted) {
+        setState(() {});
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
     }
   }
 
@@ -1297,17 +1306,25 @@ class _ChatPageState extends State<ChatPage> {
           suffixIcon: ValueListenableBuilder<TextEditingValue>(
             valueListenable: _controllerMessage,
             builder: (context, value, _) {
+              // A send in flight shows here whatever the field holds: encrypting
+              // and uploading a large attachment, probing a video or waiting for
+              // a GPS fix takes a while, and the bubble is not there yet.
+              if (_isSending) {
+                // 48 px like the icon buttons it replaces, so nothing shifts.
+                return const Padding(
+                  padding: EdgeInsets.all(15),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
+              }
               final hasText = value.text.trim().isNotEmpty;
               if (hasText) {
                 return IconButton(
-                  onPressed: _isSending ? null : _sendMessage,
-                  icon: _isSending
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send),
+                  onPressed: _sendMessage,
+                  icon: const Icon(Icons.send),
                 );
               }
               // Hold-to-record voice message. The bar is overlaid while
