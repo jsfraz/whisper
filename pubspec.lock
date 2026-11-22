@@ -1838,7 +1838,7 @@ packages:
       path: "../whisper_websocket_client_dart"
       relative: true
     source: path
-    version: "0.5.0"
+    version: "0.6.0"
   win32:
     dependency: transitive
     description:

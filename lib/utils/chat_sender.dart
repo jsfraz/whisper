@@ -91,6 +91,7 @@ class ChatSender {
       int? height,
       int? durationMs,
       String? fileName,
+      List<int>? waveform,
       bool forwarded = false,
       bool viewOnce = false}) async {
     if (!MediaUtils.uploadFits(bytes.length)) {
@@ -133,7 +134,8 @@ class ChatSender {
           width: width,
           height: height,
           durationMs: durationMs,
-          fileName: fileName);
+          fileName: fileName,
+          waveform: waveform);
       if (reference == null) {
         return await _fail(recipient.id, message);
       }
@@ -226,8 +228,8 @@ class ChatSender {
       final messageKey = CacheUtils.messageKey(recipient.id, message.sentAt);
       for (var i = 0; i < attachments.length; i++) {
         final attachment = attachments[i];
-        final reference = await _uploadReference(recipient, attachment.type,
-            attachment.bytes,
+        final reference = await _uploadReference(
+            recipient, attachment.type, attachment.bytes,
             messageKey: messageKey,
             index: i,
             width: attachment.width,
@@ -416,7 +418,11 @@ class ChatSender {
       User recipient, PrivateMessage message) async {
     final messageKey = CacheUtils.messageKey(recipient.id, message.sentAt);
     Future<MediaReference?> upload(String? path, MediaType? type, int index,
-        {int? width, int? height, int? durationMs, String? fileName}) async {
+        {int? width,
+        int? height,
+        int? durationMs,
+        String? fileName,
+        List<int>? waveform}) async {
       if (path == null || type == null) {
         return null;
       }
@@ -431,7 +437,8 @@ class ChatSender {
           width: width,
           height: height,
           durationMs: durationMs,
-          fileName: fileName);
+          fileName: fileName,
+          waveform: waveform);
     }
 
     final references = <MediaReference>[];
@@ -453,7 +460,9 @@ class ChatSender {
           width: message.width,
           height: message.height,
           durationMs: message.durationMs,
-          fileName: message.fileName);
+          fileName: message.fileName,
+          // A voice message keeps its recorded shape across a retry.
+          waveform: message.mediaReferences?.first.waveform);
       if (reference == null) {
         return null;
       }
@@ -501,6 +510,7 @@ class ChatSender {
     int? height,
     int? durationMs,
     String? fileName,
+    List<int>? waveform,
   }) async {
     try {
       final (mediaId, transport) = await MediaUploader.upload(
@@ -518,6 +528,7 @@ class ChatSender {
         height: height,
         durationMs: durationMs,
         fileName: fileName,
+        waveform: waveform,
       );
     } catch (e) {
       if (kDebugMode) {

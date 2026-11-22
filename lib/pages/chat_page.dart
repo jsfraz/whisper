@@ -76,6 +76,10 @@ class _ChatPageState extends State<ChatPage> {
   bool _isRecording = false;
   bool _recordingStarting = false;
   bool _stopRequested = false;
+
+  /// Sliding up while recording locks it: the finger can be lifted and the
+  /// recording keeps going until the bar's stop button is tapped.
+  bool _recordingLocked = false;
   bool _cancelRecording = false;
   MediaRecorderController? _recorderController;
   Duration _recordDuration = Duration.zero;
@@ -837,7 +841,10 @@ class _ChatPageState extends State<ChatPage> {
   /// Send a media attachment: probe what the type needs, then the shared send
   /// path (encrypt, upload, persist a bubble, send).
   Future<void> _sendMedia(MediaType type, File file,
-      {String caption = '', int? durationMs, bool viewOnce = false}) async {
+      {String caption = '',
+      int? durationMs,
+      List<int>? waveform,
+      bool viewOnce = false}) async {
     setState(() {
       _isSending = true;
     });
@@ -850,6 +857,7 @@ class _ChatPageState extends State<ChatPage> {
           height: probe.height,
           durationMs: probe.durationMs,
           fileName: MediaUtils.baseName(file.path),
+          waveform: waveform,
           viewOnce: viewOnce);
       _afterSend(sent, caption);
     } catch (e) {
@@ -1196,6 +1204,7 @@ class _ChatPageState extends State<ChatPage> {
       _recorderController = controller;
       _isRecording = true;
       _cancelRecording = false;
+      _recordingLocked = false;
       _recordDuration = Duration.zero;
     });
     _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -1234,6 +1243,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     final recorded = await controller.stop();
+    final waveform = controller.waveform;
     await controller.dispose();
     if (recorded == null) {
       return;
@@ -1246,7 +1256,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     await _sendMedia(MediaType.voice, recorded.file,
-        durationMs: recorded.durationMs);
+        durationMs: recorded.durationMs, waveform: waveform);
   }
 
   /// Stop and drop the recording (bar button).
@@ -1337,7 +1347,18 @@ class _ChatPageState extends State<ChatPage> {
                   }
                 },
                 onLongPressMoveUpdate: (details) {
-                  final shouldCancel = details.localOffsetFromOrigin.dx < -80;
+                  if (_recordingLocked) {
+                    return;
+                  }
+                  final offset = details.localOffsetFromOrigin;
+                  if (offset.dy < -60) {
+                    setState(() {
+                      _recordingLocked = true;
+                      _cancelRecording = false;
+                    });
+                    return;
+                  }
+                  final shouldCancel = offset.dx < -80;
                   if (shouldCancel != _cancelRecording) {
                     setState(() {
                       _cancelRecording = shouldCancel;
@@ -1345,9 +1366,11 @@ class _ChatPageState extends State<ChatPage> {
                   }
                 },
                 onLongPressEnd: (_) {
-                  if (_isRecording) {
+                  // A locked recording outlives the gesture: it stops from the
+                  // bar, which is all the release used to do.
+                  if (_isRecording && !_recordingLocked) {
                     _stopRecording();
-                  } else {
+                  } else if (!_isRecording) {
                     _stopRequested = true;
                   }
                 },
@@ -1444,7 +1467,11 @@ class _ChatPageState extends State<ChatPage> {
           const SizedBox(width: 16),
           Expanded(
             child: Text(
-              _cancelRecording ? 'releaseToCancel'.tr() : 'slideToCancel'.tr(),
+              _recordingLocked
+                  ? 'recordingLocked'.tr()
+                  : (_cancelRecording
+                      ? 'releaseToCancel'.tr()
+                      : 'slideToCancel'.tr()),
               style: TextStyle(color: Colors.grey[600]),
               overflow: TextOverflow.ellipsis,
             ),

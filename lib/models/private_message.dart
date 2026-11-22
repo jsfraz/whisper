@@ -487,6 +487,8 @@ class PrivateMessage extends HiveObject {
         return 'mediaVoice'.tr();
       case MediaType.file:
         return fileName ?? 'mediaFile'.tr();
+      case MediaType.sticker:
+        return 'mediaSticker'.tr();
       case null:
         return message;
     }

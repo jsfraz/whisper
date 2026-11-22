@@ -221,6 +221,7 @@ class _MediaBubbleState extends State<MediaBubble> {
       switch (type) {
         case MediaType.image:
         case MediaType.gif:
+        case MediaType.sticker:
           media = _imageWidget();
           break;
         case MediaType.video:
@@ -506,6 +507,9 @@ class _MediaBubbleState extends State<MediaBubble> {
       localPath: widget.message.localPath!,
       durationMs: widget.message.durationMs,
       color: widget.textColor,
+      conversationId: widget.conversationUserId,
+      sentAt: widget.message.sentAt,
+      waveform: widget.message.mediaReferences?.first.waveform,
     );
   }
 
@@ -665,6 +669,7 @@ class _AlbumTileState extends State<AlbumTile> {
     switch (type) {
       case MediaType.image:
       case MediaType.gif:
+      case MediaType.sticker:
         return FutureBuilder<Uint8List>(
           future: _imageFuture,
           builder: (context, snapshot) {

@@ -305,5 +305,7 @@
   "storageClearCache": "Vymazat keš",
   "storageCacheCleared": "Keš vymazána",
   "storagePurged": "Uvolněno",
-  "storageEmpty": "Zatím žádná média"
+  "storageEmpty": "Zatím žádná média",
+  "recordingLocked": "Nahrávání zamčeno, zastavte ho tlačítkem",
+  "mediaSticker": "Nálepka"
 }

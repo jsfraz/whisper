@@ -8,6 +8,7 @@ import '../utils/cache_utils.dart';
 import '../utils/media_utils.dart';
 import '../utils/playback_lock.dart';
 import '../utils/playback_speed.dart';
+import '../utils/voice_autoplay.dart';
 
 /// Inline player for a voice message stored encrypted-at-rest.
 ///
@@ -18,10 +19,21 @@ class VoicePlayer extends StatefulWidget {
   final int? durationMs;
   final Color color;
 
+  /// The chat this message lives in, and when it was sent: together they are
+  /// the key the next-message chain looks for.
+  final String conversationId;
+  final DateTime sentAt;
+
+  /// Loudness samples recorded with the message, empty for older ones.
+  final List<int>? waveform;
+
   const VoicePlayer({
     required this.localPath,
     required this.color,
+    required this.conversationId,
+    required this.sentAt,
     this.durationMs,
+    this.waveform,
     super.key,
   });
 
@@ -36,18 +48,46 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
   bool _error = false;
   double _speed = playbackSpeeds.first;
 
+  /// Set once the finished message has asked for the next one, so a repeated
+  /// `completed` event does not restart the chain.
+  bool _chained = false;
+
+  late final String _key =
+      CacheUtils.messageKey(widget.conversationId, widget.sentAt);
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _player.playerStateStream.listen((state) {
-      if (!state.playing ||
-          state.processingState == ProcessingState.completed) {
+      if (state.processingState == ProcessingState.completed) {
+        PlaybackLock.release(this);
+        if (!_chained) {
+          _chained = true;
+          VoiceAutoplay.next(widget.conversationId, widget.sentAt);
+        }
+        return;
+      }
+      if (!state.playing) {
         PlaybackLock.release(this);
       }
     });
     PlaybackLock.owner.addListener(_onLockChanged);
+    VoiceAutoplay.request.addListener(_onAutoplayRequest);
     _prepare();
+  }
+
+  /// Starts this message when the previous one finished and asked for it.
+  void _onAutoplayRequest() {
+    if (VoiceAutoplay.request.value != _key) {
+      return;
+    }
+    VoiceAutoplay.request.value = null;
+    if (_loading || _error) {
+      return;
+    }
+    PlaybackLock.claim(this);
+    _player.play();
   }
 
   /// Pauses when another voice message or a video starts playing.
@@ -90,6 +130,7 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     PlaybackLock.owner.removeListener(_onLockChanged);
+    VoiceAutoplay.request.removeListener(_onAutoplayRequest);
     PlaybackLock.release(this);
     _player.dispose();
     MediaUtils.deleteLocalFile(_tempFile?.path);
@@ -110,6 +151,42 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
+  }
+
+  /// Waveform of the message, or a plain track for a message recorded before
+  /// the shape was stored. Tap or drag seeks, like the slider it replaces.
+  Widget _waveformBar(BuildContext context, Duration total, Duration position) {
+    final progress = total.inMilliseconds == 0
+        ? 0.0
+        : (position.inMilliseconds / total.inMilliseconds).clamp(0.0, 1.0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        void seek(Offset local) {
+          if (_loading || total.inMilliseconds == 0) {
+            return;
+          }
+          final fraction = (local.dx / constraints.maxWidth).clamp(0.0, 1.0);
+          _player.seek(Duration(
+              milliseconds: (total.inMilliseconds * fraction).round()));
+        }
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (details) => seek(details.localPosition),
+          onHorizontalDragUpdate: (details) => seek(details.localPosition),
+          child: SizedBox(
+            height: 26,
+            child: CustomPaint(
+              painter: _WaveformPainter(
+                samples: widget.waveform ?? const [],
+                progress: progress,
+                color: widget.color,
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -164,8 +241,10 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
                         } else {
                           PlaybackLock.claim(this);
                           if (completed) {
+                            _chained = false;
                             await _player.seek(Duration.zero);
                           }
+                          _chained = false;
                           await _player.play();
                         }
                       },
@@ -177,14 +256,9 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
               stream: _player.positionStream,
               builder: (context, snapshot) {
                 final position = snapshot.data ?? Duration.zero;
-                final max = total.inMilliseconds == 0
-                    ? 1.0
-                    : total.inMilliseconds.toDouble();
-                final value =
-                    position.inMilliseconds.clamp(0, max.toInt()).toDouble();
-                // Slider and the time label sit on one line, so the track is
-                // vertically centred in the row instead of being pushed up by
-                // a stacked label.
+                // The waveform and the time label sit on one line, so the bars
+                // are vertically centred in the row instead of being pushed up
+                // by a stacked label.
                 return StreamBuilder<PlayerState>(
                   stream: _player.playerStateStream,
                   builder: (context, stateSnapshot) {
@@ -204,28 +278,7 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
                         Row(
                           children: [
                             Expanded(
-                              child: SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 2,
-                                  thumbShape: const RoundSliderThumbShape(
-                                      enabledThumbRadius: 6),
-                                  overlayShape: const RoundSliderOverlayShape(
-                                      overlayRadius: 12),
-                                  activeTrackColor: widget.color,
-                                  thumbColor: widget.color,
-                                  inactiveTrackColor:
-                                      widget.color.withValues(alpha: 0.3),
-                                ),
-                                child: Slider(
-                                  min: 0,
-                                  max: max,
-                                  value: value,
-                                  onChanged: _loading
-                                      ? null
-                                      : (v) => _player.seek(
-                                          Duration(milliseconds: v.toInt())),
-                                ),
-                              ),
+                              child: _waveformBar(context, total, position),
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -272,4 +325,52 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
       ),
     );
   }
+}
+
+/// Draws the loudness bars of a voice message, the played part in full colour.
+class _WaveformPainter extends CustomPainter {
+  _WaveformPainter({
+    required this.samples,
+    required this.progress,
+    required this.color,
+  });
+
+  final List<int> samples;
+  final double progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (samples.isEmpty) {
+      final paint = Paint()
+        ..color = color.withValues(alpha: 0.3)
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(Offset(0, size.height / 2),
+          Offset(size.width, size.height / 2), paint);
+      return;
+    }
+    final step = size.width / samples.length;
+    final barWidth = (step * 0.6).clamp(1.0, 4.0);
+    final played = Paint()..color = color;
+    final rest = Paint()..color = color.withValues(alpha: 0.3);
+    for (var i = 0; i < samples.length; i++) {
+      final height = (samples[i] / 100 * size.height).clamp(2.0, size.height);
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(i * step + step / 2, size.height / 2),
+          width: barWidth,
+          height: height,
+        ),
+        const Radius.circular(1),
+      );
+      canvas.drawRRect(rect, i / samples.length <= progress ? played : rest);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveformPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.color != color ||
+      oldDelegate.samples != samples;
 }

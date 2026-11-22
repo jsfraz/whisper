@@ -428,6 +428,8 @@ class MediaUtils {
         return '.mp4';
       case MediaType.voice:
         return '.m4a';
+      case MediaType.sticker:
+        return '.png';
       case MediaType.file:
         return '';
     }
@@ -525,6 +527,8 @@ class MediaUtils {
         return 'mediaVideo';
       case MediaType.voice:
         return 'mediaVoice';
+      case MediaType.sticker:
+        return 'mediaSticker';
       case MediaType.file:
         return 'mediaFile';
     }
@@ -711,6 +715,18 @@ class MediaRecorderController {
   final AudioRecorder _recorder = AudioRecorder();
   String? _path;
   DateTime? _startedAt;
+  final List<int> _waveform = [];
+  StreamSubscription<Amplitude>? _amplitudeSub;
+
+  /// Ten minutes of samples at one per 100 ms: a longer recording keeps its
+  /// shape from the first ten minutes rather than growing without bound.
+  static const int maxWaveformSamples = 600;
+
+  /// Loudness samples of the recording, 0-100, oldest first.
+  ///
+  /// The recipient cannot derive these without decoding the file, so they
+  /// travel in the message reference.
+  List<int> get waveform => List.unmodifiable(_waveform);
 
   Future<bool> hasPermission() => _recorder.hasPermission();
 
@@ -723,10 +739,25 @@ class MediaRecorderController {
       path: _path!,
     );
     _startedAt = DateTime.now();
+    _waveform.clear();
+    _amplitudeSub =
+        _recorder.onAmplitudeChanged(const Duration(milliseconds: 100)).listen(
+      (amplitude) {
+        if (_waveform.length >= maxWaveformSamples) {
+          return;
+        }
+        // dBFS sits around -60..0 for speech; anything quieter is silence.
+        final level = ((amplitude.current + 60) / 60 * 100).clamp(0.0, 100.0);
+        _waveform.add(level.round());
+      },
+      onError: (_) {},
+    );
   }
 
   /// Stop recording and return the resulting file and its duration.
   Future<RecordedVoice?> stop() async {
+    await _amplitudeSub?.cancel();
+    _amplitudeSub = null;
     final path = await _recorder.stop();
     final durationMs = _startedAt == null
         ? 0
@@ -739,6 +770,8 @@ class MediaRecorderController {
 
   /// Abort recording and discard the partial file.
   Future<void> cancel() async {
+    await _amplitudeSub?.cancel();
+    _amplitudeSub = null;
     try {
       await _recorder.stop();
     } catch (_) {
@@ -747,11 +780,11 @@ class MediaRecorderController {
     await MediaUtils.deleteLocalFile(_path);
   }
 
-  /// Live amplitude stream for the recording UI.
-  Stream<Amplitude> amplitudeStream() =>
-      _recorder.onAmplitudeChanged(const Duration(milliseconds: 200));
-
-  Future<void> dispose() => _recorder.dispose();
+  Future<void> dispose() async {
+    await _amplitudeSub?.cancel();
+    _amplitudeSub = null;
+    await _recorder.dispose();
+  }
 }
 
 /// A finished voice recording.
