@@ -747,8 +747,13 @@ class CacheUtils {
     value.openedAt = openedAt;
     value.localPath = null;
     // A spent location leaves nothing behind either; the bubble reads the
-    // opened instant, not the coordinates.
+    // opened instant, not the coordinates. The text goes too: for a location it
+    // is the coordinates, and for media it is the caption, so a chat list
+    // preview or a notification must not still be able to show it.
     value.locationJson = null;
+    if (value.viewOnce) {
+      value.message = '';
+    }
     for (final item in value.album) {
       item.localPath = null;
     }

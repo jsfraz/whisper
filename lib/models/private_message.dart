@@ -455,6 +455,15 @@ class PrivateMessage extends HiveObject {
     }
   }
 
+  /// Emojis and their modifiers, stripped from previews: a list row is a
+  /// summary of what was said, and a pin or a smiley is not one.
+  static final RegExp _previewEmoji = RegExp(
+    r'[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]',
+    unicode: true,
+  );
+
+  static final RegExp _previewWhitespace = RegExp(r'\s+');
+
   /// Short text used in chat list previews and notifications. Falls back to a
   /// localized media label when a media message has no caption.
   String get preview {
@@ -467,14 +476,24 @@ class PrivateMessage extends HiveObject {
     if (isSystem) {
       return 'disappearingChanged'.tr();
     }
+    // A view-once message never shows its content in a list: not its caption,
+    // not the coordinates of a location, before or after it is opened.
+    if (viewOnce) {
+      return openedAt == null ? 'viewOnceMedia'.tr() : 'viewOnceOpened'.tr();
+    }
+    return _previewText
+        .replaceAll(_previewEmoji, '')
+        .replaceAll(_previewWhitespace, ' ')
+        .trim();
+  }
+
+  /// The untrimmed preview: the text, or a media label when there is none.
+  String get _previewText {
     if (!isMedia || message.isNotEmpty) {
       return message;
     }
     if (isAlbum) {
       return '${'mediaAlbum'.tr()} (${album.length})';
-    }
-    if (viewOnce) {
-      return 'viewOnceMedia'.tr();
     }
     switch (mediaType) {
       case MediaType.image:
