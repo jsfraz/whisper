@@ -292,5 +292,6 @@
   "viewOnceOpened": "Opened",
   "viewOnceOpenedByPeer": "Opened",
   "messageDeleted": "Message deleted",
-  "viewOnceHint": "Gone for both sides after it is opened once"
+  "viewOnceHint": "Gone for both sides after it is opened once",
+  "liveLocationEnded": "Sharing ended"
 }

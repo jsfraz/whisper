@@ -105,10 +105,17 @@ class LiveLocationSharer {
   Timer? _timer;
   String? _peerId;
   DateTime? _until;
+  DateTime? _started;
+  User? _peer;
+  LiveLocationPoint? _last;
 
   bool isSharing(String peerId) => _timer != null && _peerId == peerId;
 
   DateTime? get until => _until;
+
+  /// When the running session started; the bubble sits at this instant in the
+  /// conversation instead of being pinned to the bottom.
+  DateTime? get startedAt => _started;
 
   /// Starts a session with [peer]. Returns false when there is no fix, which is
   /// also what a refused permission looks like.
@@ -121,7 +128,10 @@ class LiveLocationSharer {
       return false;
     }
     _peerId = peer.id;
-    _until = DateTime.now().add(duration);
+    _peer = peer;
+    final now = DateTime.now();
+    _started = now;
+    _until = now.add(duration);
     await _send(peer, position);
     _timer = Timer.periodic(interval, (_) async {
       final next = await currentPosition();
@@ -136,11 +146,27 @@ class LiveLocationSharer {
     return true;
   }
 
+  /// Ends the session. A peer that is still connected is told right away with
+  /// a last point that is already expired, so stopping early really stops it
+  /// for them too instead of waiting out the announced deadline.
   Future<void> stop() async {
+    final peer = _peer;
+    final last = _last;
+    final until = _until;
     _timer?.cancel();
     _timer = null;
     _peerId = null;
+    _peer = null;
     _until = null;
+    _started = null;
+    _last = null;
+    if (peer != null && last != null && until != null) {
+      await _relay(
+        peer,
+        LiveLocationPoint(last.lat, last.lng,
+            accuracy: last.accuracy, until: DateTime.now()),
+      );
+    }
   }
 
   Future<void> _send(User peer, Position position) async {
@@ -150,6 +176,16 @@ class LiveLocationSharer {
     }
     final point = LiveLocationPoint(position.latitude, position.longitude,
         accuracy: position.accuracy, until: deadline);
+    _last = point;
+    await _relay(peer, point);
+  }
+
+  /// Encrypts one point for [peer] and hands it to the socket. Nothing about a
+  /// live position is archived, so the socket is the only way in.
+  Future<void> _relay(User peer, LiveLocationPoint point) async {
+    if (!Singleton().wsClient.isConnected) {
+      return;
+    }
     try {
       final data = await CryptoUtils.encryptMessageData(
           utf8.encode(jsonEncode(point.toJson())),

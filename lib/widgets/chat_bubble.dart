@@ -58,6 +58,10 @@ class ChatBubble extends StatefulWidget {
   /// Jumps to the quoted message.
   final VoidCallback? onTapQuote;
 
+  /// Overrides the avatar rule. The live-location bubble is not a message, so
+  /// its neighbours cannot see it; the caller says who closes a run.
+  final bool? showAvatar;
+
   const ChatBubble(
       this.previousMessage, this.message, this.nextMessage, this.user,
       {required this.accentColor,
@@ -71,6 +75,7 @@ class ChatBubble extends StatefulWidget {
       this.onReply,
       this.onQuickReact,
       this.onTapQuote,
+      this.showAvatar,
       super.key});
 
   @override
@@ -177,81 +182,61 @@ class _ChatBubbleState extends State<ChatBubble> {
     final bubbleColor = widget.accentColor;
     final textColor =
         bubbleColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
-    return Align(
-      alignment:
-          widget.message.isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-        child: ViewOnceFrame(
-          label: mine
-              ? (opened ? 'viewOnceOpenedByPeer'.tr() : 'viewOnceSent'.tr())
-              : (opened ? 'viewOnceOpened'.tr() : 'viewOnceOpen'.tr()),
-          bubbleColor: bubbleColor,
-          textColor: textColor,
-          onTap: mine || opened || location == null
-              ? null
-              : () async {
-                  await MessageActions.openLocation(location);
-                  await MessageActions.consumeViewOnce(
-                      widget.user.id, widget.message);
-                },
-        ),
-      ),
+    return ViewOnceFrame(
+      label: mine
+          ? (opened ? 'viewOnceOpenedByPeer'.tr() : 'viewOnceSent'.tr())
+          : (opened ? 'viewOnceOpened'.tr() : 'viewOnceOpen'.tr()),
+      bubbleColor: bubbleColor,
+      textColor: textColor,
+      onTap: mine || opened || location == null
+          ? null
+          : () async {
+              await MessageActions.openLocation(location);
+              await MessageActions.consumeViewOnce(
+                  widget.user.id, widget.message);
+            },
     );
   }
 
   /// A static location: a pin, the coordinates and a way into the platform map
   /// app. No tiles are fetched, so nothing leaves the device until the tap.
-  Widget _locationBubble(BuildContext context, LocationRef location) {
-    final scheme = Theme.of(context).colorScheme;
-    return Align(
-      alignment:
-          widget.message.isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-        constraints: const BoxConstraints(maxWidth: 260),
-        decoration: BoxDecoration(
-          color: widget.accentColor,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+  Widget _locationBubble(
+      BuildContext context, LocationRef location, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                const Icon(Icons.place, size: 20),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    (location.label?.isNotEmpty ?? false)
-                        ? location.label!
-                        : 'locationMessage'.tr(),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 2, left: 26),
-              child: Text(location.body,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: scheme.onSurfaceVariant)),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () => MessageActions.openLocation(location),
-                icon: const Icon(Icons.map, size: 18),
-                label: Text('openInMaps'.tr()),
+            Icon(Icons.place, size: 20, color: color),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                (location.label?.isNotEmpty ?? false)
+                    ? location.label!
+                    : 'locationMessage'.tr(),
+                style: TextStyle(color: color, fontWeight: FontWeight.w600),
               ),
             ),
           ],
         ),
-      ),
+        Padding(
+          padding: const EdgeInsets.only(top: 2, left: 26),
+          child: Text(location.body,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: color.withValues(alpha: 0.8))),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () => MessageActions.openLocation(location),
+            icon: const Icon(Icons.map, size: 18),
+            label: Text('openInMaps'.tr()),
+          ),
+        ),
+      ],
     );
   }
 
@@ -261,18 +246,9 @@ class _ChatBubbleState extends State<ChatBubble> {
     if (widget.message.isSystem) {
       return _systemPill(context);
     }
-    // A static location is a card, not text with a pin in it. A view-once
-    // location is the same card, but revealed once: a placeholder first, a
-    // tombstone after.
-    final location = widget.message.location;
-    if (widget.message.viewOnce && !widget.message.isMedia) {
-      return _viewOnceMessage(context, location);
-    }
-    if (location != null) {
-      return _locationBubble(context, location);
-    }
 
     bool showAvatar() {
+      if (widget.showAvatar != null) return widget.showAvatar!;
       if (widget.message.isMe) return false;
       // Show avatar if next message is null (last message)
       if (widget.nextMessage == null) return true;
@@ -366,6 +342,14 @@ class _ChatBubbleState extends State<ChatBubble> {
     }
 
     Widget content() {
+      // A view-once location is the single-view frame, not text; a plain one
+      // is a card with a pin and a way into the map app.
+      if (widget.message.viewOnce && !widget.message.isMedia) {
+        return _viewOnceMessage(context, widget.message.location);
+      }
+      if (widget.message.location case final location?) {
+        return _locationBubble(context, location, bubbleTextColor());
+      }
       // A tombstone is text even when it used to be an attachment.
       if (widget.message.isMedia && !widget.message.isDeleted) {
         return MediaBubble(
@@ -560,6 +544,9 @@ class _ChatBubbleState extends State<ChatBubble> {
     // is the bubble, so it is clipped to the corners instead of sitting inside
     // a coloured frame.
     final isMedia = widget.message.isMedia;
+    // A view-once location draws its own frame, so it needs no bubble chrome
+    // behind it either.
+    final ownChrome = isMedia || widget.message.viewOnce;
     // Animated so a jump flashes in and fades out instead of popping.
     final bubbleBox = AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -567,7 +554,7 @@ class _ChatBubbleState extends State<ChatBubble> {
       decoration: BoxDecoration(
         // A reply needs a surface for its quote; the attachment below fills the
         // rest of the bubble.
-        color: isMedia
+        color: ownChrome
             ? (widget.message.isReply ? bubbleBackground() : null)
             : (_isLargeEmoji ? null : bubbleBackground()),
         borderRadius: BorderRadius.circular(20),
@@ -583,7 +570,7 @@ class _ChatBubbleState extends State<ChatBubble> {
               ),
             )
           : null,
-      padding: isMedia
+      padding: ownChrome
           ? (widget.message.isReply
               ? const EdgeInsets.fromLTRB(8, 8, 8, 0)
               : EdgeInsets.zero)
@@ -598,7 +585,7 @@ class _ChatBubbleState extends State<ChatBubble> {
     // only stops clipping: toggling Container.clipBehavior adds or drops its
     // clip widget, which re-mounts the attachment and throws the decoded image
     // away - the white flash when a reaction was added.
-    final clippedBox = isMedia
+    final clippedBox = ownChrome
         ? ClipRRect(
             borderRadius: BorderRadius.circular(20),
             clipBehavior: widget.message.reactionEmojis.isEmpty

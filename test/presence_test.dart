@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whisper/utils/live_location.dart';
 import 'package:whisper/utils/presence.dart';
 
 void main() {
@@ -35,6 +36,21 @@ void main() {
     expect(presence.isTyping('peer'), isTrue);
     await Future<void>.delayed(const Duration(milliseconds: 60));
     expect(presence.isTyping('peer'), isFalse);
+  });
+
+  test('an expired live position means the session stopped', () {
+    presence.applyLiveLocation(
+        'peer',
+        LiveLocationPoint(50.08, 14.42,
+            until: DateTime.now().add(const Duration(minutes: 5))));
+    expect(presence.liveLocation('peer'), isNotNull);
+    expect(presence.liveStartedAt('peer'), isNotNull);
+
+    // The sender's stop frame carries an instant that is already gone.
+    presence.applyLiveLocation(
+        'peer', LiveLocationPoint(50.08, 14.42, until: DateTime.now()));
+    expect(presence.liveLocation('peer'), isNull);
+    expect(presence.liveStartedAt('peer'), isNull);
   });
 
   test('clear drops every known peer', () {

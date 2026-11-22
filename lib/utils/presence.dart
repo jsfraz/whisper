@@ -32,6 +32,10 @@ class PresenceNotifier extends ChangeNotifier {
   final Map<String, LiveLocationPoint> _live = {};
   final Map<String, Timer> _liveTimers = {};
 
+  /// When each session was first seen here, so its bubble sits at that instant
+  /// in the conversation instead of being pinned to the bottom.
+  final Map<String, DateTime> _liveStarted = {};
+
   /// The position [peerId] is sharing right now, null when they are not.
   LiveLocationPoint? liveLocation(String peerId) {
     final point = _live[peerId];
@@ -41,13 +45,27 @@ class PresenceNotifier extends ChangeNotifier {
     return point;
   }
 
-  /// Keeps one relayed position and forgets it at its deadline.
+  /// When the live session of [peerId] started here, null without one.
+  DateTime? liveStartedAt(String peerId) => _liveStarted[peerId];
+
+  /// Keeps one relayed position and forgets it at its deadline. A point that
+  /// is already expired is the sender saying "stopped": it clears the session
+  /// instead of showing a stale position.
   void applyLiveLocation(String peerId, LiveLocationPoint point) {
+    if (!point.until.isAfter(DateTime.now())) {
+      _liveTimers.remove(peerId)?.cancel();
+      _live.remove(peerId);
+      _liveStarted.remove(peerId);
+      notifyListeners();
+      return;
+    }
     _live[peerId] = point;
+    _liveStarted.putIfAbsent(peerId, () => DateTime.now());
     _liveTimers.remove(peerId)?.cancel();
     final left = point.until.difference(DateTime.now());
     _liveTimers[peerId] = Timer(left.isNegative ? Duration.zero : left, () {
       _live.remove(peerId);
+      _liveStarted.remove(peerId);
       _liveTimers.remove(peerId);
       notifyListeners();
     });
@@ -119,6 +137,7 @@ class PresenceNotifier extends ChangeNotifier {
     _online.clear();
     _lastSeen.clear();
     _live.clear();
+    _liveStarted.clear();
     notifyListeners();
   }
 

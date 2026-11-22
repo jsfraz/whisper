@@ -292,5 +292,6 @@
   "viewOnceOpened": "Zobrazeno",
   "viewOnceOpenedByPeer": "Otevřeno",
   "messageDeleted": "Zpráva byla smazána",
-  "viewOnceHint": "Po prvním otevření zmizí oběma stranám"
+  "viewOnceHint": "Po prvním otevření zmizí oběma stranám",
+  "liveLocationEnded": "Sdílení skončilo"
 }

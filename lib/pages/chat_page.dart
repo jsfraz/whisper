@@ -25,7 +25,8 @@ import '../utils/utils.dart' as utils;
 import '../utils/theme_utils.dart';
 import '../widgets/attachment_confirm_sheet.dart';
 import '../widgets/chat_bubble.dart';
-import '../widgets/live_location_banner.dart';
+import '../widgets/live_location_bubble.dart';
+import '../widgets/typing_dots.dart';
 import 'chat_info_page.dart';
 import 'forward_page.dart';
 
@@ -1522,7 +1523,8 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildBubble(
-      PrivateMessage message, PrivateMessage? older, PrivateMessage? newer) {
+      PrivateMessage message, PrivateMessage? older, PrivateMessage? newer,
+      {bool? showAvatar}) {
     final micros = message.sentAt.microsecondsSinceEpoch;
     final key = _messageKeys.putIfAbsent(micros, () => GlobalKey());
     final showsDivider = _unreadAnchor?.microsecondsSinceEpoch == micros;
@@ -1537,6 +1539,7 @@ class _ChatPageState extends State<ChatPage> {
       selectionMode: _selectionMode,
       selected: _selected.contains(micros),
       highlight: _highlightMicros == micros,
+      showAvatar: showAvatar,
       readAt: micros == _lastOwnMicros && _readReceipts ? _peerReadAt : null,
       onSelect: () => _toggleSelected(message),
       onActions: () => _openMessageActions(message),
@@ -1560,6 +1563,19 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  /// When the live-location session of this chat started, null when there is
+  /// none. Ordering the bubble by it keeps the chat chronological.
+  DateTime? _liveLocationStart() {
+    if (LiveLocationSharer.instance.isSharing(widget.user.id)) {
+      return LiveLocationSharer.instance.startedAt;
+    }
+    // Only while a position is still live: a stopped session leaves no bubble.
+    if (PresenceNotifier.instance.liveLocation(widget.user.id) == null) {
+      return null;
+    }
+    return PresenceNotifier.instance.liveStartedAt(widget.user.id);
+  }
+
   /// Messages, grouped by day: each day gets a sticky header.
   Widget _getContent(List<PrivateMessage> messages) {
     final start =
@@ -1570,6 +1586,25 @@ class _ChatPageState extends State<ChatPage> {
     final days = <DateTime, List<int>>{};
     for (var i = 0; i < visible.length; i++) {
       days.putIfAbsent(_dayOf(visible[i]), () => []).add(i);
+    }
+    // The live location takes the place of the message that would carry it:
+    // right after everything sent before the session started. -1 marks it in
+    // the day bucket.
+    final liveStart = _liveLocationStart();
+    // Where the marker sits in the timeline: after visible[liveAfter], -1 when
+    // it precedes every message. -1 in a day bucket marks the marker itself.
+    var liveAfter = -1;
+    final liveMine = LiveLocationSharer.instance.isSharing(widget.user.id);
+    if (liveStart != null) {
+      final firstNewer = visible.indexWhere((m) => m.sentAt.isAfter(liveStart));
+      liveAfter = (firstNewer < 0 ? visible.length : firstNewer) - 1;
+      final day = DateTime(liveStart.year, liveStart.month, liveStart.day);
+      final bucket = days.putIfAbsent(day, () => []);
+      var at = bucket.indexWhere((i) => visible[i].sentAt.isAfter(liveStart));
+      if (at < 0) {
+        at = bucket.length;
+      }
+      bucket.insert(at, -1);
     }
     final orderedDays = days.keys.toList()..sort();
 
@@ -1592,11 +1627,20 @@ class _ChatPageState extends State<ChatPage> {
             itemCount: days[day]!.length,
             itemBuilder: (context, index) {
               final position = days[day]![days[day]!.length - 1 - index];
+              if (position < 0) {
+                // The avatar belongs to whoever ends the run, here the marker
+                // itself when nothing follows it.
+                return LiveLocationBubble(widget.user,
+                    showAvatar: !liveMine && liveAfter == visible.length - 1);
+              }
               final message = visible[position];
               return _buildBubble(
                 message,
                 position > 0 ? visible[position - 1] : null,
                 position < visible.length - 1 ? visible[position + 1] : null,
+                // The marker continues the peer's run, so a message right
+                // before it is not the one that closes it.
+                showAvatar: !liveMine && position == liveAfter ? false : null,
               );
             },
           ),
@@ -1871,9 +1915,39 @@ class _ChatPageState extends State<ChatPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (_replyTo != null) _buildReplyBar(),
-                    // Above the field, inside the measured composer, so the
-                    // message list keeps clearing it.
-                    LiveLocationBanner(widget.user),
+                    if (PresenceNotifier.instance.isTyping(widget.user.id))
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // The same avatar the bubbles and the chat list
+                              // draw, one size smaller.
+                              CircleAvatar(
+                                radius: 10,
+                                backgroundColor: widget.user.avatarColor,
+                                child: Text(
+                                  widget.user.username.isNotEmpty
+                                      ? widget.user.username[0].toUpperCase()
+                                      : '?',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: widget.user.avatarTextColor,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              TypingDots(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     Stack(
                       alignment: Alignment.center,
                       children: [
