@@ -36,6 +36,27 @@ class _ImageEditorPageState extends State<ImageEditorPage> {
   final List<List<Offset>> _strokes = [];
   bool _busy = false;
 
+  /// Width / height of [_bytes]. The drawing surface is locked to it, so a
+  /// stroke lands under the finger instead of somewhere offset from it.
+  double _aspect = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _measure(_bytes);
+  }
+
+  Future<void> _measure(Uint8List bytes) async {
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final aspect = frame.image.width / frame.image.height;
+    frame.image.dispose();
+    codec.dispose();
+    if (mounted) {
+      setState(() => _aspect = aspect);
+    }
+  }
+
   /// Width of a stroke relative to the picture, so the line looks the same at
   /// any screen size and at the exported resolution.
   static const double _strokeFraction = 1 / 60;
@@ -46,6 +67,7 @@ class _ImageEditorPageState extends State<ImageEditorPage> {
       final rendered = await _render(_bytes, _strokes, quarterTurns: 1);
       _strokes.clear();
       setState(() => _bytes = rendered);
+      await _measure(rendered);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -192,6 +214,7 @@ class _ImageEditorPageState extends State<ImageEditorPage> {
                     _strokes.clear();
                     _mode = _EditMode.preview;
                   });
+                  _measure(croppedImage);
                 case CropFailure():
                   ScaffoldMessenger.of(context)
                       .showSnackBar(SnackBar(content: Text('mediaError'.tr())));
@@ -217,34 +240,36 @@ class _ImageEditorPageState extends State<ImageEditorPage> {
 
   Widget _drawView() {
     return Center(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final drawing = _mode == _EditMode.draw;
-          return GestureDetector(
-            onPanStart: drawing
-                ? (details) => setState(() {
-                      _strokes.add(
-                          [_normalize(details.localPosition, constraints)]);
-                    })
-                : null,
-            onPanUpdate: drawing
-                ? (details) => setState(() {
-                      _strokes.last
-                          .add(_normalize(details.localPosition, constraints));
-                    })
-                : null,
-            child: Stack(
-              children: [
-                Image.memory(_bytes),
-                Positioned.fill(
-                  child: CustomPaint(
+      child: AspectRatio(
+        aspectRatio: _aspect,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final drawing = _mode == _EditMode.draw;
+            return GestureDetector(
+              onPanStart: drawing
+                  ? (details) => setState(() {
+                        _strokes.add(
+                            [_normalize(details.localPosition, constraints)]);
+                      })
+                  : null,
+              onPanUpdate: drawing
+                  ? (details) => setState(() {
+                        _strokes.last.add(
+                            _normalize(details.localPosition, constraints));
+                      })
+                  : null,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.memory(_bytes, fit: BoxFit.contain),
+                  CustomPaint(
                     painter: _StrokePainter(_strokes, _ink),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
