@@ -29,6 +29,7 @@ import '../widgets/chat_bubble.dart';
 import '../widgets/live_location_bubble.dart';
 import '../widgets/typing_dots.dart';
 import 'chat_info_page.dart';
+import '../widgets/sticker_sheet.dart';
 import 'image_editor_page.dart';
 import 'video_trim_page.dart';
 import 'forward_page.dart';
@@ -1004,6 +1005,20 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  /// Opens the sticker collection and sends the picked one as it is: a sticker
+  /// travels as its own media type, so the recipient draws it without a bubble.
+  Future<void> _pickSticker() async {
+    final sticker = await StickerSheet.show(context);
+    if (sticker == null) {
+      return;
+    }
+    final bytes = await MediaUtils.decryptAtRest(sticker.path);
+    final sent = await ChatSender.sendMedia(
+        widget.user, MediaType.sticker, bytes,
+        fileName: MediaUtils.baseName(sticker.path));
+    _afterSend(sent, '');
+  }
+
   /// Runs the editor for one picked attachment. Returns null when the user
   /// backs out, which aborts the send instead of silently sending the original.
   Future<File?> _editAttachment(MediaType type, File file) async {
@@ -1177,6 +1192,14 @@ class _ChatPageState extends State<ChatPage> {
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickAndSend(MediaUtils.pickMultipleMediaFromGallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.emoji_emotions_outlined),
+                title: Text('attachStickers'.tr()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickSticker();
                 },
               ),
               ListTile(

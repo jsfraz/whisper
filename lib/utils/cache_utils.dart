@@ -428,6 +428,32 @@ class CacheUtils {
 
   static const String _autoDeleteMediaKey = 'autoDeleteMediaDays';
   static const String _autoDownloadKey = 'autoDownloadPolicy';
+  static const String _stickersKey = 'stickers';
+
+  /// Sticker ids mapped to their encrypted-at-rest file, oldest first.
+  static Future<Map<String, String>> getStickers() async {
+    CollectionBox box = await _openBox(_stickersKey);
+    final stickers = <String, String>{};
+    for (final entry in (await box.getAllValues()).entries) {
+      final value = entry.value;
+      if (value is String) {
+        stickers[entry.key] = value;
+      }
+    }
+    return stickers;
+  }
+
+  /// Records one imported sticker.
+  static Future<void> putSticker(String id, String path) async {
+    CollectionBox box = await _openBox(_stickersKey);
+    await box.put(id, path);
+  }
+
+  /// Forgets one sticker; the caller deletes its file.
+  static Future<void> deleteSticker(String id) async {
+    CollectionBox box = await _openBox(_stickersKey);
+    await box.delete(id);
+  }
 
   /// When an incoming attachment is downloaded automatically. Default Wi-Fi:
   /// arriving photos must not spend a mobile data plan on their own.

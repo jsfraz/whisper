@@ -320,5 +320,9 @@
   "draw": "Kreslit",
   "undo": "Zpět",
   "applyCrop": "Použít ořez",
-  "trimVideo": "Oříznout video"
+  "trimVideo": "Oříznout video",
+  "attachStickers": "Nálepky",
+  "stickerUnsupported": "Tenhle soubor nejde použít jako nálepku",
+  "deleteSticker": "Smazat nálepku",
+  "deleteStickerConfirm": "Nálepka se z tohoto zařízení smaže. Opravdu?"
 }

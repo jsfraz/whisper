@@ -292,6 +292,14 @@ class _MediaBubbleState extends State<MediaBubble> {
       );
     }
 
+    // A sticker is drawn bare: no bubble, no rounded frame, its own size.
+    if (type == MediaType.sticker) {
+      return _withCaption(
+        SizedBox(width: 160, height: 160, child: Center(child: media)),
+        hasCaption,
+      );
+    }
+
     // Visual media: rounded thumbnail with optional caption underneath.
     return _withCaption(media, hasCaption);
   }

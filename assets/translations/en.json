@@ -320,5 +320,9 @@
   "draw": "Draw",
   "undo": "Undo",
   "applyCrop": "Apply crop",
-  "trimVideo": "Trim video"
+  "trimVideo": "Trim video",
+  "attachStickers": "Stickers",
+  "stickerUnsupported": "This file cannot be used as a sticker",
+  "deleteSticker": "Delete sticker",
+  "deleteStickerConfirm": "The sticker is removed from this device. Continue?"
 }
