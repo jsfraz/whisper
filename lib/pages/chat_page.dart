@@ -1506,7 +1506,9 @@ class _ChatPageState extends State<ChatPage> {
 
   /// The "new messages" divider, drawn above the first unread message.
   Widget _buildUnreadDivider() {
-    final color = Theme.of(context).colorScheme.primary;
+    // The picked chat color itself: this helper runs above the chat Theme, so
+    // Theme.of(context) would be the app theme.
+    final color = _chatThemeColor ?? Singleton().appTheme.color;
     return Padding(
       key: _unreadDividerKey,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
