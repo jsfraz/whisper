@@ -294,5 +294,16 @@
   "viewOnceOpenedByPeer": "Otevřeno",
   "messageDeleted": "Zpráva byla smazána",
   "viewOnceHint": "Po prvním otevření zmizí oběma stranám",
-  "liveLocationEnded": "Sdílení skončilo"
+  "liveLocationEnded": "Sdílení skončilo",
+  "storageTitle": "Úložiště a data",
+  "storageTotal": "Média na tomto zařízení",
+  "storageMediaCount": "příloh",
+  "storageAutoDelete": "Mazat média po",
+  "storageDaysSuffix": "dní",
+  "storageNever": "Nikdy",
+  "storageSingleDelivery": "Média jsou jednorázová: co se tady smaže, už nelze znovu stáhnout.",
+  "storageClearCache": "Vymazat keš",
+  "storageCacheCleared": "Keš vymazána",
+  "storagePurged": "Uvolněno",
+  "storageEmpty": "Zatím žádná média"
 }

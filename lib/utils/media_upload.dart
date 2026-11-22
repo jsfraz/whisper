@@ -98,8 +98,7 @@ class MediaUploader {
           filename: 'chunk.bin');
       try {
         final session = await Utils.callApi(
-          () =>
-              Singleton().mediaApi.uploadMediaChunk(uploadId!, start, chunk),
+          () => Singleton().mediaApi.uploadMediaChunk(uploadId!, start, chunk),
           rethrowErr: true,
           showError: false,
         );

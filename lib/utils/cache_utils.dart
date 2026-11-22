@@ -425,6 +425,41 @@ class CacheUtils {
     await box.delete(key);
   }
 
+  static const String _autoDeleteMediaKey = 'autoDeleteMediaDays';
+
+  /// Days after which this device drops an attachment's local copy, 0 = never.
+  static Future<int> getAutoDeleteMediaDays() async {
+    Box box = await Hive.openBox(_settingsKey);
+    return (box.get(_autoDeleteMediaKey) as num?)?.toInt() ?? 0;
+  }
+
+  /// Sets how long attachments are kept on this device, 0 = never.
+  static Future<void> setAutoDeleteMediaDays(int days) async {
+    Box box = await Hive.openBox(_settingsKey);
+    await box.put(_autoDeleteMediaKey, days);
+  }
+
+  /// Every stored message grouped by conversation, from one box scan. Callers
+  /// that need the whole history (storage usage, media purge) would otherwise
+  /// reopen the box per conversation.
+  static Future<Map<String, List<PrivateMessage>>>
+      getAllConversationMessages() async {
+    Box box = await _openPrivateMessagesBox();
+    final result = <String, List<PrivateMessage>>{};
+    for (final key in box.keys) {
+      final value = box.get(key);
+      if (value is! PrivateMessage) {
+        continue;
+      }
+      final conversation = conversationOfKey(key);
+      if (conversation == null) {
+        continue;
+      }
+      (result[conversation] ??= []).add(value);
+    }
+    return result;
+  }
+
   /// Opens the message box. One key per message, so a write touches one entry
   /// instead of rewriting a whole conversation.
   static Future<Box> _openPrivateMessagesBox() async {

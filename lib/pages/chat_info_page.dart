@@ -5,13 +5,16 @@ import '../utils/nav_transitions.dart';
 import '../utils/cache_utils.dart';
 import '../utils/chat_sender.dart';
 import '../utils/disappearing.dart';
+import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/utils.dart';
+import '../utils/storage_utils.dart';
 import '../utils/theme_utils.dart';
 import '../widgets/settings_tile.dart';
 import 'chat_media_page.dart';
+import 'storage_page.dart';
 import 'home_page.dart';
 import 'search_page.dart';
 
@@ -34,6 +37,9 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   /// Timer the peer proposed and this device has not answered yet.
   int? _disappearingProposal;
 
+  /// Bytes this conversation keeps on this device.
+  int _mediaBytes = 0;
+
   /// A toggle in flight: the switch stays disabled until the server call and
   /// the cache write are done, so it cannot be flipped back and forth.
   bool _readReceiptsBusy = false;
@@ -45,6 +51,14 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     _loadPins();
     _loadReadReceipts();
     _loadDisappearing();
+    _loadMediaUsage();
+  }
+
+  Future<void> _loadMediaUsage() async {
+    final usage = await StorageUtils.usageFor(widget.userId);
+    if (mounted) {
+      setState(() => _mediaBytes = usage.bytes);
+    }
   }
 
   Future<void> _loadDisappearing() async {
@@ -329,6 +343,20 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                         value: _readReceipts,
                         onChanged:
                             _readReceiptsBusy ? null : _toggleReadReceipts,
+                      ),
+                    ),
+                    // How much this chat costs on disk, and the way to free it
+                    SettingsTile(
+                      icon: Icons.storage,
+                      label: 'storageTitle'.tr(),
+                      onPressed: () async {
+                        await Navigator.push(
+                            context, stepRoute(const StoragePage()));
+                        await _loadMediaUsage();
+                      },
+                      extra: Padding(
+                        padding: const EdgeInsets.only(left: 10),
+                        child: Text(MediaUtils.formatBytes(_mediaBytes)),
                       ),
                     ),
                     // Pinned messages, shared with the other participant

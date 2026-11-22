@@ -354,6 +354,12 @@ class MediaUtils {
     }
   }
 
+  /// Forgets the decrypted copies kept in memory. They are plaintext, so
+  /// dropping them is the cheapest way to take readable media out of reach.
+  static void clearDecryptedCache() {
+    _mediaCache.clear();
+  }
+
   /// Delete a single (encrypted) media file, ignoring errors.
   static Future<void> deleteLocalFile(String? path) async {
     if (path == null) {

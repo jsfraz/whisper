@@ -294,5 +294,16 @@
   "viewOnceOpenedByPeer": "Opened",
   "messageDeleted": "Message deleted",
   "viewOnceHint": "Gone for both sides after it is opened once",
-  "liveLocationEnded": "Sharing ended"
+  "liveLocationEnded": "Sharing ended",
+  "storageTitle": "Storage and data",
+  "storageTotal": "Media on this device",
+  "storageMediaCount": "attachments",
+  "storageAutoDelete": "Delete media after",
+  "storageDaysSuffix": "days",
+  "storageNever": "Never",
+  "storageSingleDelivery": "Media is single delivery: what is deleted here cannot be downloaded again.",
+  "storageClearCache": "Clear cache",
+  "storageCacheCleared": "Cache cleared",
+  "storagePurged": "Freed",
+  "storageEmpty": "No media yet"
 }

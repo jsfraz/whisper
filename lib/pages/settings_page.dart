@@ -18,6 +18,7 @@ import '../widgets/change_password_dialog.dart';
 import '../widgets/settings_tile.dart';
 import '../utils/nav_transitions.dart';
 import 'devices_page.dart';
+import 'storage_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -295,6 +296,13 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               _settingsTile(
                 icon: Icons.storage,
+                label: 'storageTitle'.tr(),
+                onPressed: () async {
+                  await Navigator.push(context, stepRoute(const StoragePage()));
+                },
+              ),
+              _settingsTile(
+                icon: Icons.archive,
                 label: 'retentionSettings'.tr(),
                 onPressed: _showRetentionDialog,
               ),

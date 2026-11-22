@@ -21,6 +21,7 @@ import 'models/profile.dart';
 import 'models/user.dart';
 import 'pages/whisper_page.dart';
 import 'utils/media_utils.dart';
+import 'utils/storage_utils.dart';
 import 'utils/notification_service.dart';
 import 'utils/singleton.dart';
 import 'utils/theme_notifier.dart';
@@ -83,6 +84,9 @@ void main() async {
   // A disappearing message that expired while the app was closed is gone
   // before the first frame: it must not flash up on start.
   await CacheUtils.purgeExpiredMessages();
+
+  // Same for attachments the user asked to drop after a while.
+  await StorageUtils.purgeIfDue();
 
   // Default theme
   Singleton().appTheme = await CacheUtils.getTheme() ??
