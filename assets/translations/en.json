@@ -119,6 +119,7 @@
   "mediaGif": "GIF",
   "mediaVideo": "Video",
   "mediaTitle": "Media",
+  "noMedia": "No media in this chat yet",
   "mediaVoice": "Voice message",
   "changePassword": "Change password",
   "currentPassword": "Current password",

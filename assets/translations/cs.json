@@ -119,6 +119,7 @@
   "mediaGif": "GIF",
   "mediaVideo": "Video",
   "mediaTitle": "Média",
+  "noMedia": "V tomto chatu zatím nejsou žádná média",
   "mediaVoice": "Hlasová zpráva",
   "changePassword": "Změnit heslo",
   "currentPassword": "Současné heslo",
