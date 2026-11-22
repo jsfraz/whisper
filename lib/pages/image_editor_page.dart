@@ -154,7 +154,7 @@ class _ImageEditorPageState extends State<ImageEditorPage> {
                           ? _EditMode.preview
                           : _EditMode.draw;
                     }),
-            icon: Icon(_mode == _EditMode.draw ? Icons.edit : Icons.brush),
+            icon: const Icon(Icons.edit),
           ),
           if (_mode == _EditMode.draw)
             IconButton(
