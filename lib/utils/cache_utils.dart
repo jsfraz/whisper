@@ -436,6 +436,27 @@ class CacheUtils {
     return int.tryParse(key.substring(index + 1)) ?? 0;
   }
 
+  /// The key of a stored message of [userId], null when it is not on this
+  /// device.
+  ///
+  /// Hive keeps a [DateTime] to the millisecond, so a message read from disk
+  /// carries a shorter [sentAt] than the microsecond key it was written under
+  /// (a live one still matches, the box hands back the same instance). Every
+  /// lookup by instant therefore falls back to the millisecond.
+  static String? _storedKey(Box box, String userId, DateTime sentAt) {
+    final exact = messageKey(userId, sentAt);
+    if (box.containsKey(exact)) {
+      return exact;
+    }
+    final millis = sentAt.millisecondsSinceEpoch;
+    for (final key in _conversationKeys(box, userId)) {
+      if (_timestampOfKey(key) ~/ 1000 == millis) {
+        return key;
+      }
+    }
+    return null;
+  }
+
   /// Keys of one conversation, in box order.
   static Iterable<String> _conversationKeys(Box box, String userId) {
     return box.keys.whereType<String>().where((key) {
@@ -527,7 +548,10 @@ class CacheUtils {
     Box box = await _openPrivateMessagesBox();
     await _migrateLegacyConversation(box, userId);
     // Removing the key also removes an emptied conversation from the list.
-    await box.delete(messageKey(userId, message.sentAt));
+    final key = _storedKey(box, userId, message.sentAt);
+    if (key != null) {
+      await box.delete(key);
+    }
     await _deletePendingSend(userId, message.sentAt);
     for (final path in message.localPaths) {
       await MediaUtils.deleteLocalFile(path);
@@ -540,7 +564,11 @@ class CacheUtils {
       String userId, DateTime sentAt) async {
     final box = await _openPrivateMessagesBox();
     await _migrateLegacyConversation(box, userId);
-    final key = messageKey(userId, sentAt);
+    final key = _storedKey(box, userId, sentAt);
+    if (key == null) {
+      await _deletePendingSend(userId, sentAt);
+      return;
+    }
     final value = box.get(key);
     if (value is PrivateMessage) {
       for (final path in value.localPaths) {
@@ -586,7 +614,10 @@ class CacheUtils {
   static Future<void> markMessageEdited(
       String userId, DateTime sentAt, String text, DateTime editedAt) async {
     final box = await _openPrivateMessagesBox();
-    final key = messageKey(userId, sentAt);
+    final key = _storedKey(box, userId, sentAt);
+    if (key == null) {
+      return;
+    }
     final value = box.get(key);
     if (value is! PrivateMessage) {
       return;
@@ -602,7 +633,10 @@ class CacheUtils {
   static Future<void> markMessageOpened(
       String userId, DateTime sentAt, DateTime openedAt) async {
     final box = await _openPrivateMessagesBox();
-    final key = messageKey(userId, sentAt);
+    final key = _storedKey(box, userId, sentAt);
+    if (key == null) {
+      return;
+    }
     final value = box.get(key);
     if (value is! PrivateMessage) {
       return;
@@ -629,7 +663,10 @@ class CacheUtils {
   static Future<void> markMessageDeleted(
       String userId, DateTime sentAt, DateTime deletedAt) async {
     final box = await _openPrivateMessagesBox();
-    final key = messageKey(userId, sentAt);
+    final key = _storedKey(box, userId, sentAt);
+    if (key == null) {
+      return;
+    }
     final value = box.get(key);
     if (value is! PrivateMessage) {
       return;
@@ -659,7 +696,10 @@ class CacheUtils {
   static Future<void> setMessageReaction(
       String userId, DateTime sentAt, String reactorId, String? emoji) async {
     final box = await _openPrivateMessagesBox();
-    final key = messageKey(userId, sentAt);
+    final key = _storedKey(box, userId, sentAt);
+    if (key == null) {
+      return;
+    }
     final value = box.get(key);
     if (value is! PrivateMessage) {
       return;
@@ -791,7 +831,10 @@ class CacheUtils {
       void Function(PrivateMessage stored) update) async {
     Box box = await _openPrivateMessagesBox();
     await _migrateLegacyConversation(box, userId);
-    final key = messageKey(userId, message.sentAt);
+    final key = _storedKey(box, userId, message.sentAt);
+    if (key == null) {
+      return;
+    }
     final stored = box.get(key);
     if (stored is! PrivateMessage) {
       return;
@@ -807,7 +850,10 @@ class CacheUtils {
       String userId, PrivateMessage message) async {
     Box box = await _openPrivateMessagesBox();
     await _migrateLegacyConversation(box, userId);
-    final oldKey = messageKey(userId, message.sentAt);
+    final oldKey = _storedKey(box, userId, message.sentAt);
+    if (oldKey == null) {
+      return null;
+    }
     final stored = box.get(oldKey);
     if (stored is! PrivateMessage) {
       return null;
@@ -833,7 +879,10 @@ class CacheUtils {
       {String? id}) async {
     Box box = await _openPrivateMessagesBox();
     await _migrateLegacyConversation(box, receiverId);
-    final key = messageKey(receiverId, sentAt);
+    final key = _storedKey(box, receiverId, sentAt);
+    if (key == null) {
+      return;
+    }
     final stored = box.get(key);
     if (stored is! PrivateMessage) {
       return;
