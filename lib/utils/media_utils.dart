@@ -648,21 +648,7 @@ class MediaUtils {
   // Pickers
   // ---------------------------------------------------------------------------
 
-  /// Capture a photo with the camera.
-  static Future<File?> pickImageFromCamera() async {
-    final picked = await _imagePicker.pickImage(
-        source: ImageSource.camera, imageQuality: 85);
-    return picked == null ? null : File(picked.path);
-  }
-
-  /// Capture a video with the camera.
-  static Future<File?> pickVideoFromCamera() async {
-    final picked = await _imagePicker.pickVideo(
-        source: ImageSource.camera, maxDuration: const Duration(minutes: 1));
-    return picked == null ? null : File(picked.path);
-  }
-
-  /// Pick an arbitrary file (images, videos, documents, ...).
+  /// Pick one arbitrary file.
   static Future<File?> pickFile() async {
     final picked = await FilePicker.pickFile(type: FileType.any);
     final path = picked?.path;

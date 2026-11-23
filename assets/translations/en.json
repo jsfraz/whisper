@@ -101,8 +101,7 @@
   "accountDeleted2": "Your account has been deleted :P",
   "wsOffline": "WebSocket is offline",
   "attachButton": "Attach",
-  "attachCamera": "Take a photo",
-  "attachVideoCamera": "Record a video",
+  "attachCamera": "Camera",
   "attachGallery": "Photo & video gallery",
   "gifFromKeyboardFailed": "This keyboard GIF could not be read",
   "attachFile": "File",
@@ -328,7 +327,8 @@
   "shareMessage": "Share to another app",
   "shareToChat": "Share to a chat",
   "shareFailed": "Sharing failed",
-  "videoNote": "Round video",
   "cameraUnavailable": "Camera is not available",
-  "applyTrim": "Trim"
+  "applyTrim": "Trim",
+  "shutterHint": "Tap for a photo, hold for a video",
+  "captureFailed": "Could not capture"
 }

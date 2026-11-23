@@ -101,8 +101,7 @@
   "accountDeleted2": "Váš účet byl smazán :P",
   "wsOffline": "WebSocket je offline",
   "attachButton": "Přiložit",
-  "attachCamera": "Vyfotit",
-  "attachVideoCamera": "Natočit video",
+  "attachCamera": "Foťák",
   "attachGallery": "Galerie fotek a videí",
   "gifFromKeyboardFailed": "GIF z klávesnice se nepodařilo načíst",
   "attachFile": "Soubor",
@@ -328,7 +327,8 @@
   "shareMessage": "Sdílet do jiné aplikace",
   "shareToChat": "Sdílet do chatu",
   "shareFailed": "Sdílení se nepovedlo",
-  "videoNote": "Kruhové video",
   "cameraUnavailable": "Kamera není dostupná",
-  "applyTrim": "Oříznout"
+  "applyTrim": "Oříznout",
+  "shutterHint": "Klepnutím fotka, držením video",
+  "captureFailed": "Nepodařilo se vyfotit"
 }

@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:camera/camera.dart' show CameraPreview;
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sprintf/sprintf.dart';
@@ -20,6 +21,7 @@ import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
 import '../utils/presence.dart';
+import '../utils/round_video_recorder.dart';
 import '../utils/singleton.dart';
 import '../utils/text_envelope.dart';
 import '../utils/utils.dart' as utils;
@@ -28,10 +30,10 @@ import '../widgets/attachment_confirm_sheet.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/live_location_bubble.dart';
 import '../widgets/typing_dots.dart';
+import 'camera_page.dart';
 import 'chat_info_page.dart';
 import '../widgets/sticker_sheet.dart';
 import 'image_editor_page.dart';
-import 'video_note_page.dart';
 import 'video_trim_page.dart';
 import 'forward_page.dart';
 
@@ -85,6 +87,16 @@ class _ChatPageState extends State<ChatPage> {
   /// Sliding up while recording locks it: the finger can be lifted and the
   /// recording keeps going until the bar's stop button is tapped.
   bool _recordingLocked = false;
+
+  /// Round video note started by holding the composer's camera button. It lives
+  /// only as long as the finger is down.
+  RoundVideoRecorder? _noteRecorder;
+  bool _isRecordingNote = false;
+  bool _noteStarting = false;
+  bool _noteStopRequested = false;
+  bool _noteCancel = false;
+  Duration _noteElapsed = Duration.zero;
+  Timer? _noteTimer;
   bool _cancelRecording = false;
   MediaRecorderController? _recorderController;
   Duration _recordDuration = Duration.zero;
@@ -1008,16 +1020,6 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// Records a round video note and sends it as it is: it is a glance, so no
-  /// caption and no editor.
-  Future<void> _recordVideoNote() async {
-    final file = await VideoNotePage.open(context);
-    if (file == null) {
-      return;
-    }
-    await _sendMedia(MediaType.video, file, videoNote: true);
-  }
-
   /// Opens the sticker collection and sends the picked one as it is: a sticker
   /// travels as its own media type, so the recipient draws it without a bubble.
   Future<void> _pickSticker() async {
@@ -1030,6 +1032,135 @@ class _ChatPageState extends State<ChatPage> {
         widget.user, MediaType.sticker, bytes,
         fileName: MediaUtils.baseName(sticker.path));
     _afterSend(sent, '');
+  }
+
+  /// Opens the in-app camera. What comes back is a photo or a video, and it
+  /// goes through the same confirm sheet as a gallery pick.
+  Future<void> _captureFromCamera() async {
+    final file = await CameraPage.open(context);
+    if (file == null) {
+      return;
+    }
+    final type = MediaUtils.detectType(file.path);
+    await _pickAndSend(() async => [file],
+        forcedType:
+            type == MediaType.video ? MediaType.video : MediaType.image);
+  }
+
+  /// Starts a round video note from the composer. It runs only while the finger
+  /// is down; releasing sends it, sliding left throws it away.
+  Future<void> _startRoundNote() async {
+    if (_isRecordingNote || _noteStarting || _isSending) {
+      return;
+    }
+    _noteStarting = true;
+    final recorder = RoundVideoRecorder();
+    try {
+      if (!await recorder.start()) {
+        await recorder.dispose();
+        await Fluttertoast.showToast(
+            msg: 'cameraUnavailable'.tr(), backgroundColor: Colors.red);
+        return;
+      }
+    } finally {
+      _noteStarting = false;
+    }
+    if (!mounted) {
+      await recorder.dispose();
+      return;
+    }
+    setState(() {
+      _noteRecorder = recorder;
+      _isRecordingNote = true;
+      _noteCancel = false;
+      _noteElapsed = Duration.zero;
+    });
+    _noteTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _noteElapsed += const Duration(seconds: 1));
+      if (_noteElapsed >= RoundVideoRecorder.maxLength) {
+        _stopRoundNote();
+      }
+    });
+    // The finger was lifted while the camera was still opening.
+    if (_noteStopRequested) {
+      _noteStopRequested = false;
+      await _stopRoundNote();
+    }
+  }
+
+  /// Stops the round note and sends it, unless it was dragged away.
+  Future<void> _stopRoundNote() async {
+    _noteTimer?.cancel();
+    _noteTimer = null;
+    final recorder = _noteRecorder;
+    _noteRecorder = null;
+    final cancelled = _noteCancel;
+    _noteCancel = false;
+    if (mounted) {
+      setState(() => _isRecordingNote = false);
+    }
+    if (recorder == null) {
+      return;
+    }
+    if (cancelled) {
+      await recorder.cancel();
+      return;
+    }
+    final file = await recorder.stop();
+    if (file == null) {
+      return;
+    }
+    await _sendMedia(MediaType.video, file, videoNote: true);
+  }
+
+  /// The circle above the composer while a round note is being recorded.
+  Widget _buildRoundNotePreview() {
+    final controller = _noteRecorder?.controller;
+    final color = _noteCancel ? Colors.red : chatTheme.colorScheme.primary;
+    final ready = controller != null && controller.value.isInitialized;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipOval(
+            child: SizedBox(
+              width: 150,
+              height: 150,
+              child: ready
+                  ? FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: controller.value.previewSize?.height ?? 150,
+                        height: controller.value.previewSize?.width ?? 150,
+                        child: CameraPreview(controller),
+                      ),
+                    )
+                  : const ColoredBox(
+                      color: Colors.black26,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.fiber_manual_record,
+                  size: 12, color: Colors.red),
+              const SizedBox(width: 4),
+              Text(
+                '${_formatRecordDuration(_noteElapsed)} · ${'slideToCancel'.tr()}',
+                style: TextStyle(color: color, fontSize: 12),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   /// Runs the editor for one picked attachment. Returns null when the user
@@ -1177,36 +1308,6 @@ class _ChatPageState extends State<ChatPage> {
         return SafeArea(
           child: Wrap(
             children: [
-              ListTile(
-                leading: const Icon(Icons.photo_camera),
-                title: Text('attachCamera'.tr()),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickAndSend(() async {
-                    final file = await MediaUtils.pickImageFromCamera();
-                    return file == null ? <File>[] : [file];
-                  }, forcedType: MediaType.image);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.videocam),
-                title: Text('attachVideoCamera'.tr()),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickAndSend(() async {
-                    final file = await MediaUtils.pickVideoFromCamera();
-                    return file == null ? <File>[] : [file];
-                  }, forcedType: MediaType.video);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.videocam_outlined),
-                title: Text('videoNote'.tr()),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _recordVideoNote();
-                },
-              ),
               ListTile(
                 leading: const Icon(Icons.photo_library),
                 title: Text('attachGallery'.tr()),
@@ -1397,6 +1498,33 @@ class _ChatPageState extends State<ChatPage> {
                     icon: const Icon(Icons.attach_file),
                     tooltip: 'attachButton'.tr(),
                     onPressed: _isSending ? null : _showAttachSheet,
+                  ),
+                  // Tap opens the camera, holding it records a round video note
+                  // and releasing sends it. Only the long press is registered
+                  // here, so a tap stays the plain button.
+                  suffixIcon: GestureDetector(
+                    onLongPressStart: (_) => _startRoundNote(),
+                    onLongPressMoveUpdate: (details) {
+                      if (!_isRecordingNote) {
+                        return;
+                      }
+                      final cancel = details.localOffsetFromOrigin.dx < -80;
+                      if (cancel != _noteCancel) {
+                        setState(() => _noteCancel = cancel);
+                      }
+                    },
+                    onLongPressEnd: (_) {
+                      if (_isRecordingNote) {
+                        _stopRoundNote();
+                      } else {
+                        _noteStopRequested = true;
+                      }
+                    },
+                    child: IconButton(
+                      icon: const Icon(Icons.photo_camera_outlined),
+                      tooltip: 'attachCamera'.tr(),
+                      onPressed: _isSending ? null : _captureFromCamera,
+                    ),
                   ),
                   filled: true,
                   fillColor: chatTheme.brightness == Brightness.dark
@@ -2089,6 +2217,7 @@ class _ChatPageState extends State<ChatPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (_replyTo != null) _buildReplyBar(),
+                    if (_isRecordingNote) _buildRoundNotePreview(),
                     if (PresenceNotifier.instance.isTyping(widget.user.id))
                       Padding(
                         padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
