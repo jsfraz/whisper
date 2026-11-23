@@ -105,6 +105,10 @@ class _ChatPageState extends State<ChatPage> {
   /// the gesture arena and the press would never reach us.
   Timer? _noteHoldTimer;
   Offset? _notePressOrigin;
+
+  /// The current press was held long enough to start a note, so releasing it
+  /// must not also count as a tap that opens the camera.
+  bool _noteHoldFired = false;
   bool _cancelRecording = false;
   MediaRecorderController? _recorderController;
   Duration _recordDuration = Duration.zero;
@@ -1081,6 +1085,15 @@ class _ChatPageState extends State<ChatPage> {
             type == MediaType.video ? MediaType.video : MediaType.image);
   }
 
+  /// The tap that ends a hold must not open the camera: the button sees the
+  /// release as a tap as well.
+  void _openCameraUnlessNote() {
+    if (_noteHoldFired || _isRecordingNote || _noteStarting) {
+      return;
+    }
+    _captureFromCamera();
+  }
+
   /// A press on the camera button starts the hold timer; a tap still opens the
   /// camera through the button itself.
   void _onCameraPressStart(PointerDownEvent event) {
@@ -1088,9 +1101,11 @@ class _ChatPageState extends State<ChatPage> {
     // raise the keyboard over the note preview.
     FocusScope.of(context).unfocus();
     _notePressOrigin = event.position;
+    _noteHoldFired = false;
     _noteHoldTimer?.cancel();
     _noteHoldTimer = Timer(const Duration(milliseconds: 400), () {
       _noteHoldTimer = null;
+      _noteHoldFired = true;
       _startRoundNote();
     });
   }
@@ -1621,7 +1636,7 @@ class _ChatPageState extends State<ChatPage> {
                         child: _composerIcon(
                           icon: Icons.photo_camera_outlined,
                           label: 'attachCamera'.tr(),
-                          onPressed: _isSending ? null : _captureFromCamera,
+                          onPressed: _isSending ? null : _openCameraUnlessNote,
                         ),
                       ),
                     ),
