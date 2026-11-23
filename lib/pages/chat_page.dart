@@ -1553,13 +1553,6 @@ class _ChatPageState extends State<ChatPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _composerIcon(
-              icon: Icons.attach_file,
-              label: 'attachButton'.tr(),
-              tooltip: 'attachButton'.tr(),
-              onPressed: _isSending ? null : _showAttachSheet,
-            ),
-            const SizedBox(width: 2),
             Expanded(
               child: TextField(
                 controller: _controllerMessage,
@@ -1582,6 +1575,30 @@ class _ChatPageState extends State<ChatPage> {
                   hintText: 'yourMessage'.tr(),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  prefixIconConstraints:
+                      const BoxConstraints(minWidth: 40, minHeight: 40),
+                  suffixIconConstraints:
+                      const BoxConstraints(minWidth: 40, minHeight: 40),
+                  prefixIcon: _composerIcon(
+                    icon: Icons.attach_file,
+                    label: 'attachButton'.tr(),
+                    tooltip: 'attachButton'.tr(),
+                    onPressed: _isSending ? null : _showAttachSheet,
+                  ),
+                  // Holding the camera records a round note: the pointer
+                  // listener is used because a long-press recognizer loses to the
+                  // field's own gestures.
+                  suffixIcon: Listener(
+                    onPointerDown: _onCameraPressStart,
+                    onPointerMove: _onCameraPressMove,
+                    onPointerUp: _onCameraPressEnd,
+                    onPointerCancel: _onCameraPressEnd,
+                    child: _composerIcon(
+                      icon: Icons.photo_camera_outlined,
+                      label: 'attachCamera'.tr(),
+                      onPressed: _isSending ? null : _captureFromCamera,
+                    ),
+                  ),
                   filled: true,
                   fillColor: chatTheme.brightness == Brightness.dark
                       ? chatTheme.colorScheme.surfaceBright
@@ -1597,19 +1614,7 @@ class _ChatPageState extends State<ChatPage> {
             // releasing sends it. The raw pointer listener is here because a
             // long-press recognizer loses to the keyboard's own gestures when it
             // sits inside the field.
-            const SizedBox(width: 2),
-            Listener(
-              onPointerDown: _onCameraPressStart,
-              onPointerMove: _onCameraPressMove,
-              onPointerUp: _onCameraPressEnd,
-              onPointerCancel: _onCameraPressEnd,
-              child: _composerIcon(
-                icon: Icons.photo_camera_outlined,
-                label: 'attachCamera'.tr(),
-                onPressed: _isSending ? null : _captureFromCamera,
-              ),
-            ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: _controllerMessage,
               builder: (context, value, _) {
