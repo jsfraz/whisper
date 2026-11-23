@@ -15,8 +15,12 @@ class VoiceAutoplay {
   static final ValueNotifier<String?> request = ValueNotifier<String?>(null);
 
   /// Asks the next voice message after [afterSentAt] in [conversationId] to
-  /// play. Stops at the end of the chat, and skips a voice message that is not
-  /// on this device: it could not play, so skipping is honest.
+  /// play.
+  ///
+  /// The chain is for listening to the other side: it stops at our own voice
+  /// message instead of playing it back. It also stops at the end of the chat,
+  /// and skips a message that is not on this device, since that one could not
+  /// play anyway.
   ///
   /// shortcut: a player only exists while its bubble is built, so a request for
   /// an off-screen message is dropped; upgrade by hoisting playback into a
@@ -28,7 +32,15 @@ class VoiceAutoplay {
       if (!message.sentAt.isAfter(afterSentAt)) {
         continue;
       }
-      if (message.mediaType != MediaType.voice || message.localPath == null) {
+      if (message.mediaType != MediaType.voice) {
+        continue;
+      }
+      // Our own message ends the chain: playback continues only into what the
+      // other side said.
+      if (message.isMe) {
+        return;
+      }
+      if (message.localPath == null) {
         continue;
       }
       request.value = CacheUtils.messageKey(conversationId, message.sentAt);

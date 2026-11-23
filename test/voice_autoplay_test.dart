@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:whisper/models/private_message.dart';
+import 'package:whisper/models/profile.dart';
+import 'package:whisper/models/user.dart';
+import 'package:whisper/utils/singleton.dart';
 import 'package:whisper/utils/cache_utils.dart';
 import 'package:whisper/utils/voice_autoplay.dart';
 
@@ -13,6 +16,9 @@ void main() {
     dir = Directory.systemTemp.createTempSync('whisper_voice_autoplay_test');
     Hive.init(dir.path);
     Hive.registerAdapter(PrivateMessageAdapter());
+    // isMe compares against the signed-in user.
+    Singleton().profile =
+        Profile('', User('me', 'me', '', false), '', '', '', '', false);
   });
 
   setUp(() async {
@@ -26,8 +32,9 @@ void main() {
     dir.deleteSync(recursive: true);
   });
 
-  PrivateMessage voice(DateTime sentAt, {String? path = '/tmp/voice'}) =>
-      PrivateMessage('1', '', sentAt, sentAt, true,
+  PrivateMessage voice(DateTime sentAt,
+          {String? path = '/tmp/voice', String sender = 'peer'}) =>
+      PrivateMessage(sender, '', sentAt, sentAt, true,
           mediaTypeStr: 'voice', localPath: path, durationMs: 1000);
 
   test('the next voice message in the chat is requested', () async {
@@ -62,6 +69,21 @@ void main() {
     await CacheUtils.addPrivateMessages('1', [
       voice(first),
       voice(missing, path: null),
+    ]);
+
+    await VoiceAutoplay.next('1', first);
+
+    expect(VoiceAutoplay.request.value, isNull);
+  });
+
+  test('playback stops instead of playing our own voice message', () async {
+    final first = DateTime(2026, 1, 1, 10);
+    final mine = DateTime(2026, 1, 1, 10, 1);
+    final later = DateTime(2026, 1, 1, 10, 2);
+    await CacheUtils.addPrivateMessages('1', [
+      voice(first),
+      voice(mine, sender: 'me'),
+      voice(later),
     ]);
 
     await VoiceAutoplay.next('1', first);
