@@ -338,20 +338,31 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         border: Border.all(color: Colors.white, width: 4),
       ),
       padding: const EdgeInsets.all(6),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: _recording ? BoxShape.rectangle : BoxShape.circle,
-          borderRadius: _recording ? BorderRadius.circular(6) : null,
-          color: _recording ? Colors.red : Colors.white,
-        ),
-        child: _busy
-            ? const Center(
-                child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2)))
-            : null,
-      ),
+      child: _busy
+          ? const Center(
+              child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2)))
+          // Recording: a small stop square inside the ring, so the button keeps
+          // its size and only the glyph changes.
+          : _recording
+              ? Center(
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                )
+              : const DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                  ),
+                ),
     );
   }
 }
