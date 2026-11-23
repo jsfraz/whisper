@@ -1357,76 +1357,78 @@ class _ChatPageState extends State<ChatPage> {
     return '$minutes:$seconds';
   }
 
-  /// Default message input bar: attach inside the field on the left, mic or
-  /// send on the right.
+  /// Composer: a paperclip inside the field on the left, one round action
+  /// beside the field on the right — mic while it is empty, send once there is
+  /// text — painted in the chat's colour.
   Widget _buildInputBar() {
     return Padding(
-      padding: const EdgeInsets.only(right: 5, left: 5),
-      child: TextField(
-        controller: _controllerMessage,
-        minLines: 1,
-        maxLines: 5,
-        textInputAction: TextInputAction.newline,
-        onChanged: (value) {
-          // The receiver clears the indicator on its own; this only throttles
-          // the frames and stays silent when the user opted out.
-          if (value.trim().isNotEmpty) {
-            utils.Utils.sendTypingHint(widget.user.id);
-          }
-        },
-        contentInsertionConfiguration: ContentInsertionConfiguration(
-          allowedMimeTypes: const ['image/gif', 'image/webp'],
-          onContentInserted: _onKeyboardContentInserted,
-        ),
-        decoration: InputDecoration(
-          hintText: 'yourMessage'.tr(),
-          // The attach button lives inside the field, mirroring the mic.
-          prefixIcon: IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'attachButton'.tr(),
-            onPressed: _isSending ? null : _showAttachSheet,
+      padding: const EdgeInsets.fromLTRB(5, 4, 8, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controllerMessage,
+              minLines: 1,
+              maxLines: 5,
+              textInputAction: TextInputAction.newline,
+              onChanged: (value) {
+                // The receiver clears the indicator on its own; this only
+                // throttles the frames and stays silent when the user opted out.
+                if (value.trim().isNotEmpty) {
+                  utils.Utils.sendTypingHint(widget.user.id);
+                }
+              },
+              contentInsertionConfiguration: ContentInsertionConfiguration(
+                allowedMimeTypes: const ['image/gif', 'image/webp'],
+                onContentInserted: _onKeyboardContentInserted,
+              ),
+              decoration: InputDecoration(
+                hintText: 'yourMessage'.tr(),
+                prefixIcon: IconButton(
+                  icon: const Icon(Icons.attach_file),
+                  tooltip: 'attachButton'.tr(),
+                  onPressed: _isSending ? null : _showAttachSheet,
+                ),
+                filled: true,
+                fillColor: chatTheme.brightness == Brightness.dark
+                    ? chatTheme.colorScheme.surfaceBright
+                    : chatTheme.colorScheme.surfaceDim,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
           ),
-          filled: true,
-          fillColor: chatTheme.brightness == Brightness.dark
-              ? chatTheme.colorScheme.surfaceBright
-              : chatTheme.colorScheme.surfaceDim,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(30),
-            borderSide: BorderSide.none,
-          ),
-          suffixIcon: ValueListenableBuilder<TextEditingValue>(
+          const SizedBox(width: 8),
+          ValueListenableBuilder<TextEditingValue>(
             valueListenable: _controllerMessage,
             builder: (context, value, _) {
               // A send in flight shows here whatever the field holds: encrypting
               // and uploading a large attachment, probing a video or waiting for
               // a GPS fix takes a while, and the bubble is not there yet.
               if (_isSending) {
-                // 48 px like the icon buttons it replaces, so nothing shifts.
-                return const Padding(
-                  padding: EdgeInsets.all(15),
-                  child: SizedBox(
+                return _composerButton(
+                  child: const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
                   ),
                 );
               }
-              final hasText = value.text.trim().isNotEmpty;
-              if (hasText) {
-                return IconButton(
+              if (value.text.trim().isNotEmpty) {
+                return _composerButton(
                   onPressed: _sendMessage,
-                  icon: const Icon(Icons.send),
+                  child: const Icon(Icons.send),
                 );
               }
               // Hold-to-record voice message. The bar is overlaid while
-              // recording, so this detector stays mounted and its
-              // long-press end still fires.
+              // recording, so this detector stays mounted and its long-press
+              // end still fires.
               return GestureDetector(
-                onLongPressStart: (_) {
-                  if (!_isSending) {
-                    _startRecording();
-                  }
-                },
+                onLongPressStart: (_) => _startRecording(),
                 onLongPressMoveUpdate: (details) {
                   if (_recordingLocked) {
                     return;
@@ -1455,17 +1457,39 @@ class _ChatPageState extends State<ChatPage> {
                     _stopRequested = true;
                   }
                 },
-                child: IconButton(
-                  onPressed: _isSending
-                      ? null
-                      : () async {
-                          await Fluttertoast.showToast(
-                              msg: 'holdToRecord'.tr());
-                        },
-                  icon: const Icon(Icons.mic),
+                child: _composerButton(
+                  onPressed: () async {
+                    await Fluttertoast.showToast(msg: 'holdToRecord'.tr());
+                  },
+                  child: const Icon(Icons.mic),
                 ),
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The round action beside the composer, filled with the chat colour.
+  Widget _composerButton({Widget? child, VoidCallback? onPressed}) {
+    final color = chatTheme.colorScheme.primary;
+    final onColor =
+        ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+            ? Colors.white
+            : Colors.black87;
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Material(
+        color: color,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: IconTheme(
+            data: IconThemeData(color: onColor),
+            child: Center(child: child),
           ),
         ),
       ),
