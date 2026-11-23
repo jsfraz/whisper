@@ -1363,115 +1363,126 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildInputBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(5, 4, 8, 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controllerMessage,
-              minLines: 1,
-              maxLines: 5,
-              textInputAction: TextInputAction.newline,
-              onChanged: (value) {
-                // The receiver clears the indicator on its own; this only
-                // throttles the frames and stays silent when the user opted out.
-                if (value.trim().isNotEmpty) {
-                  utils.Utils.sendTypingHint(widget.user.id);
-                }
-              },
-              contentInsertionConfiguration: ContentInsertionConfiguration(
-                allowedMimeTypes: const ['image/gif', 'image/webp'],
-                onContentInserted: _onKeyboardContentInserted,
-              ),
-              decoration: InputDecoration(
-                hintText: 'yourMessage'.tr(),
-                prefixIcon: IconButton(
-                  icon: const Icon(Icons.attach_file),
-                  tooltip: 'attachButton'.tr(),
-                  onPressed: _isSending ? null : _showAttachSheet,
+      // Stretching the row makes the button exactly as tall as the field, so
+      // the two are aligned however many lines the field grows to.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _controllerMessage,
+                minLines: 1,
+                maxLines: 5,
+                textInputAction: TextInputAction.newline,
+                onChanged: (value) {
+                  // The receiver clears the indicator on its own; this only
+                  // throttles the frames and stays silent when the user opted
+                  // out.
+                  if (value.trim().isNotEmpty) {
+                    utils.Utils.sendTypingHint(widget.user.id);
+                  }
+                },
+                contentInsertionConfiguration: ContentInsertionConfiguration(
+                  allowedMimeTypes: const ['image/gif', 'image/webp'],
+                  onContentInserted: _onKeyboardContentInserted,
                 ),
-                filled: true,
-                fillColor: chatTheme.brightness == Brightness.dark
-                    ? chatTheme.colorScheme.surfaceBright
-                    : chatTheme.colorScheme.surfaceDim,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
+                decoration: InputDecoration(
+                  hintText: 'yourMessage'.tr(),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  prefixIconConstraints:
+                      const BoxConstraints(minWidth: 44, minHeight: 44),
+                  prefixIcon: IconButton(
+                    icon: const Icon(Icons.attach_file),
+                    tooltip: 'attachButton'.tr(),
+                    onPressed: _isSending ? null : _showAttachSheet,
+                  ),
+                  filled: true,
+                  fillColor: chatTheme.brightness == Brightness.dark
+                      ? chatTheme.colorScheme.surfaceBright
+                      : chatTheme.colorScheme.surfaceDim,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _controllerMessage,
-            builder: (context, value, _) {
-              // A send in flight shows here whatever the field holds: encrypting
-              // and uploading a large attachment, probing a video or waiting for
-              // a GPS fix takes a while, and the bubble is not there yet.
-              if (_isSending) {
-                return _composerButton(
-                  child: const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+            const SizedBox(width: 8),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _controllerMessage,
+              builder: (context, value, _) {
+                // A send in flight shows here whatever the field holds:
+                // encrypting and uploading a large attachment, probing a video
+                // or waiting for a GPS fix takes a while, and the bubble is not
+                // there yet.
+                if (_isSending) {
+                  return _composerButton(
+                    child: const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    ),
+                  );
+                }
+                if (value.text.trim().isNotEmpty) {
+                  return _composerButton(
+                    onPressed: _sendMessage,
+                    child: const Icon(Icons.send),
+                  );
+                }
+                // Hold-to-record voice message. The bar is overlaid while
+                // recording, so this detector stays mounted and its long-press
+                // end still fires.
+                return GestureDetector(
+                  onLongPressStart: (_) => _startRecording(),
+                  onLongPressMoveUpdate: (details) {
+                    if (_recordingLocked) {
+                      return;
+                    }
+                    final offset = details.localOffsetFromOrigin;
+                    if (offset.dy < -60) {
+                      setState(() {
+                        _recordingLocked = true;
+                        _cancelRecording = false;
+                      });
+                      return;
+                    }
+                    final shouldCancel = offset.dx < -80;
+                    if (shouldCancel != _cancelRecording) {
+                      setState(() {
+                        _cancelRecording = shouldCancel;
+                      });
+                    }
+                  },
+                  onLongPressEnd: (_) {
+                    // A locked recording outlives the gesture: it stops from
+                    // the bar, which is all the release used to do.
+                    if (_isRecording && !_recordingLocked) {
+                      _stopRecording();
+                    } else if (!_isRecording) {
+                      _stopRequested = true;
+                    }
+                  },
+                  child: _composerButton(
+                    onPressed: () async {
+                      await Fluttertoast.showToast(msg: 'holdToRecord'.tr());
+                    },
+                    child: const Icon(Icons.mic),
                   ),
                 );
-              }
-              if (value.text.trim().isNotEmpty) {
-                return _composerButton(
-                  onPressed: _sendMessage,
-                  child: const Icon(Icons.send),
-                );
-              }
-              // Hold-to-record voice message. The bar is overlaid while
-              // recording, so this detector stays mounted and its long-press
-              // end still fires.
-              return GestureDetector(
-                onLongPressStart: (_) => _startRecording(),
-                onLongPressMoveUpdate: (details) {
-                  if (_recordingLocked) {
-                    return;
-                  }
-                  final offset = details.localOffsetFromOrigin;
-                  if (offset.dy < -60) {
-                    setState(() {
-                      _recordingLocked = true;
-                      _cancelRecording = false;
-                    });
-                    return;
-                  }
-                  final shouldCancel = offset.dx < -80;
-                  if (shouldCancel != _cancelRecording) {
-                    setState(() {
-                      _cancelRecording = shouldCancel;
-                    });
-                  }
-                },
-                onLongPressEnd: (_) {
-                  // A locked recording outlives the gesture: it stops from the
-                  // bar, which is all the release used to do.
-                  if (_isRecording && !_recordingLocked) {
-                    _stopRecording();
-                  } else if (!_isRecording) {
-                    _stopRequested = true;
-                  }
-                },
-                child: _composerButton(
-                  onPressed: () async {
-                    await Fluttertoast.showToast(msg: 'holdToRecord'.tr());
-                  },
-                  child: const Icon(Icons.mic),
-                ),
-              );
-            },
-          ),
-        ],
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// The round action beside the composer, filled with the chat colour.
+  /// The round action beside the composer, filled with the chat's colour. It
+  /// takes the row's height, so it is a circle while the field has one line.
   Widget _composerButton({Widget? child, VoidCallback? onPressed}) {
     final color = chatTheme.colorScheme.primary;
     final onColor =
@@ -1480,10 +1491,9 @@ class _ChatPageState extends State<ChatPage> {
             : Colors.black87;
     return SizedBox(
       width: 48,
-      height: 48,
       child: Material(
         color: color,
-        shape: const CircleBorder(),
+        shape: const StadiumBorder(),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onPressed,
