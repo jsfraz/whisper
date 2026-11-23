@@ -127,6 +127,14 @@ class ChatSender {
     );
     try {
       await _persist(recipient, [message]);
+      if (videoNote) {
+        // The reference only exists after the upload, but the bubble has to know
+        // it is a round note from the first frame: mark it now, the finished
+        // reference overwrites this below.
+        await CacheUtils.updateStoredMessage(recipient.id, message, (stored) {
+          stored.mediaRefJson = jsonEncode({'videoNote': true});
+        });
+      }
       if (!await _ensureConnected()) {
         return await _fail(recipient.id, message);
       }

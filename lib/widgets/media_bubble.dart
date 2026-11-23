@@ -326,7 +326,7 @@ class _MediaBubbleState extends State<MediaBubble> {
     }
 
     // A round video note keeps its circle whatever state it is in.
-    if (type == MediaType.video && _isVideoNote) {
+    if (type == MediaType.video && widget.message.isVideoNote) {
       return _withCaption(
         ClipOval(
           child: SizedBox(
@@ -435,14 +435,6 @@ class _MediaBubbleState extends State<MediaBubble> {
           ),
       ],
     );
-  }
-
-  /// Whether this video was recorded as a round video note.
-  bool get _isVideoNote {
-    final references = widget.message.mediaReferences;
-    return references != null &&
-        references.isNotEmpty &&
-        references.first.videoNote;
   }
 
   /// A pending attachment waits for the network setting; the icon is also the

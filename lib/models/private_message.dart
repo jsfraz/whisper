@@ -336,6 +336,28 @@ class PrivateMessage extends HiveObject {
     }
   }
 
+  /// Whether this video was recorded as a round note.
+  ///
+  /// The flag rides in the media reference, which only exists once the upload
+  /// finished; while a note is still sending, the message carries a bare marker
+  /// written when the send started.
+  bool get isVideoNote {
+    final references = mediaReferences;
+    if (references != null && references.isNotEmpty) {
+      return references.first.videoNote;
+    }
+    final raw = mediaRefJson;
+    if (raw == null || raw.isEmpty) {
+      return false;
+    }
+    try {
+      final json = jsonDecode(raw);
+      return json is Map && json['videoNote'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Whether the sender edited the text after sending it.
   bool get isEdited => editedAt != null;
 
