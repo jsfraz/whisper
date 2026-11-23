@@ -1223,23 +1223,53 @@ class _ChatPageState extends State<ChatPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ClipOval(
-            child: SizedBox(
-              width: 150,
-              height: 150,
-              child: ready
-                  ? FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: controller.value.previewSize?.height ?? 150,
-                        height: controller.value.previewSize?.width ?? 150,
-                        child: CameraPreview(controller),
-                      ),
-                    )
-                  : const ColoredBox(
-                      color: Colors.black26,
-                      child: Center(child: CircularProgressIndicator()),
+          SizedBox(
+            width: 162,
+            height: 162,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // A minute of recording fills the ring around the preview, so
+                // the limit is visible without reading the timer.
+                SizedBox.expand(
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween<double>(
+                        begin: 0,
+                        end: (_noteElapsed.inMilliseconds /
+                                RoundVideoRecorder.maxLength.inMilliseconds)
+                            .clamp(0.0, 1.0)),
+                    duration: const Duration(seconds: 1),
+                    builder: (context, value, _) => CircularProgressIndicator(
+                      value: value,
+                      strokeWidth: 4,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: color.withValues(alpha: 0.25),
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
                     ),
+                  ),
+                ),
+                ClipOval(
+                  child: SizedBox(
+                    width: 150,
+                    height: 150,
+                    child: ready
+                        ? FittedBox(
+                            fit: BoxFit.cover,
+                            child: SizedBox(
+                              width:
+                                  controller.value.previewSize?.height ?? 150,
+                              height:
+                                  controller.value.previewSize?.width ?? 150,
+                              child: CameraPreview(controller),
+                            ),
+                          )
+                        : const ColoredBox(
+                            color: Colors.black26,
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 4),
