@@ -339,9 +339,34 @@ class _WaveformPainter extends CustomPainter {
   final double progress;
   final Color color;
 
+  /// Bars drawn at most. A long recording has one sample per 100 ms, which
+  /// would be sub-pixel wide: the samples are folded into this many peaks.
+  static const int maxBars = 32;
+
+  /// Folds [samples] into at most [maxBars] peaks, so a bar is always visible.
+  List<int> _bars() {
+    if (samples.length <= maxBars) {
+      return samples;
+    }
+    final bucket = samples.length / maxBars;
+    return List<int>.generate(maxBars, (index) {
+      final start = (index * bucket).floor();
+      final end =
+          ((index + 1) * bucket).ceil().clamp(start + 1, samples.length);
+      var peak = 0;
+      for (var i = start; i < end; i++) {
+        if (samples[i] > peak) {
+          peak = samples[i];
+        }
+      }
+      return peak;
+    });
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
-    if (samples.isEmpty) {
+    final bars = _bars();
+    if (bars.isEmpty) {
       final paint = Paint()
         ..color = color.withValues(alpha: 0.3)
         ..strokeWidth = 2
@@ -350,12 +375,12 @@ class _WaveformPainter extends CustomPainter {
           Offset(size.width, size.height / 2), paint);
       return;
     }
-    final step = size.width / samples.length;
+    final step = size.width / bars.length;
     final barWidth = (step * 0.6).clamp(1.0, 4.0);
     final played = Paint()..color = color;
     final rest = Paint()..color = color.withValues(alpha: 0.3);
-    for (var i = 0; i < samples.length; i++) {
-      final height = (samples[i] / 100 * size.height).clamp(2.0, size.height);
+    for (var i = 0; i < bars.length; i++) {
+      final height = (bars[i] / 100 * size.height).clamp(2.0, size.height);
       final rect = RRect.fromRectAndRadius(
         Rect.fromCenter(
           center: Offset(i * step + step / 2, size.height / 2),
@@ -364,7 +389,7 @@ class _WaveformPainter extends CustomPainter {
         ),
         const Radius.circular(1),
       );
-      canvas.drawRRect(rect, i / samples.length <= progress ? played : rest);
+      canvas.drawRRect(rect, i / bars.length <= progress ? played : rest);
     }
   }
 
