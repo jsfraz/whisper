@@ -23,6 +23,12 @@ class ViewOnceFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // An opened frame is a little duller, never translucent: the peer's colour
+    // is already close to the chat background and alpha made it look invisible.
+    final fill = dimmed
+        ? Color.alphaBlend(scheme.surface.withValues(alpha: 0.35), bubbleColor)
+        : bubbleColor;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -30,7 +36,7 @@ class ViewOnceFrame extends StatelessWidget {
         width: 200,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: dimmed ? bubbleColor.withValues(alpha: 0.55) : bubbleColor,
+          color: fill,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
