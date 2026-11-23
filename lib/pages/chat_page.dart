@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart' show CameraPreview;
@@ -1054,6 +1055,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     _noteStarting = true;
+    FocusScope.of(context).unfocus();
     final recorder = RoundVideoRecorder();
     try {
       if (!await recorder.start()) {
@@ -1499,33 +1501,6 @@ class _ChatPageState extends State<ChatPage> {
                     tooltip: 'attachButton'.tr(),
                     onPressed: _isSending ? null : _showAttachSheet,
                   ),
-                  // Tap opens the camera, holding it records a round video note
-                  // and releasing sends it. Only the long press is registered
-                  // here, so a tap stays the plain button.
-                  suffixIcon: GestureDetector(
-                    onLongPressStart: (_) => _startRoundNote(),
-                    onLongPressMoveUpdate: (details) {
-                      if (!_isRecordingNote) {
-                        return;
-                      }
-                      final cancel = details.localOffsetFromOrigin.dx < -80;
-                      if (cancel != _noteCancel) {
-                        setState(() => _noteCancel = cancel);
-                      }
-                    },
-                    onLongPressEnd: (_) {
-                      if (_isRecordingNote) {
-                        _stopRoundNote();
-                      } else {
-                        _noteStopRequested = true;
-                      }
-                    },
-                    child: IconButton(
-                      icon: const Icon(Icons.photo_camera_outlined),
-                      tooltip: 'attachCamera'.tr(),
-                      onPressed: _isSending ? null : _captureFromCamera,
-                    ),
-                  ),
                   filled: true,
                   fillColor: chatTheme.brightness == Brightness.dark
                       ? chatTheme.colorScheme.surfaceBright
@@ -1537,7 +1512,40 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
+            // Tap opens the camera, holding it records a round note. It sits
+            // beside the field, not inside it: a long press in the field belongs
+            // to text selection and would swallow the press.
+            GestureDetector(
+              onLongPressStart: (_) => _startRoundNote(),
+              onLongPressMoveUpdate: (details) {
+                if (!_isRecordingNote) {
+                  return;
+                }
+                final cancel = details.localOffsetFromOrigin.dx < -80;
+                if (cancel != _noteCancel) {
+                  setState(() => _noteCancel = cancel);
+                }
+              },
+              onLongPressEnd: (_) {
+                if (_isRecordingNote) {
+                  _stopRoundNote();
+                } else {
+                  _noteStopRequested = true;
+                }
+              },
+              // No tooltip on purpose: a tooltip's long press wins the gesture
+              // arena and the round-note press would only show the label.
+              child: Semantics(
+                button: true,
+                label: 'attachCamera'.tr(),
+                child: IconButton(
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  onPressed: _isSending ? null : _captureFromCamera,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: _controllerMessage,
               builder: (context, value, _) {

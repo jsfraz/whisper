@@ -137,8 +137,7 @@ class ChatSender {
           durationMs: durationMs,
           fileName: fileName,
           waveform: waveform,
-          // Only a single video is ever a note; the stored reference says so.
-          videoNote: message.mediaReferences?.first.videoNote ?? false);
+          videoNote: videoNote);
       if (reference == null) {
         return await _fail(recipient.id, message);
       }
