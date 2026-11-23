@@ -98,6 +98,12 @@ class _ChatPageState extends State<ChatPage> {
   bool _noteCancel = false;
   Duration _noteElapsed = Duration.zero;
   Timer? _noteTimer;
+
+  /// Press that may turn into a round note. A raw [Listener] is used instead of
+  /// a long-press recognizer: inside a TextField the field's own recognizer wins
+  /// the gesture arena and the press would never reach us.
+  Timer? _noteHoldTimer;
+  Offset? _notePressOrigin;
   bool _cancelRecording = false;
   MediaRecorderController? _recorderController;
   Duration _recordDuration = Duration.zero;
@@ -1048,6 +1054,43 @@ class _ChatPageState extends State<ChatPage> {
             type == MediaType.video ? MediaType.video : MediaType.image);
   }
 
+  /// A press on the camera button starts the hold timer; a tap still opens the
+  /// camera through the button itself.
+  void _onCameraPressStart(PointerDownEvent event) {
+    // The press is inside the field's tap region, which would focus it and
+    // raise the keyboard over the note preview.
+    FocusScope.of(context).unfocus();
+    _notePressOrigin = event.position;
+    _noteHoldTimer?.cancel();
+    _noteHoldTimer = Timer(const Duration(milliseconds: 400), () {
+      _noteHoldTimer = null;
+      _startRoundNote();
+    });
+  }
+
+  void _onCameraPressMove(PointerMoveEvent event) {
+    final origin = _notePressOrigin;
+    if (origin == null || !_isRecordingNote) {
+      return;
+    }
+    final cancel = event.position.dx - origin.dx < -80;
+    if (cancel != _noteCancel) {
+      setState(() => _noteCancel = cancel);
+    }
+  }
+
+  void _onCameraPressEnd(PointerEvent event) {
+    _noteHoldTimer?.cancel();
+    _noteHoldTimer = null;
+    _notePressOrigin = null;
+    if (_isRecordingNote) {
+      _stopRoundNote();
+    } else if (_noteStarting) {
+      // Released while the camera was still opening.
+      _noteStopRequested = true;
+    }
+  }
+
   /// Starts a round video note from the composer. It runs only while the finger
   /// is down; releasing sends it, sliding left throws it away.
   Future<void> _startRoundNote() async {
@@ -1501,6 +1544,23 @@ class _ChatPageState extends State<ChatPage> {
                     tooltip: 'attachButton'.tr(),
                     onPressed: _isSending ? null : _showAttachSheet,
                   ),
+                  // Tap opens the camera, holding it records a round note. No
+                  // tooltip: its long press would win the gesture arena and the
+                  // note would never start.
+                  suffixIcon: Listener(
+                    onPointerDown: _onCameraPressStart,
+                    onPointerMove: _onCameraPressMove,
+                    onPointerUp: _onCameraPressEnd,
+                    onPointerCancel: _onCameraPressEnd,
+                    child: Semantics(
+                      button: true,
+                      label: 'attachCamera'.tr(),
+                      child: IconButton(
+                        icon: const Icon(Icons.photo_camera_outlined),
+                        onPressed: _isSending ? null : _captureFromCamera,
+                      ),
+                    ),
+                  ),
                   filled: true,
                   fillColor: chatTheme.brightness == Brightness.dark
                       ? chatTheme.colorScheme.surfaceBright
@@ -1512,40 +1572,7 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
             ),
-            const SizedBox(width: 4),
-            // Tap opens the camera, holding it records a round note. It sits
-            // beside the field, not inside it: a long press in the field belongs
-            // to text selection and would swallow the press.
-            GestureDetector(
-              onLongPressStart: (_) => _startRoundNote(),
-              onLongPressMoveUpdate: (details) {
-                if (!_isRecordingNote) {
-                  return;
-                }
-                final cancel = details.localOffsetFromOrigin.dx < -80;
-                if (cancel != _noteCancel) {
-                  setState(() => _noteCancel = cancel);
-                }
-              },
-              onLongPressEnd: (_) {
-                if (_isRecordingNote) {
-                  _stopRoundNote();
-                } else {
-                  _noteStopRequested = true;
-                }
-              },
-              // No tooltip on purpose: a tooltip's long press wins the gesture
-              // arena and the round-note press would only show the label.
-              child: Semantics(
-                button: true,
-                label: 'attachCamera'.tr(),
-                child: IconButton(
-                  icon: const Icon(Icons.photo_camera_outlined),
-                  onPressed: _isSending ? null : _captureFromCamera,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: _controllerMessage,
               builder: (context, value, _) {
@@ -1993,6 +2020,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    _noteHoldTimer?.cancel();
     MessageNotifier().removeListener(_onMessagesChanged);
     PresenceNotifier.instance.removeListener(_onPresenceChanged);
     _scrollController.removeListener(_onScroll);
