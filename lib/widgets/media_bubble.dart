@@ -170,6 +170,7 @@ class _MediaBubbleState extends State<MediaBubble> {
         label: 'viewOnceOpened'.tr(),
         bubbleColor: widget.bubbleColor,
         textColor: widget.textColor,
+        dimmed: true,
       );
     }
     return ViewOnceFrame(

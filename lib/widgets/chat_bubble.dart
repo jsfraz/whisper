@@ -173,21 +173,42 @@ class _ChatBubbleState extends State<ChatBubble> {
     );
   }
 
+  /// Filled colour of this bubble: the chat accent on our side, a neutral tone
+  /// on theirs.
+  Color bubbleBackground() {
+    if (widget.message.isMe) {
+      return widget.accentColor;
+    }
+    // The other side stays neutral, only the tone follows the brightness.
+    if (Theme.of(context).brightness == Brightness.dark) {
+      return Theme.of(context).colorScheme.surfaceContainerHigh;
+    }
+    return Theme.of(context).colorScheme.surfaceDim;
+  }
+
+  Color bubbleTextColor() {
+    return bubbleBackground().computeLuminance() > 0.5
+        ? Colors.black
+        : Colors.white;
+  }
+
   /// A view-once location: one reveal, then a tombstone. The reveal is the
   /// platform map app, and it spends the single view on the way out.
   Widget _viewOnceMessage(BuildContext context, LocationRef? location) {
     final opened = widget.message.openedAt != null;
     final mine =
         widget.message.isMe && widget.user.id != Singleton().profile.user.id;
-    final bubbleColor = widget.accentColor;
-    final textColor =
-        bubbleColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    // Same owner colour as a text bubble (accent for mine, neutral for theirs),
+    // so an opened tombstone never reads as the other side's message.
+    final bubbleColor = bubbleBackground();
+    final textColor = bubbleTextColor();
     return ViewOnceFrame(
       label: mine
           ? (opened ? 'viewOnceOpenedByPeer'.tr() : 'viewOnceSent'.tr())
           : (opened ? 'viewOnceOpened'.tr() : 'viewOnceOpen'.tr()),
       bubbleColor: bubbleColor,
       textColor: textColor,
+      dimmed: opened,
       onTap: mine || opened || location == null
           ? null
           : () async {
@@ -305,22 +326,6 @@ class _ChatBubbleState extends State<ChatBubble> {
       }
     }
 
-    Color bubbleBackground() {
-      if (widget.message.isMe) {
-        return widget.accentColor;
-      }
-      // The other side stays neutral, only the tone follows the brightness.
-      if (Theme.of(context).brightness == Brightness.dark) {
-        return Theme.of(context).colorScheme.surfaceContainerHigh;
-      }
-      return Theme.of(context).colorScheme.surfaceDim;
-    }
-
-    Color bubbleTextColor() {
-      final backgroundColor = bubbleBackground();
-      double luminance = backgroundColor.computeLuminance();
-      return luminance > 0.5 ? Colors.black : Colors.white;
-    }
 
     /// Gesture handling: select in selection mode, otherwise tooltip + reply.
     void onTap() {

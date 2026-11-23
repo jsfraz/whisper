@@ -9,6 +9,7 @@ class ViewOnceFrame extends StatelessWidget {
     required this.bubbleColor,
     required this.textColor,
     this.onTap,
+    this.dimmed = false,
     super.key,
   });
 
@@ -16,6 +17,9 @@ class ViewOnceFrame extends StatelessWidget {
   final Color bubbleColor;
   final Color textColor;
   final VoidCallback? onTap;
+
+  /// Already opened: the box is drawn fainter, the hue still marks the owner.
+  final bool dimmed;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +30,7 @@ class ViewOnceFrame extends StatelessWidget {
         width: 200,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: bubbleColor,
+          color: dimmed ? bubbleColor.withValues(alpha: 0.55) : bubbleColor,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
