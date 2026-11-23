@@ -37,6 +37,10 @@ class MediaUploader {
   ///
   /// [messageKey] and [index] identify the attachment of a stored message; when
   /// a session is recorded for that pair it is resumed.
+  ///
+  /// shortcut: the plaintext and its whole ciphertext are held in memory
+  /// together, so the 100 MiB cap can still exhaust a low-end phone; upgrade by
+  /// encrypting and sending one chunk at a time.
   static Future<(String, TransportEncryption)> upload(
     Uint8List bytes, {
     required String receiverId,
