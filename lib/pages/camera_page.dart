@@ -211,6 +211,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
+    final portrait = MediaQuery.orientationOf(context) == Orientation.portrait;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -221,62 +222,79 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
           else
             const Center(child: CircularProgressIndicator()),
           SafeArea(
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      color: Colors.white,
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                    const Spacer(),
-                    if (_recording)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.fiber_manual_record,
-                                color: Colors.red, size: 14),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${_format(_elapsed)} / ${_format(CameraPage.maxVideoLength)}',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ],
+            child: portrait
+                ? Column(
+                    children: [
+                      _topBar(showTimer: true),
+                      const Spacer(),
+                      _shutter(),
+                      const SizedBox(height: 40),
+                    ],
+                  )
+                // Turned to the side, the shutter moves to the right edge where
+                // the thumb rests, the way the system camera does it.
+                : Stack(
+                    children: [
+                      Align(
+                        alignment: Alignment.topCenter,
+                        child: _topBar(showTimer: false),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_recording) _timerChip(),
+                              _shutter(),
+                            ],
+                          ),
                         ),
                       ),
-                    IconButton(
-                      color: _flashOn ? Colors.amber : Colors.white,
-                      onPressed: _toggleFlash,
-                      icon: Icon(_flashOn ? Icons.flash_on : Icons.flash_off),
-                    ),
-                    IconButton(
-                      color: Colors.white,
-                      onPressed: _switchCamera,
-                      icon: const Icon(Icons.cameraswitch),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 32),
-                  child: GestureDetector(
-                    onTap: _takePhoto,
-                    onLongPressStart: (_) => _startVideo(),
-                    onLongPressEnd: (_) => _stopVideo(),
-                    child: _shutter(),
+                    ],
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    'shutterHint'.tr(),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _topBar({required bool showTimer}) {
+    return Row(
+      children: [
+        IconButton(
+          color: Colors.white,
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.close),
+        ),
+        const Spacer(),
+        if (showTimer && _recording) _timerChip(),
+        IconButton(
+          color: _flashOn ? Colors.amber : Colors.white,
+          onPressed: _toggleFlash,
+          icon: Icon(_flashOn ? Icons.flash_on : Icons.flash_off),
+        ),
+        IconButton(
+          color: Colors.white,
+          onPressed: _switchCamera,
+          icon: const Icon(Icons.cameraswitch),
+        ),
+      ],
+    );
+  }
+
+  Widget _timerChip() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.fiber_manual_record, color: Colors.red, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            '${_format(_elapsed)} / ${_format(CameraPage.maxVideoLength)}',
+            style: const TextStyle(color: Colors.white),
           ),
         ],
       ),
@@ -301,7 +319,17 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     );
   }
 
+  /// Tap takes a photo, holding records a video until it is released.
   Widget _shutter() {
+    return GestureDetector(
+      onTap: _takePhoto,
+      onLongPressStart: (_) => _startVideo(),
+      onLongPressEnd: (_) => _stopVideo(),
+      child: _shutterButton(),
+    );
+  }
+
+  Widget _shutterButton() {
     return Container(
       width: 78,
       height: 78,
