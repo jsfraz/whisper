@@ -559,11 +559,14 @@ class MediaUtils {
     try {
       await controller.initialize();
       final size = controller.value.size;
-      final duration = controller.value.duration;
+      // A phone held upright records a portrait video into a landscape frame
+      // plus a rotation flag, so the coded size alone would show it the wrong
+      // way round in a bubble.
+      final turned = controller.value.rotationCorrection % 180 != 0;
       return MediaProbe(
-        width: size.width.round(),
-        height: size.height.round(),
-        durationMs: duration.inMilliseconds,
+        width: (turned ? size.height : size.width).round(),
+        height: (turned ? size.width : size.height).round(),
+        durationMs: controller.value.duration.inMilliseconds,
       );
     } catch (_) {
       return const MediaProbe();

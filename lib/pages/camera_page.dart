@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 /// In-app camera: tap the shutter for a photo, hold it to record a video.
@@ -41,6 +42,13 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // The camera is the one screen that follows the phone: a photo taken on a
+    // turned phone is a landscape photo. Everything else stays portrait.
+    SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _openCamera();
   }
 
@@ -190,6 +198,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _controller?.dispose();
+    SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     super.dispose();
   }
 
@@ -208,12 +217,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         fit: StackFit.expand,
         children: [
           if (controller != null && controller.value.isInitialized)
-            Center(
-              child: AspectRatio(
-                aspectRatio: controller.value.aspectRatio,
-                child: CameraPreview(controller),
-              ),
-            )
+            _preview(controller)
           else
             const Center(child: CircularProgressIndicator()),
           SafeArea(
@@ -275,6 +279,24 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// The sensor reports a landscape frame; on a turned phone the sides swap, so
+  /// the fill has to cover the screen instead of sitting in a letterboxed band.
+  Widget _preview(CameraController controller) {
+    final portrait = MediaQuery.orientationOf(context) == Orientation.portrait;
+    final aspect = controller.value.aspectRatio;
+    final width = portrait ? 1 / aspect : aspect;
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: width * 1000,
+          height: 1000,
+          child: CameraPreview(controller),
+        ),
       ),
     );
   }
