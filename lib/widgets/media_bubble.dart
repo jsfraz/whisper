@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../utils/nav_transitions.dart';
 import 'package:video_player/video_player.dart';
@@ -12,7 +13,6 @@ import '../models/private_message.dart';
 import '../pages/media_viewer_page.dart';
 import '../utils/cache_utils.dart';
 import '../utils/media_utils.dart';
-import '../utils/mp4_rotation.dart';
 import '../utils/message_actions.dart';
 import '../utils/singleton.dart';
 import 'view_once_frame.dart';
@@ -841,15 +841,11 @@ class _VideoThumbnailState extends State<VideoThumbnail> {
       final controller = VideoPlayerController.file(temp);
       await controller.initialize();
       await controller.setVolume(0);
-      // The stored dimensions can be the unrotated frame; the container knows.
-      var rotation = await Mp4Rotation.ofFile(temp);
-      if (rotation == 0) {
-        rotation = controller.value.rotationCorrection;
-      }
+      // The player already applies the recorded rotation, so this is the size
+      // the frame really has. It also repairs a message stored with the
+      // unrotated dimensions.
       final size = controller.value.size;
-      if (rotation % 180 != 0) {
-        widget.onFrame?.call(Size(size.height, size.width));
-      } else if (size.width > 0 && size.height > 0) {
+      if (size.width > 0 && size.height > 0) {
         widget.onFrame?.call(size);
       }
       if (!mounted) {

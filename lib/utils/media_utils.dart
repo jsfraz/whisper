@@ -18,7 +18,6 @@ import 'package:whisper_websocket_client_dart/models/media_reference.dart';
 import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
 import 'singleton.dart';
-import 'mp4_rotation.dart';
 import 'utils.dart';
 
 /// Result of encrypting a file for transport: the uploadable [blob]
@@ -559,19 +558,13 @@ class MediaUtils {
     final controller = VideoPlayerController.file(File(filePath));
     try {
       await controller.initialize();
+      // The player reports the size with the recorded rotation already applied
+      // (a portrait clip comes back 480x720 from a 720x480 frame), so applying
+      // the rotation again here would lay it back on its side.
       final size = controller.value.size;
-      // A phone held upright records a portrait video into a landscape frame
-      // plus a rotation flag, so the coded size alone would show it the wrong
-      // way round in a bubble. The container is the source of truth; the
-      // player's own value is only a fallback.
-      var rotation = await Mp4Rotation.ofFile(File(filePath));
-      if (rotation == 0) {
-        rotation = controller.value.rotationCorrection;
-      }
-      final turned = rotation % 180 != 0;
       return MediaProbe(
-        width: (turned ? size.height : size.width).round(),
-        height: (turned ? size.width : size.height).round(),
+        width: size.width.round(),
+        height: size.height.round(),
         durationMs: controller.value.duration.inMilliseconds,
       );
     } catch (_) {
