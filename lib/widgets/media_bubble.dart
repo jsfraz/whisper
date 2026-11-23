@@ -10,7 +10,9 @@ import 'package:whisper_websocket_client_dart/models/media_type.dart';
 
 import '../models/private_message.dart';
 import '../pages/media_viewer_page.dart';
+import '../utils/cache_utils.dart';
 import '../utils/media_utils.dart';
+import '../utils/mp4_rotation.dart';
 import '../utils/message_actions.dart';
 import '../utils/singleton.dart';
 import 'view_once_frame.dart';
@@ -90,12 +92,15 @@ class _MediaBubbleState extends State<MediaBubble> {
   }
 
   /// Constrained display size derived from the original media dimensions.
-  Size _displaySize() {
+  /// Size the video player reported for this bubble, used when the stored
+  /// dimensions of an older message are the unrotated frame.
+  Size? _videoFrame;
+
+  /// Fits [w]x[h] into the bubble's box.
+  Size _fitToBox(int w, int h) {
     const maxW = 240.0;
     const maxH = 320.0;
-    final w = widget.message.width;
-    final h = widget.message.height;
-    if (w == null || h == null || w <= 0 || h <= 0) {
+    if (w <= 0 || h <= 0) {
       return const Size(220, 220);
     }
     double dw = w.toDouble();
@@ -109,6 +114,33 @@ class _MediaBubbleState extends State<MediaBubble> {
       dw *= s;
     }
     return Size(dw, dh);
+  }
+
+  Size _displaySize() {
+    final frame = _videoFrame;
+    if (frame != null) {
+      return _fitToBox(frame.width.round(), frame.height.round());
+    }
+    return _fitToBox(widget.message.width ?? 0, widget.message.height ?? 0);
+  }
+
+  /// Takes the size the player sees (rotation included) and stores it, so an
+  /// older message stops showing a portrait video in a landscape bubble.
+  void _onVideoFrame(Size frame) {
+    if (_videoFrame == frame) {
+      return;
+    }
+    setState(() => _videoFrame = frame);
+    final width = frame.width.round();
+    final height = frame.height.round();
+    if (widget.message.width == width && widget.message.height == height) {
+      return;
+    }
+    CacheUtils.updateStoredMessage(widget.conversationUserId, widget.message,
+        (stored) {
+      stored.width = width;
+      stored.height = height;
+    });
   }
 
   /// A single-view attachment never shows a thumbnail: nobody sees it before
@@ -512,7 +544,10 @@ class _MediaBubbleState extends State<MediaBubble> {
           alignment: Alignment.center,
           fit: StackFit.expand,
           children: [
-            VideoThumbnail(path: widget.message.localPath),
+            VideoThumbnail(
+              path: widget.message.localPath,
+              onFrame: _onVideoFrame,
+            ),
             Container(
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.25),
@@ -767,7 +802,10 @@ class _AlbumTileState extends State<AlbumTile> {
 class VideoThumbnail extends StatefulWidget {
   final String? path;
 
-  const VideoThumbnail({this.path, super.key});
+  /// Called once the frame is known, with the rotation already applied.
+  final ValueChanged<Size>? onFrame;
+
+  const VideoThumbnail({this.path, this.onFrame, super.key});
 
   @override
   State<VideoThumbnail> createState() => _VideoThumbnailState();
@@ -803,6 +841,17 @@ class _VideoThumbnailState extends State<VideoThumbnail> {
       final controller = VideoPlayerController.file(temp);
       await controller.initialize();
       await controller.setVolume(0);
+      // The stored dimensions can be the unrotated frame; the container knows.
+      var rotation = await Mp4Rotation.ofFile(temp);
+      if (rotation == 0) {
+        rotation = controller.value.rotationCorrection;
+      }
+      final size = controller.value.size;
+      if (rotation % 180 != 0) {
+        widget.onFrame?.call(Size(size.height, size.width));
+      } else if (size.width > 0 && size.height > 0) {
+        widget.onFrame?.call(size);
+      }
       if (!mounted) {
         await controller.dispose();
         MediaUtils.deleteLocalFile(temp.path);
