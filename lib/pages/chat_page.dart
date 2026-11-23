@@ -1554,66 +1554,81 @@ class _ChatPageState extends State<ChatPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: TextField(
-                controller: _controllerMessage,
-                minLines: 1,
-                maxLines: 5,
-                textInputAction: TextInputAction.newline,
-                onChanged: (value) {
-                  // The receiver clears the indicator on its own; this only
-                  // throttles the frames and stays silent when the user opted
-                  // out.
-                  if (value.trim().isNotEmpty) {
-                    utils.Utils.sendTypingHint(widget.user.id);
-                  }
-                },
-                contentInsertionConfiguration: ContentInsertionConfiguration(
-                  allowedMimeTypes: const ['image/gif', 'image/webp'],
-                  onContentInserted: _onKeyboardContentInserted,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'yourMessage'.tr(),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  prefixIconConstraints:
-                      const BoxConstraints(minWidth: 40, minHeight: 40),
-                  suffixIconConstraints:
-                      const BoxConstraints(minWidth: 40, minHeight: 40),
-                  prefixIcon: _composerIcon(
-                    icon: Icons.attach_file,
-                    label: 'attachButton'.tr(),
-                    tooltip: 'attachButton'.tr(),
-                    onPressed: _isSending ? null : _showAttachSheet,
-                  ),
-                  // Holding the camera records a round note: the pointer
-                  // listener is used because a long-press recognizer loses to the
-                  // field's own gestures.
-                  suffixIcon: Listener(
-                    onPointerDown: _onCameraPressStart,
-                    onPointerMove: _onCameraPressMove,
-                    onPointerUp: _onCameraPressEnd,
-                    onPointerCancel: _onCameraPressEnd,
-                    child: _composerIcon(
-                      icon: Icons.photo_camera_outlined,
-                      label: 'attachCamera'.tr(),
-                      onPressed: _isSending ? null : _captureFromCamera,
+              child: Stack(
+                children: [
+                  TextField(
+                    controller: _controllerMessage,
+                    minLines: 1,
+                    maxLines: 5,
+                    textInputAction: TextInputAction.newline,
+                    onChanged: (value) {
+                      // The receiver clears the indicator on its own; this only
+                      // throttles the frames and stays silent when the user opted
+                      // out.
+                      if (value.trim().isNotEmpty) {
+                        utils.Utils.sendTypingHint(widget.user.id);
+                      }
+                    },
+                    contentInsertionConfiguration:
+                        ContentInsertionConfiguration(
+                      allowedMimeTypes: const ['image/gif', 'image/webp'],
+                      onContentInserted: _onKeyboardContentInserted,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'yourMessage'.tr(),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      // Room for the buttons that float above the field.
+                      prefixIcon: const SizedBox(width: 40),
+                      suffixIcon: const SizedBox(width: 40),
+                      filled: true,
+                      fillColor: chatTheme.brightness == Brightness.dark
+                          ? chatTheme.colorScheme.surfaceBright
+                          : chatTheme.colorScheme.surfaceDim,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                  filled: true,
-                  fillColor: chatTheme.brightness == Brightness.dark
-                      ? chatTheme.colorScheme.surfaceBright
-                      : chatTheme.colorScheme.surfaceDim,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none,
+                  // The paperclip and the camera sit above the field, not in
+                  // it: a press inside the TextField's tap region focuses it and
+                  // flashes the keyboard, which must not happen while a round
+                  // note is recording.
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: _composerIcon(
+                        icon: Icons.attach_file,
+                        label: 'attachButton'.tr(),
+                        tooltip: 'attachButton'.tr(),
+                        onPressed: _isSending ? null : _showAttachSheet,
+                      ),
+                    ),
                   ),
-                ),
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: Listener(
+                        onPointerDown: _onCameraPressStart,
+                        onPointerMove: _onCameraPressMove,
+                        onPointerUp: _onCameraPressEnd,
+                        onPointerCancel: _onCameraPressEnd,
+                        child: _composerIcon(
+                          icon: Icons.photo_camera_outlined,
+                          label: 'attachCamera'.tr(),
+                          onPressed: _isSending ? null : _captureFromCamera,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            // Tap opens the camera, holding it records a round note and
-            // releasing sends it. The raw pointer listener is here because a
-            // long-press recognizer loses to the keyboard's own gestures when it
-            // sits inside the field.
             const SizedBox(width: 8),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: _controllerMessage,
