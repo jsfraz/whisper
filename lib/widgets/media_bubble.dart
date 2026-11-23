@@ -16,6 +16,7 @@ import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
 import '../utils/singleton.dart';
 import 'view_once_frame.dart';
+import 'round_video_note.dart';
 import 'voice_player.dart';
 
 /// Renders a media attachment inside a chat bubble: image/gif thumbnail, video
@@ -325,15 +326,20 @@ class _MediaBubbleState extends State<MediaBubble> {
       );
     }
 
-    // A round video note keeps its circle whatever state it is in.
+    // A round note plays right here: opening a circle in the full-screen
+    // viewer loses the shape and the ring it was recorded with.
     if (type == MediaType.video && widget.message.isVideoNote) {
+      final path = widget.message.localPath;
+      if (path != null) {
+        return _withCaption(
+          RoundVideoNote(path: path),
+          hasCaption,
+        );
+      }
+      // Still downloading, or gone: the circle keeps its shape either way.
       return _withCaption(
         ClipOval(
-          child: SizedBox(
-            width: 200,
-            height: 200,
-            child: media,
-          ),
+          child: SizedBox(width: 200, height: 200, child: media),
         ),
         hasCaption,
       );
