@@ -23,6 +23,7 @@ import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
 import '../utils/presence.dart';
 import '../utils/round_video_recorder.dart';
+import '../utils/sticker_store.dart';
 import '../utils/singleton.dart';
 import '../utils/text_envelope.dart';
 import '../utils/utils.dart' as utils;
@@ -510,17 +511,35 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  /// Runs [open] with the composer unfocused and unfocuses again afterwards.
+  ///
+  /// A sheet or a page pushed over the chat hands the focus (and with it the
+  /// keyboard) back to the field when it closes; without this the keyboard pops
+  /// up on its own after every attachment sheet or message action.
+  Future<void> _withoutComposerFocus(Future<void> Function() open) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await open();
+    if (!mounted) {
+      return;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) {
+      FocusScope.of(context).unfocus();
+    }
+  }
+
   /// Opens the long-press sheet for one message. The pin state of the sheet is
   /// the one this device knows, so the entry reads "unpin" when it applies.
-  void _openMessageActions(PrivateMessage message) {
+  Future<void> _openMessageActions(PrivateMessage message) {
     final id = message.id;
-    MessageActions.showSheet(
-      context,
-      message,
-      widget.user.id,
-      pinned: id != null && _pins.containsKey(id),
-      onSelect: () => _toggleSelected(message),
-    );
+    return _withoutComposerFocus(() => MessageActions.showSheet(
+          context,
+          message,
+          widget.user.id,
+          pinned: id != null && _pins.containsKey(id),
+          onSelect: () => _toggleSelected(message),
+        ));
   }
 
   /// Pinned messages this device holds, newest pin first: the strip walks them.
@@ -1030,26 +1049,34 @@ class _ChatPageState extends State<ChatPage> {
   /// Opens the sticker collection and sends the picked one as it is: a sticker
   /// travels as its own media type, so the recipient draws it without a bubble.
   Future<void> _pickSticker() async {
-    final sticker = await StickerSheet.show(context);
-    if (sticker == null) {
+    Sticker? sticker;
+    await _withoutComposerFocus(() async {
+      sticker = await StickerSheet.show(context);
+    });
+    final picked = sticker;
+    if (picked == null) {
       return;
     }
-    final bytes = await MediaUtils.decryptAtRest(sticker.path);
+    final bytes = await MediaUtils.decryptAtRest(picked.path);
     final sent = await ChatSender.sendMedia(
         widget.user, MediaType.sticker, bytes,
-        fileName: MediaUtils.baseName(sticker.path));
+        fileName: MediaUtils.baseName(picked.path));
     _afterSend(sent, '');
   }
 
   /// Opens the in-app camera. What comes back is a photo or a video, and it
   /// goes through the same confirm sheet as a gallery pick.
   Future<void> _captureFromCamera() async {
-    final file = await CameraPage.open(context);
-    if (file == null) {
+    File? file;
+    await _withoutComposerFocus(() async {
+      file = await CameraPage.open(context);
+    });
+    final captured = file;
+    if (captured == null) {
       return;
     }
-    final type = MediaUtils.detectType(file.path);
-    await _pickAndSend(() async => [file],
+    final type = MediaUtils.detectType(captured.path);
+    await _pickAndSend(() async => [captured],
         forcedType:
             type == MediaType.video ? MediaType.video : MediaType.image);
   }
@@ -1120,6 +1147,13 @@ class _ChatPageState extends State<ChatPage> {
       _noteCancel = false;
       _noteElapsed = Duration.zero;
     });
+    // The press lands inside the field's tap region, which can hand the focus
+    // (and the keyboard) back once the preview is on screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        FocusScope.of(context).unfocus();
+      }
+    });
     _noteTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) {
         return;
@@ -1155,6 +1189,9 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     final file = await recorder.stop();
+    if (mounted) {
+      FocusScope.of(context).unfocus();
+    }
     if (file == null) {
       return;
     }
@@ -1346,58 +1383,59 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Show the attachment options bottom sheet.
   void _showAttachSheet() {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: Text('attachGallery'.tr()),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickAndSend(MediaUtils.pickMultipleMediaFromGallery);
-                },
+    _withoutComposerFocus(() => showModalBottomSheet(
+          context: context,
+          showDragHandle: true,
+          builder: (ctx) {
+            return SafeArea(
+              child: Wrap(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.photo_library),
+                    title: Text('attachGallery'.tr()),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _pickAndSend(MediaUtils.pickMultipleMediaFromGallery);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.emoji_emotions_outlined),
+                    title: Text('attachStickers'.tr()),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _pickSticker();
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.insert_drive_file),
+                    title: Text('attachFile'.tr()),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _pickAndSend(MediaUtils.pickMultipleFiles,
+                          filesOnly: true);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.place),
+                    title: Text('attachLocation'.tr()),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _sendCurrentLocation();
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.my_location),
+                    title: Text('attachLiveLocation'.tr()),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _startLiveLocation();
+                    },
+                  ),
+                ],
               ),
-              ListTile(
-                leading: const Icon(Icons.emoji_emotions_outlined),
-                title: Text('attachStickers'.tr()),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickSticker();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.insert_drive_file),
-                title: Text('attachFile'.tr()),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickAndSend(MediaUtils.pickMultipleFiles, filesOnly: true);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.place),
-                title: Text('attachLocation'.tr()),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _sendCurrentLocation();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.my_location),
-                title: Text('attachLiveLocation'.tr()),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _startLiveLocation();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
+            );
+          },
+        ));
   }
 
   /// Start recording a voice message (hold-to-record).
@@ -2115,8 +2153,8 @@ class _ChatPageState extends State<ChatPage> {
             IconButton(
               icon: const Icon(Icons.more_vert),
               tooltip: 'moreActions'.tr(),
-              onPressed: () =>
-                  MessageActions.showSheet(context, single, widget.user.id),
+              onPressed: () => _withoutComposerFocus(() =>
+                  MessageActions.showSheet(context, single, widget.user.id)),
             ),
         ],
       );
