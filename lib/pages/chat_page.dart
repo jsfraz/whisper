@@ -1553,6 +1553,11 @@ class _ChatPageState extends State<ChatPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            IconButton(
+              icon: const Icon(Icons.attach_file),
+              tooltip: 'attachButton'.tr(),
+              onPressed: _isSending ? null : _showAttachSheet,
+            ),
             Expanded(
               child: TextField(
                 controller: _controllerMessage,
@@ -1575,30 +1580,6 @@ class _ChatPageState extends State<ChatPage> {
                   hintText: 'yourMessage'.tr(),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  prefixIconConstraints:
-                      const BoxConstraints(minWidth: 44, minHeight: 44),
-                  prefixIcon: IconButton(
-                    icon: const Icon(Icons.attach_file),
-                    tooltip: 'attachButton'.tr(),
-                    onPressed: _isSending ? null : _showAttachSheet,
-                  ),
-                  // Tap opens the camera, holding it records a round note. No
-                  // tooltip: its long press would win the gesture arena and the
-                  // note would never start.
-                  suffixIcon: Listener(
-                    onPointerDown: _onCameraPressStart,
-                    onPointerMove: _onCameraPressMove,
-                    onPointerUp: _onCameraPressEnd,
-                    onPointerCancel: _onCameraPressEnd,
-                    child: Semantics(
-                      button: true,
-                      label: 'attachCamera'.tr(),
-                      child: IconButton(
-                        icon: const Icon(Icons.photo_camera_outlined),
-                        onPressed: _isSending ? null : _captureFromCamera,
-                      ),
-                    ),
-                  ),
                   filled: true,
                   fillColor: chatTheme.brightness == Brightness.dark
                       ? chatTheme.colorScheme.surfaceBright
@@ -1607,6 +1588,24 @@ class _ChatPageState extends State<ChatPage> {
                     borderRadius: BorderRadius.circular(30),
                     borderSide: BorderSide.none,
                   ),
+                ),
+              ),
+            ),
+            // Tap opens the camera, holding it records a round note and
+            // releasing sends it. The raw pointer listener is here because a
+            // long-press recognizer loses to the keyboard's own gestures when it
+            // sits inside the field.
+            Listener(
+              onPointerDown: _onCameraPressStart,
+              onPointerMove: _onCameraPressMove,
+              onPointerUp: _onCameraPressEnd,
+              onPointerCancel: _onCameraPressEnd,
+              child: Semantics(
+                button: true,
+                label: 'attachCamera'.tr(),
+                child: IconButton(
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  onPressed: _isSending ? null : _captureFromCamera,
                 ),
               ),
             ),
