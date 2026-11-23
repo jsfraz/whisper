@@ -1553,11 +1553,13 @@ class _ChatPageState extends State<ChatPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            IconButton(
-              icon: const Icon(Icons.attach_file),
+            _composerIcon(
+              icon: Icons.attach_file,
+              label: 'attachButton'.tr(),
               tooltip: 'attachButton'.tr(),
               onPressed: _isSending ? null : _showAttachSheet,
             ),
+            const SizedBox(width: 2),
             Expanded(
               child: TextField(
                 controller: _controllerMessage,
@@ -1595,21 +1597,19 @@ class _ChatPageState extends State<ChatPage> {
             // releasing sends it. The raw pointer listener is here because a
             // long-press recognizer loses to the keyboard's own gestures when it
             // sits inside the field.
+            const SizedBox(width: 2),
             Listener(
               onPointerDown: _onCameraPressStart,
               onPointerMove: _onCameraPressMove,
               onPointerUp: _onCameraPressEnd,
               onPointerCancel: _onCameraPressEnd,
-              child: Semantics(
-                button: true,
+              child: _composerIcon(
+                icon: Icons.photo_camera_outlined,
                 label: 'attachCamera'.tr(),
-                child: IconButton(
-                  icon: const Icon(Icons.photo_camera_outlined),
-                  onPressed: _isSending ? null : _captureFromCamera,
-                ),
+                onPressed: _isSending ? null : _captureFromCamera,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: _controllerMessage,
               builder: (context, value, _) {
@@ -1679,6 +1679,28 @@ class _ChatPageState extends State<ChatPage> {
         ),
       ),
     );
+  }
+
+  /// A plain icon beside the composer. Compact on purpose: three full-width
+  /// buttons would squeeze the field, which is the part that carries the width.
+  Widget _composerIcon({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    String? tooltip,
+  }) {
+    final button = IconButton(
+      icon: Icon(icon),
+      iconSize: 22,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints.tightFor(width: 40, height: 44),
+      tooltip: tooltip,
+      onPressed: onPressed,
+    );
+    return tooltip == null
+        ? Semantics(button: true, label: label, child: button)
+        : button;
   }
 
   /// The round action beside the composer, filled with the chat's colour. It
