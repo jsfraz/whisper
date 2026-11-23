@@ -326,7 +326,6 @@ class _ChatBubbleState extends State<ChatBubble> {
       }
     }
 
-
     /// Gesture handling: select in selection mode, otherwise tooltip + reply.
     void onTap() {
       if (widget.selectionMode) {
