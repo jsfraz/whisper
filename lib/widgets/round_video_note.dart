@@ -5,6 +5,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../utils/cache_utils.dart';
+import '../utils/media_autoplay.dart';
 import '../utils/media_utils.dart';
 import '../utils/playback_lock.dart';
 
@@ -15,12 +17,19 @@ import '../utils/playback_lock.dart';
 class RoundVideoNote extends StatefulWidget {
   const RoundVideoNote({
     required this.path,
+    required this.conversationId,
+    required this.sentAt,
     this.size = 200,
     super.key,
   });
 
   /// The encrypted-at-rest file of the note.
   final String path;
+
+  /// The chat this note lives in, and when it was sent: together they are the
+  /// key the next-note chain looks for.
+  final String conversationId;
+  final DateTime sentAt;
 
   final double size;
 
@@ -34,11 +43,19 @@ class _RoundVideoNoteState extends State<RoundVideoNote>
   File? _tempFile;
   bool _failed = false;
 
+  /// Set once the finished note has asked for the next one, so a repeated
+  /// end-of-playback event does not restart the chain.
+  bool _chained = false;
+
+  late final String _key =
+      CacheUtils.messageKey(widget.conversationId, widget.sentAt);
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     PlaybackLock.owner.addListener(_onLockChanged);
+    MediaAutoplay.request.addListener(_onAutoplayRequest);
     _prepare();
   }
 
@@ -67,7 +84,7 @@ class _RoundVideoNoteState extends State<RoundVideoNote>
   }
 
   /// Playback ends on its own: park the note at its start so a second tap
-  /// replays it, and release the playback lock.
+  /// replays it, release the playback lock and ask for the next note.
   void _onPlayerValue() {
     final value = _controller?.value;
     if (value == null) {
@@ -77,7 +94,26 @@ class _RoundVideoNoteState extends State<RoundVideoNote>
       _controller?.pause();
       _controller?.seekTo(Duration.zero);
       PlaybackLock.release(this);
+      if (!_chained) {
+        _chained = true;
+        MediaAutoplay.nextRoundNote(widget.conversationId, widget.sentAt);
+      }
     }
+  }
+
+  /// Starts this note when the previous one finished and asked for it.
+  void _onAutoplayRequest() {
+    if (MediaAutoplay.request.value != _key) {
+      return;
+    }
+    MediaAutoplay.request.value = null;
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return;
+    }
+    _chained = false;
+    PlaybackLock.claim(this);
+    controller.play();
   }
 
   void _onLockChanged() {
@@ -106,6 +142,9 @@ class _RoundVideoNoteState extends State<RoundVideoNote>
       PlaybackLock.release(this);
       return;
     }
+    // A tap starts the chain again: the note it plays may have been reached by
+    // autoplay before, and that must not stop the next request.
+    _chained = false;
     PlaybackLock.claim(this);
     if (controller.value.position >= controller.value.duration) {
       await controller.seekTo(Duration.zero);
@@ -117,6 +156,7 @@ class _RoundVideoNoteState extends State<RoundVideoNote>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     PlaybackLock.owner.removeListener(_onLockChanged);
+    MediaAutoplay.request.removeListener(_onAutoplayRequest);
     PlaybackLock.release(this);
     _controller?.removeListener(_onPlayerValue);
     _controller?.dispose();
@@ -165,29 +205,43 @@ class _RoundVideoNoteState extends State<RoundVideoNote>
           child: SizedBox(
             width: widget.size,
             height: widget.size,
+            // The indicator draws its stroke inside the box by default, so its
+            // outer edge sits 2 dp in. The video is inset by the same 2 dp: the
+            // two circles then share one edge instead of the picture peeking
+            // past the ring at all four sides.
             child: Stack(
               alignment: Alignment.center,
               children: [
-                ClipOval(
-                  child: SizedBox.expand(
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: controller.value.size.width,
-                        height: controller.value.size.height,
-                        child: VideoPlayer(controller),
+                Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: ClipOval(
+                    child: SizedBox.expand(
+                      child: FittedBox(
+                        fit: BoxFit.cover,
+                        child: SizedBox(
+                          width: controller.value.size.width,
+                          height: controller.value.size.height,
+                          child: VideoPlayer(controller),
+                        ),
                       ),
                     ),
                   ),
                 ),
                 // How much of the note is left, as a ring that fills as it plays.
-                SizedBox.expand(
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    strokeWidth: 4,
-                    strokeCap: StrokeCap.round,
-                    backgroundColor: Colors.black.withValues(alpha: 0.25),
-                    valueColor: AlwaysStoppedAnimation<Color>(ring),
+                // Its stroke is centred on a path inset by 4 dp, so the ring's
+                // outer edge lands exactly on the video's 98 dp circle: flush
+                // with the picture and still inside the bubble's clip.
+                Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: SizedBox.expand(
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 4,
+                      strokeAlign: BorderSide.strokeAlignCenter,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: Colors.black.withValues(alpha: 0.25),
+                      valueColor: AlwaysStoppedAnimation<Color>(ring),
+                    ),
                   ),
                 ),
                 if (!value.isPlaying)
@@ -201,7 +255,7 @@ class _RoundVideoNoteState extends State<RoundVideoNote>
                         color: Colors.white, size: 30),
                   ),
                 Positioned(
-                  bottom: widget.size * 0.16,
+                  bottom: 6,
                   child: Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

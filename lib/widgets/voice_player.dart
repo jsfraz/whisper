@@ -8,7 +8,7 @@ import '../utils/cache_utils.dart';
 import '../utils/media_utils.dart';
 import '../utils/playback_lock.dart';
 import '../utils/playback_speed.dart';
-import '../utils/voice_autoplay.dart';
+import '../utils/media_autoplay.dart';
 
 /// Inline player for a voice message stored encrypted-at-rest.
 ///
@@ -64,7 +64,7 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
         PlaybackLock.release(this);
         if (!_chained) {
           _chained = true;
-          VoiceAutoplay.next(widget.conversationId, widget.sentAt);
+          MediaAutoplay.next(widget.conversationId, widget.sentAt);
         }
         return;
       }
@@ -73,16 +73,16 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
       }
     });
     PlaybackLock.owner.addListener(_onLockChanged);
-    VoiceAutoplay.request.addListener(_onAutoplayRequest);
+    MediaAutoplay.request.addListener(_onAutoplayRequest);
     _prepare();
   }
 
   /// Starts this message when the previous one finished and asked for it.
   void _onAutoplayRequest() {
-    if (VoiceAutoplay.request.value != _key) {
+    if (MediaAutoplay.request.value != _key) {
       return;
     }
-    VoiceAutoplay.request.value = null;
+    MediaAutoplay.request.value = null;
     if (_loading || _error) {
       return;
     }
@@ -130,7 +130,7 @@ class _VoicePlayerState extends State<VoicePlayer> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     PlaybackLock.owner.removeListener(_onLockChanged);
-    VoiceAutoplay.request.removeListener(_onAutoplayRequest);
+    MediaAutoplay.request.removeListener(_onAutoplayRequest);
     PlaybackLock.release(this);
     _player.dispose();
     MediaUtils.deleteLocalFile(_tempFile?.path);
