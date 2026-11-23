@@ -24,6 +24,7 @@ import '../models/user.dart';
 import '../utils/admin_format.dart';
 import '../utils/singleton.dart';
 import '../utils/screen_guard.dart';
+import '../utils/share_intent.dart';
 import '../utils/utils.dart';
 import '../widgets/admin_user_list_item.dart';
 
@@ -98,6 +99,9 @@ class _HomePageState extends State<HomePage>
     Utils.onConnected = _sendPendingFid;
     // Open the chat a notification tap pointed at (after unlocking)
     _openPendingChat();
+    // Pictures, videos and links shared from other apps. Started here rather
+    // than at launch, so a share can never open over the password screen.
+    SharedInbox.start();
     // Taps arriving while Home is alive open the chat right away
     NotificationService.onChatSelected = _openChat;
     // Start checking WebSocket connection

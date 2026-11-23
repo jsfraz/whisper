@@ -23,9 +23,18 @@ class SharedInbox {
   /// How many shared files one message may carry.
   static const int maxFiles = 10;
 
+  static bool _started = false;
+
   /// Starts listening for inbound shares: once for a cold start, and then for
   /// every share while the app runs.
+  ///
+  /// Called from Home, never from [main]: a share that arrives while the app is
+  /// still locked must not open a contact picker over the password screen.
   static Future<void> start() async {
+    if (_started) {
+      return;
+    }
+    _started = true;
     try {
       final initial = await ReceiveSharingIntent.instance.getInitialMedia();
       if (initial.isNotEmpty) {
@@ -86,8 +95,26 @@ class SharedInbox {
 
   static Future<void> _send(User target, List<SharedMediaFile> shared) async {
     try {
-      if (shared.length == 1) {
-        final file = File(shared.single.path);
+      // A shared link or a line of text arrives as its own item and is a plain
+      // message; only real files go through the media pipeline.
+      final texts = shared
+          .where((item) =>
+              item.type == SharedMediaType.text ||
+              item.type == SharedMediaType.url)
+          .map((item) => item.path.trim())
+          .where((text) => text.isNotEmpty);
+      for (final text in texts) {
+        await ChatSender.sendText(target, text);
+      }
+
+      final files = shared
+          .where((item) =>
+              item.type != SharedMediaType.text &&
+              item.type != SharedMediaType.url)
+          .take(maxFiles)
+          .toList();
+      if (files.length == 1) {
+        final file = File(files.single.path);
         final bytes = await file.readAsBytes();
         if (!MediaUtils.uploadFits(bytes.length)) {
           throw Exception('fileTooLarge'.tr());
@@ -95,9 +122,9 @@ class SharedInbox {
         await ChatSender.sendMedia(
             target, MediaUtils.detectType(file.path), bytes,
             fileName: MediaUtils.baseName(file.path));
-      } else {
+      } else if (files.isNotEmpty) {
         final attachments = <OutgoingAttachment>[];
-        for (final item in shared) {
+        for (final item in files) {
           final file = File(item.path);
           final bytes = await file.readAsBytes();
           if (!MediaUtils.uploadFits(bytes.length)) {
