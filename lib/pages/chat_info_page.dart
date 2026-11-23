@@ -78,7 +78,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     final proposal = _disappearingProposal;
     final chosen = await showDialog<int>(
       context: context,
-      builder: (ctx) => SimpleDialog(
+      builder: (ctx) => _chatThemed(SimpleDialog(
         title: Text('disappearingSettings'.tr()),
         children: [
           Padding(
@@ -108,7 +108,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
               onTap: () => Navigator.pop(ctx, option),
             ),
         ],
-      ),
+      )),
     );
     if (chosen == null) {
       return;
@@ -192,7 +192,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     await showModalBottomSheet(
       context: context,
       showDragHandle: true,
-      builder: (ctx) => SafeArea(
+      builder: (ctx) => _chatThemed(SafeArea(
         child: ListView(
           shrinkWrap: true,
           children: [
@@ -229,9 +229,16 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
               ),
           ],
         ),
-      ),
+      )),
     );
   }
+
+  /// Routes, sheets and dialogs opened from this page are pushed on the
+  /// Navigator, above the Theme this page is wrapped in, so each of them has to
+  /// carry the chat theme itself or it falls back to the app theme.
+  ThemeData get _chatTheme => ThemeUtils.chatTheme(context, _chatThemeColor);
+
+  Widget _chatThemed(Widget child) => Theme(data: _chatTheme, child: child);
 
   Future<void> _loadChatTheme() async {
     Color? color = await CacheUtils.getChatTheme(widget.userId);
@@ -284,6 +291,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
       initialDate: now,
       firstDate: DateTime(now.year - 10),
       lastDate: now,
+      builder: (ctx, child) => _chatThemed(child ?? const SizedBox.shrink()),
     );
     if (picked != null && mounted) {
       Navigator.pop(context, picked);
@@ -298,7 +306,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
       return;
     }
     final picked = await Navigator.of(context)
-        .push<DateTime>(stepRoute(MessageSearchPage(user)));
+        .push<DateTime>(stepRoute(_chatThemed(MessageSearchPage(user))));
     if (picked != null && mounted) {
       Navigator.pop(context, picked);
     }
@@ -350,8 +358,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                       icon: Icons.storage,
                       label: 'storageTitle'.tr(),
                       onPressed: () async {
-                        await Navigator.push(
-                            context, stepRoute(const StoragePage()));
+                        await Navigator.push(context,
+                            stepRoute(_chatThemed(const StoragePage())));
                         await _loadMediaUsage();
                       },
                       extra: Padding(
@@ -444,7 +452,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                             fadeRoute(const HomePage()),
                             (route) => false,
                           );
-                        });
+                        }, theme: _chatTheme);
                       },
                     ),
                   ],

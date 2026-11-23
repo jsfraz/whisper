@@ -385,13 +385,15 @@ class DialogUtils {
     });
   }
 
-  /// Returns yes/no dialog
+  /// Returns yes/no dialog. [theme] carries the chat colour when the dialog is
+  /// opened from a chat, whose Theme does not reach the Navigator's overlay.
   static Future<void> yesNoDialog(
-      BuildContext context, String title, String content, Function onYes) {
+      BuildContext context, String title, String content, Function onYes,
+      {ThemeData? theme}) {
     return showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return BackdropFilter(
+      builder: (dialogContext) {
+        final dialog = BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: AlertDialog(
             title: Text(title),
@@ -436,6 +438,7 @@ class DialogUtils {
             ],
           ),
         );
+        return theme == null ? dialog : Theme(data: theme, child: dialog);
       },
     );
   }
