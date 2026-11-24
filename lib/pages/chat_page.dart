@@ -21,6 +21,7 @@ import '../utils/live_location.dart';
 import '../utils/media_utils.dart';
 import '../utils/message_actions.dart';
 import '../utils/message_notifier.dart';
+import '../utils/round_note_playback.dart';
 import '../utils/presence.dart';
 import '../utils/round_video_recorder.dart';
 import '../utils/sticker_store.dart';
@@ -30,6 +31,7 @@ import '../utils/utils.dart' as utils;
 import '../utils/theme_utils.dart';
 import '../widgets/attachment_confirm_sheet.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/pinned_round_note.dart';
 import '../widgets/live_location_bubble.dart';
 import '../widgets/typing_dots.dart';
 import 'camera_page.dart';
@@ -63,6 +65,9 @@ class _ChatPageState extends State<ChatPage> {
   bool _isSending = false;
   // ScrollController for content
   final ScrollController _scrollController = ScrollController();
+  // The round note that keeps playing (and floats top right) while its circle
+  // is out of sight; one per open chat.
+  final RoundNotePlayback _notePlayback = RoundNotePlayback();
   // Indicates whether messages are being load for the first time
   bool _firstLoad = true;
   // Guards against overlapping cache reads
@@ -2162,6 +2167,7 @@ class _ChatPageState extends State<ChatPage> {
     }
     _readPublish?.cancel();
     _recorderController?.dispose();
+    _notePlayback.dispose();
     _controllerMessage.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -2426,81 +2432,97 @@ class _ChatPageState extends State<ChatPage> {
           ),
           body: Container(
             decoration: BoxDecoration(image: chatPattern()),
-            child: Stack(
-              children: [
-                Column(
-                  children: [
-                    // Messages and avatar list
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          _firstLoad
-                              ? Center(
-                                  child: Transform.scale(
-                                    scale: 1.5,
-                                    child: CircularProgressIndicator(),
+            child: RoundNoteScope(
+              playback: _notePlayback,
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      // Messages and avatar list
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            _firstLoad
+                                ? Center(
+                                    child: Transform.scale(
+                                      scale: 1.5,
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  )
+                                : _getContent(_messages),
+                            // Floating "down" button: up whenever the viewport is
+                            // far from the newest message, and carrying the count
+                            // of what arrived while the user was reading above.
+                            Positioned(
+                              right: 16,
+                              bottom: _composerHeight + 16,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                transitionBuilder: (child, animation) =>
+                                    FadeTransition(
+                                  opacity: animation,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(begin: 0.8, end: 1)
+                                        .animate(animation),
+                                    child: child,
                                   ),
-                                )
-                              : _getContent(_messages),
-                          // Floating "down" button: up whenever the viewport is
-                          // far from the newest message, and carrying the count
-                          // of what arrived while the user was reading above.
-                          Positioned(
-                            right: 16,
-                            bottom: _composerHeight + 16,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              transitionBuilder: (child, animation) =>
-                                  FadeTransition(
-                                opacity: animation,
-                                child: ScaleTransition(
-                                  scale: Tween<double>(begin: 0.8, end: 1)
-                                      .animate(animation),
-                                  child: child,
                                 ),
+                                child: !_firstLoad &&
+                                        (_farFromBottom || _unseenCount > 0)
+                                    ? FloatingActionButton.small(
+                                        key: const ValueKey('jumpToLatest'),
+                                        heroTag: 'jumpToBottom',
+                                        tooltip: 'jumpToLatest'.tr(),
+                                        onPressed: () =>
+                                            _jumpToBottom(animate: true),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.arrow_downward,
+                                                size: 16),
+                                            if (_unseenCount > 1)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                    left: 2),
+                                                child: Text('$_unseenCount',
+                                                    style: const TextStyle(
+                                                        fontSize: 11)),
+                                              ),
+                                          ],
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
                               ),
-                              child: !_firstLoad &&
-                                      (_farFromBottom || _unseenCount > 0)
-                                  ? FloatingActionButton.small(
-                                      key: const ValueKey('jumpToLatest'),
-                                      heroTag: 'jumpToBottom',
-                                      tooltip: 'jumpToLatest'.tr(),
-                                      onPressed: () =>
-                                          _jumpToBottom(animate: true),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.arrow_downward,
-                                              size: 16),
-                                          if (_unseenCount > 1)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  left: 2),
-                                              child: Text('$_unseenCount',
-                                                  style: const TextStyle(
-                                                      fontSize: 11)),
-                                            ),
-                                        ],
-                                      ),
-                                    )
-                                  : const SizedBox.shrink(),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                // Right under the header, over the list: the pin is where the
-                // eye looks first and the composer stays clean.
-                if (_pinnedInOrder.isNotEmpty)
+                    ],
+                  ),
+                  // Right under the header, over the list: the pins are where the
+                  // eye looks first and the composer stays clean.
                   Positioned(
                     top: kToolbarHeight + MediaQuery.of(context).padding.top,
                     left: 0,
                     right: 0,
-                    child: _buildPinBar(),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_pinnedInOrder.isNotEmpty) _buildPinBar(),
+                        // A round note that keeps playing once its circle left
+                        // the viewport: the copy hangs under the strip above.
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, right: 12),
+                          child: Align(
+                            alignment: Alignment.topRight,
+                            child: PinnedRoundNote(playback: _notePlayback),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

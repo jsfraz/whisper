@@ -589,12 +589,17 @@ class _ChatBubbleState extends State<ChatBubble> {
     // only stops clipping: toggling Container.clipBehavior adds or drops its
     // clip widget, which re-mounts the attachment and throws the decoded image
     // away - the white flash when a reaction was added.
+    //
+    // A round note is never clipped either: it is a circle that grows while it
+    // plays and clips itself, so the rounded rectangle would only cut it at the
+    // box edges.
     final clippedBox = ownChrome
         ? ClipRRect(
             borderRadius: BorderRadius.circular(20),
-            clipBehavior: widget.message.reactionEmojis.isEmpty
-                ? Clip.antiAlias
-                : Clip.none,
+            clipBehavior: widget.message.reactionEmojis.isEmpty ||
+                    widget.message.isVideoNote
+                ? Clip.none
+                : Clip.antiAlias,
             child: bubbleBox,
           )
         : bubbleBox;

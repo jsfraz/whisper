@@ -333,9 +333,8 @@ class _MediaBubbleState extends State<MediaBubble> {
       if (path != null) {
         return _withCaption(
           RoundVideoNote(
-            path: path,
+            message: widget.message,
             conversationId: widget.conversationUserId,
-            sentAt: widget.message.sentAt,
           ),
           hasCaption,
         );
