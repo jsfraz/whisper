@@ -24,15 +24,16 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Create Firebase options
-        env:
-          FIREBASE_OPTIONS_DART_BASE64: ${{ secrets.FIREBASE_OPTIONS_DART_BASE64 }}
-        run: |
-          if [ -z "$FIREBASE_OPTIONS_DART_BASE64" ]; then
-            echo "FIREBASE_OPTIONS_DART_BASE64 secret is required for analysis"
-            exit 1
-          fi
-          echo "$FIREBASE_OPTIONS_DART_BASE64" | base64 -d > lib/firebase_options.dart
+      # Firebase is retired: no generated options file is needed any more.
+      # - name: Create Firebase options
+      #   env:
+      #     FIREBASE_OPTIONS_DART_BASE64: ${{ secrets.FIREBASE_OPTIONS_DART_BASE64 }}
+      #   run: |
+      #     if [ -z "$FIREBASE_OPTIONS_DART_BASE64" ]; then
+      #       echo "FIREBASE_OPTIONS_DART_BASE64 secret is required for analysis"
+      #       exit 1
+      #     fi
+      #     echo "$FIREBASE_OPTIONS_DART_BASE64" | base64 -d > lib/firebase_options.dart
 
       - name: Get dependencies
         run: flutter pub get

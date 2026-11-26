@@ -10,7 +10,7 @@ and WebSocket (`shept_websocket_client_dart`).
 - format: `dart format` on the files you touched
 - test: `flutter test`
 - e2e: `flutter test integration_test -d linux` (needs Linux desktop toolchain)
-- build: `flutter build apk --release` (requires `firebase_options.dart`, `google-services.json`, `firebase.json`)
+- build: `flutter build apk --release` (no Firebase files needed; Firebase is retired)
 
 ## AI / MCP tooling
 
@@ -43,8 +43,8 @@ not in this repository). Use them for the fast loop, but the shell gates below s
 ## Where it hurts
 
 - **Media upload**: `uploadMedia(file, receiverId)` — the argument order comes from the generator, not from logic. Verify call sites after regenerating the client.
-- **Pinned clients**: `pubspec.yaml` pulls both Dart clients from their `v0.1.0` tags, so the build records the contract it was made against. `pubspec_overrides.yaml` (gitignored) points at the sibling checkouts for local work; never commit it.
-- **Firebase**: analysis fails without `lib/firebase_options.dart`. CI decodes it from a secret.
+- **Pinned clients**: `pubspec.yaml` pulls both Dart clients from their `v0.5.0` tags, so the build records the contract it was made against. `pubspec_overrides.yaml` (gitignored) points at the sibling checkouts for local work; never commit it.
+- **Firebase**: retired. Dependencies and the Google Services plugin are commented out, FCM code is kept dead in comments; do not re-enable without a new Firebase project.
 - **Login needs a challenge**: `CryptoUtils.generateRsaJwt` requires a `nonce`
   fetched from `AuthenticationApi.authChallenge()`; the server spends it on use.
   A login without it is refused.
