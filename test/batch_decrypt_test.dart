@@ -3,8 +3,8 @@ import 'dart:typed_data';
 
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/utils/crypto_utils.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/utils/crypto_utils.dart';
 
 void main() {
   test('album is decoded once per stored json', () {

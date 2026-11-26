@@ -6,13 +6,13 @@ import 'package:pointycastle/export.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/models/profile.dart';
-import 'package:whisper/models/user.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/utils/cache_utils.dart';
-import 'package:whisper/utils/singleton.dart';
-import 'package:whisper/utils/utils.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
+import 'package:shept/models/profile.dart';
+import 'package:shept/models/user.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/utils/cache_utils.dart';
+import 'package:shept/utils/singleton.dart';
+import 'package:shept/utils/utils.dart';
+import 'package:shept_openapi_client_dart/api.dart';
 
 /// flutter_test replaces HttpClient with one that answers 400 and never touches
 /// the network; this test serves its own backend on loopback.
@@ -40,7 +40,7 @@ void main() {
   const challenge = 'test-challenge-1';
 
   setUpAll(() async {
-    dir = Directory.systemTemp.createTempSync('whisper_auth_fallback_test');
+    dir = Directory.systemTemp.createTempSync('shept_auth_fallback_test');
     Hive.init(dir.path);
     Hive.registerAdapter(ProfileAdapter());
     Hive.registerAdapter(UserAdapter());

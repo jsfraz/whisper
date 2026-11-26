@@ -90,7 +90,7 @@
   "newMessagesBody": "Máte nové zprávy v chatu",
   "notificationChannelDesc": "Oznámení pro nové zprávy v chatu",
   "tickerLocalNotifications": "Nové zprávy v chatu",
-  "whisperLocalNotificationSingleMessage": "Máte novou zprávu v chatu",
+  "sheptLocalNotificationSingleMessage": "Máte novou zprávu v chatu",
   "offlineTrue": "Jste offline :(",
   "offlineFalse": "Jste zpět online :)",
   "decryptionFailed": "Dešifrování selhalo",

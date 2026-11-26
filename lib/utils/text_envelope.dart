@@ -118,7 +118,7 @@ const int textEnvelopeVersion = 3;
 Uint8List buildTextEnvelope(String body, ReplyRef? reply,
     {bool forwarded = false, LocationRef? location, bool viewOnce = false}) {
   final map = <String, dynamic>{
-    'whisperMsg': textEnvelopeVersion,
+    'sheptMsg': textEnvelopeVersion,
     'kind': 'text',
     'body': body,
     if (reply != null) 'replyTo': reply.toJson(),
@@ -136,7 +136,7 @@ ParsedTextEnvelope? tryParseTextEnvelope(Uint8List plaintext) {
     final decoded = jsonDecode(utf8.decode(plaintext));
     if (decoded is Map &&
         decoded['kind'] == 'text' &&
-        decoded['whisperMsg'] == textEnvelopeVersion) {
+        decoded['sheptMsg'] == textEnvelopeVersion) {
       final body = decoded['body'];
       if (body is! String) {
         return null;
@@ -178,7 +178,7 @@ class ParsedSystemEnvelope {
 /// acceptance or a refusal.
 Uint8List buildSystemEnvelope(String state, int seconds) {
   final map = <String, dynamic>{
-    'whisperMsg': systemEnvelopeVersion,
+    'sheptMsg': systemEnvelopeVersion,
     'kind': 'system',
     'action': systemActionDisappearing,
     'state': state,
@@ -193,7 +193,7 @@ ParsedSystemEnvelope? tryParseSystemEnvelope(Uint8List plaintext) {
     final decoded = jsonDecode(utf8.decode(plaintext));
     if (decoded is! Map ||
         decoded['kind'] != 'system' ||
-        decoded['whisperMsg'] != systemEnvelopeVersion ||
+        decoded['sheptMsg'] != systemEnvelopeVersion ||
         decoded['action'] != systemActionDisappearing) {
       return null;
     }

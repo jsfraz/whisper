@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/io_client.dart';
-import 'package:whisper/utils/singleton.dart';
+import 'package:shept/utils/singleton.dart';
 
 void main() {
   // The generated client has no timeout of its own; the app has to install a

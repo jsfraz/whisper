@@ -22,7 +22,7 @@ if (hasReleaseKeystore) {
 }
 
 android {
-    namespace = "cz.josefraz.whisper"
+    namespace = "cz.josefraz.shept"
     // flutter_local_notifications 23 requires compiling against API 37.
     compileSdk = 37
     ndkVersion = flutter.ndkVersion
@@ -37,7 +37,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "cz.josefraz.whisper"
+        applicationId = "cz.josefraz.shept"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -62,7 +62,7 @@ android {
             // Different applicationId for debug version
             applicationIdSuffix = ".debug"
             // Add suffix
-            resValue("string", "app_name", "Whisper Debug")
+            resValue("string", "app_name", "Shept Debug")
         }
         release {
             signingConfig = if (hasReleaseKeystore) {
@@ -71,7 +71,7 @@ android {
                 logger.warn("key.properties not found, the release APK is signed with the debug key")
                 signingConfigs.getByName("debug")
             }
-            resValue("string", "app_name", "Whisper")
+            resValue("string", "app_name", "Shept")
         }
     }
 }

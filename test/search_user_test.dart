@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/user.dart';
-import 'package:whisper/pages/search_user_page.dart';
+import 'package:shept/models/user.dart';
+import 'package:shept/pages/search_user_page.dart';
 
 User user(String name) => User(name, name, 'public-key', false);
 

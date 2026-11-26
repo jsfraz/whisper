@@ -2,18 +2,18 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "whisper",
+            "name": "shept",
             "request": "launch",
             "type": "dart"
         },
         {
-            "name": "whisper (profile mode)",
+            "name": "shept (profile mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "profile"
         },
         {
-            "name": "whisper (release mode)",
+            "name": "shept (release mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"

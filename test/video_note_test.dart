@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper_websocket_client_dart/models/media_reference.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept_websocket_client_dart/models/media_reference.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 void main() {
   PrivateMessage video({String? referenceJson}) => PrivateMessage(

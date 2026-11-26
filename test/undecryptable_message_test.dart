@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/private_message.dart';
+import 'package:shept/models/private_message.dart';
 
 void main() {
   final sentAt = DateTime(2026, 5, 1);

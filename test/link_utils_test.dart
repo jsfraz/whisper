@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/link_utils.dart';
+import 'package:shept/utils/link_utils.dart';
 
 void main() {
   test('text without a link stays plain', () {

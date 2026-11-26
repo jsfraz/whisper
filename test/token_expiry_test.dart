@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/utils.dart';
+import 'package:shept/utils/utils.dart';
 
 String _token(Map<String, dynamic> payload) {
   String encode(Map<String, dynamic> value) =>

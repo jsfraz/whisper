@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 // easy_localization reads the locale from shared_preferences, its transitive dep
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:whisper/widgets/typing_dots.dart';
+import 'package:shept/widgets/typing_dots.dart';
 
 void main() {
   setUpAll(() async {

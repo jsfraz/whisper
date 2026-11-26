@@ -19,10 +19,10 @@ class NotificationService {
   /// Init notification settings
   Future<void> init() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('ic_stat_whisper');
+        AndroidInitializationSettings('ic_stat_shept');
     final LinuxInitializationSettings initializationSettingsLinux =
         LinuxInitializationSettings(
-      defaultActionName: 'whisper_message',
+      defaultActionName: 'shept_message',
       defaultIcon: ThemeLinuxIcon('mail-unread'),
     );
     // Asks for alert/badge/sound permission on iOS and macOS.
@@ -55,8 +55,8 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(AndroidNotificationChannel(
-          'whisper_firebase_messages',
-          'Whisper',
+          'shept_firebase_messages',
+          'Shept',
           description: 'notificationChannelDesc'.tr(),
           importance: Importance.max,
           sound: const RawResourceAndroidNotificationSound('notification'),
@@ -146,8 +146,8 @@ class NotificationService {
             'xMessagesFromYChats'.tr(), [totalMessageCount, chatCount]));
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'whisperLocalNotificationMultipleMessages',
-      'whisperLocalNotificationMultipleMessages'.tr(),
+      'sheptLocalNotificationMultipleMessages',
+      'sheptLocalNotificationMultipleMessages'.tr(),
       groupKey: 'cz.josefraz.flutter_push_notifications_multiple_messages',
       channelDescription: 'notificationChannelDesc'.tr(),
       setAsGroupSummary: true,
@@ -176,8 +176,8 @@ class NotificationService {
 
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'whisperLocalNotificationSingleMessage',
-      'whisperLocalNotificationSingleMessage'.tr(),
+      'sheptLocalNotificationSingleMessage',
+      'sheptLocalNotificationSingleMessage'.tr(),
       groupKey: 'cz.josefraz.flutter_push_notifications_single_message',
       channelDescription: 'notificationChannelDesc'.tr(),
       importance: Importance.max,
@@ -207,8 +207,8 @@ class NotificationService {
   Future<void> showSecurityNotification(String title, String body) async {
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'whisperLocalNotificationSecurity',
-      'whisperLocalNotificationSecurity'.tr(),
+      'sheptLocalNotificationSecurity',
+      'sheptLocalNotificationSecurity'.tr(),
       channelDescription: 'notificationChannelDesc'.tr(),
       importance: Importance.high,
       priority: Priority.high,

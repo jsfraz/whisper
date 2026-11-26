@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/models/profile.dart';
-import 'package:whisper/models/user.dart';
-import 'package:whisper/utils/message_actions.dart';
-import 'package:whisper/utils/singleton.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/models/profile.dart';
+import 'package:shept/models/user.dart';
+import 'package:shept/utils/message_actions.dart';
+import 'package:shept/utils/singleton.dart';
 
 /// The reaction row marks the emoji this user already picked, so a second tap
 /// reads as "take mine back".

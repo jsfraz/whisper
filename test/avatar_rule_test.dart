@@ -4,11 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 // easy_localization reads the locale from shared_preferences, its transitive dep
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/models/profile.dart';
-import 'package:whisper/models/user.dart';
-import 'package:whisper/utils/singleton.dart';
-import 'package:whisper/widgets/chat_bubble.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/models/profile.dart';
+import 'package:shept/models/user.dart';
+import 'package:shept/utils/singleton.dart';
+import 'package:shept/widgets/chat_bubble.dart';
 
 void main() {
   final peer = User('2', 'peer', '', false);

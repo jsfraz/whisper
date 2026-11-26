@@ -3,7 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 // ignore: depend_on_referenced_packages
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/chat_date.dart';
+import 'package:shept/utils/chat_date.dart';
 
 void main() {
   final now = DateTime(2026, 6, 10, 12);

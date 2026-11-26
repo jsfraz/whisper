@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/message_format.dart';
+import 'package:shept/utils/message_format.dart';
 
 /// Renders the parsed pieces back as text, so a test can assert on the whole
 /// message without caring how the parser grouped it.

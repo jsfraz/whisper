@@ -5,7 +5,7 @@ import 'package:chewie/chewie.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 import '../models/private_message.dart';
 import '../utils/cache_utils.dart';

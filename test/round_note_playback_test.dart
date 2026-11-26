@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/round_note_playback.dart';
+import 'package:shept/utils/round_note_playback.dart';
 
 void main() {
   group('the floating copy of a round note', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/media_utils.dart';
-import 'package:whisper/utils/utils.dart';
+import 'package:shept/utils/media_utils.dart';
+import 'package:shept/utils/utils.dart';
 
 void main() {
   group('server url policy', () {
@@ -25,10 +25,10 @@ void main() {
 
   group('plaintext temp media', () {
     test('only the app temp files are swept', () {
-      expect(MediaUtils.isTempMediaName('whisper_media_abc.mp4'), isTrue);
-      expect(MediaUtils.isTempMediaName('whisper_send_abc.gif'), isTrue);
+      expect(MediaUtils.isTempMediaName('shept_media_abc.mp4'), isTrue);
+      expect(MediaUtils.isTempMediaName('shept_send_abc.gif'), isTrue);
       expect(MediaUtils.isTempMediaName('shared_prefs.xml'), isFalse);
-      expect(MediaUtils.isTempMediaName('whisper.sqlite'), isFalse);
+      expect(MediaUtils.isTempMediaName('shept.sqlite'), isFalse);
     });
   });
 }

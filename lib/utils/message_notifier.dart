@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
-import 'package:whisper_openapi_client_dart/media_download.dart';
-import 'package:whisper_websocket_client_dart/models/media_reference.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept_openapi_client_dart/api.dart';
+import 'package:shept_openapi_client_dart/media_download.dart';
+import 'package:shept_websocket_client_dart/models/media_reference.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 import '../utils/notification_service.dart';
 
 import '../models/private_message.dart';

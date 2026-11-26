@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper_websocket_client_dart/models/media_reference.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept_websocket_client_dart/models/media_reference.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 import '../utils/singleton.dart';
 import '../utils/text_envelope.dart';
@@ -392,7 +392,7 @@ class PrivateMessage extends HiveObject {
   /// Stored instead of the text when a message cannot be decrypted. It keeps a
   /// visible gap in the chat, and the receiver only acks what it stored, so the
   /// server still has the ciphertext.
-  static const String undecryptableMarker = '\uE000whisper-undecryptable';
+  static const String undecryptableMarker = '\uE000shept-undecryptable';
 
   bool get isMe => senderId == Singleton().profile.user.id;
 

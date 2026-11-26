@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/user.dart';
-import 'package:whisper/utils/presence.dart';
-import 'package:whisper/widgets/user_list_item.dart';
+import 'package:shept/models/user.dart';
+import 'package:shept/utils/presence.dart';
+import 'package:shept/widgets/user_list_item.dart';
 
 Widget app() => MaterialApp(
       home: Scaffold(

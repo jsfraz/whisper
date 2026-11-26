@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/websocket_manager.dart';
+import 'package:shept/utils/websocket_manager.dart';
 
 void main() {
   test('reconnects back off instead of polling every few seconds', () {

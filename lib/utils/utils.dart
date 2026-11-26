@@ -11,19 +11,19 @@ import 'package:path_provider/path_provider.dart';
 import 'package:vibration/vibration.dart';
 import '../utils/notification_service.dart';
 import '../pages/chat_page.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
+import 'package:shept_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
-import 'package:whisper_websocket_client_dart/models/delivery_ack.dart';
-import 'package:whisper_websocket_client_dart/models/live_location.dart';
-import 'package:whisper_websocket_client_dart/models/message_event.dart';
-import 'package:whisper_websocket_client_dart/models/presence.dart';
-import 'package:whisper_websocket_client_dart/models/read_receipt.dart';
-import 'package:whisper_websocket_client_dart/models/synced.dart';
-import 'package:whisper_websocket_client_dart/models/typing.dart';
-import 'package:whisper_websocket_client_dart/models/media_reference.dart';
-import 'package:whisper_websocket_client_dart/models/private_message.dart';
-import 'package:whisper_websocket_client_dart/models/ws_response.dart';
-import 'package:whisper_websocket_client_dart/models/ws_response_type.dart';
+import 'package:shept_websocket_client_dart/models/delivery_ack.dart';
+import 'package:shept_websocket_client_dart/models/live_location.dart';
+import 'package:shept_websocket_client_dart/models/message_event.dart';
+import 'package:shept_websocket_client_dart/models/presence.dart';
+import 'package:shept_websocket_client_dart/models/read_receipt.dart';
+import 'package:shept_websocket_client_dart/models/synced.dart';
+import 'package:shept_websocket_client_dart/models/typing.dart';
+import 'package:shept_websocket_client_dart/models/media_reference.dart';
+import 'package:shept_websocket_client_dart/models/private_message.dart';
+import 'package:shept_websocket_client_dart/models/ws_response.dart';
+import 'package:shept_websocket_client_dart/models/ws_response_type.dart';
 import 'auto_download.dart';
 import 'cache_utils.dart';
 import 'chat_sender.dart';
@@ -117,7 +117,7 @@ class Utils {
   /// Gets cache directory path
   static Future<String> getCacheDir() async {
     Directory dir = await getApplicationDocumentsDirectory();
-    return '${dir.path}/whisper';
+    return '${dir.path}/shept';
   }
 
   /// In-flight token renewal. Concurrent callers (a resume fires several API

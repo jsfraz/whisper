@@ -4,14 +4,14 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/models/profile.dart';
-import 'package:whisper/models/user.dart';
-import 'package:whisper/utils/media_utils.dart';
-import 'package:whisper/utils/singleton.dart';
-import 'package:whisper/widgets/chat_bubble.dart';
-import 'package:whisper/widgets/media_bubble.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/models/profile.dart';
+import 'package:shept/models/user.dart';
+import 'package:shept/utils/media_utils.dart';
+import 'package:shept/utils/singleton.dart';
+import 'package:shept/widgets/chat_bubble.dart';
+import 'package:shept/widgets/media_bubble.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 /// A reaction is toggled on an attachment all the time. When the bubble's clip
 /// wrapper came and went with it, the attachment was mounted again from
@@ -25,7 +25,7 @@ void main() {
   late Directory dir;
 
   setUpAll(() {
-    dir = Directory.systemTemp.createTempSync('whisper_reaction_rebuild');
+    dir = Directory.systemTemp.createTempSync('shept_reaction_rebuild');
     Singleton().boxCollectionKey = key;
     Singleton().profile =
         Profile('', User('1', 'me', '', false), '', '', '', '', false);

@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/widgets/attachment_confirm_sheet.dart';
+import 'package:shept/widgets/attachment_confirm_sheet.dart';
 // easy_localization reads the locale from shared_preferences, its transitive dep
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences/shared_preferences.dart';

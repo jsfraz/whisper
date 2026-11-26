@@ -7,16 +7,16 @@ import 'package:hive/hive.dart';
 // easy_localization reads the locale from shared_preferences, its transitive dep
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/pages/chat_media_page.dart';
-import 'package:whisper/utils/cache_utils.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/pages/chat_media_page.dart';
+import 'package:shept/utils/cache_utils.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 void main() {
   late Directory dir;
 
   setUpAll(() async {
-    dir = Directory.systemTemp.createTempSync('whisper_chat_media_page');
+    dir = Directory.systemTemp.createTempSync('shept_chat_media_page');
     Hive.init(dir.path);
     Hive.registerAdapter(PrivateMessageAdapter());
     SharedPreferences.setMockInitialValues({});
@@ -62,7 +62,7 @@ void main() {
     // wait on them forever.
     await tester.runAsync(() => CacheUtils.addPrivateMessages('peer', [
           PrivateMessage('peer', '', sentAt, sentAt, true,
-              localPath: '/tmp/whisper_test_report.pdf',
+              localPath: '/tmp/shept_test_report.pdf',
               mediaTypeStr: MediaType.file.name,
               fileName: 'report.pdf'),
         ]));

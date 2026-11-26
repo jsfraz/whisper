@@ -28,10 +28,10 @@
         <!-- Firebase reads these from application level; under <activity> they are ignored -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_stat_whisper" />
+            android:resource="@drawable/ic_stat_shept" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="whisper_firebase_messages" />
+            android:value="shept_firebase_messages" />
         <meta-data
             android:name="com.google.firebase.messaging.default_vibrate_timings"
             android:resource="@array/default_vibrate_pattern" />

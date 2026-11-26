@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 /// target where the block is enforceable, so on every other platform both calls
 /// are a no-op.
 class ScreenGuard {
-  static const MethodChannel _channel = MethodChannel('whisper/secure_screen');
+  static const MethodChannel _channel = MethodChannel('shept/secure_screen');
 
   /// Called when the platform noticed a screenshot.
   static VoidCallback? onScreenshot;

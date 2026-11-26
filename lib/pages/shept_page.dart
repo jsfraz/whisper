@@ -9,8 +9,8 @@ import '../pages/scan_invite_button_page.dart';
 import 'password_page.dart';
 import '../utils/cache_utils.dart';
 
-class WhisperPage extends StatelessWidget {
-  const WhisperPage({super.key});
+class SheptPage extends StatelessWidget {
+  const SheptPage({super.key});
 
   /// Fade-through everywhere so `MaterialPageRoute` pushes (forward, search,
   /// registration) use the same timing as the rest of the app.

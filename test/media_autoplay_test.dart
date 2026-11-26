@@ -2,18 +2,18 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/models/profile.dart';
-import 'package:whisper/models/user.dart';
-import 'package:whisper/utils/singleton.dart';
-import 'package:whisper/utils/cache_utils.dart';
-import 'package:whisper/utils/media_autoplay.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/models/profile.dart';
+import 'package:shept/models/user.dart';
+import 'package:shept/utils/singleton.dart';
+import 'package:shept/utils/cache_utils.dart';
+import 'package:shept/utils/media_autoplay.dart';
 
 void main() {
   late Directory dir;
 
   setUpAll(() async {
-    dir = Directory.systemTemp.createTempSync('whisper_media_autoplay_test');
+    dir = Directory.systemTemp.createTempSync('shept_media_autoplay_test');
     Hive.init(dir.path);
     Hive.registerAdapter(PrivateMessageAdapter());
     // isMe compares against the signed-in user.

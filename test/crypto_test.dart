@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/foundation.dart';
-import 'package:whisper/utils/crypto_utils.dart';
+import 'package:shept/utils/crypto_utils.dart';
 
 void main() async {
   test('generate RSA keypair asynchronously', () async {

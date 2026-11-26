@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/playback_lock.dart';
+import 'package:shept/utils/playback_lock.dart';
 
 void main() {
   test('claim hands the lock to the newest source', () {

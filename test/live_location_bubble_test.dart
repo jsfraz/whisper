@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/user.dart';
-import 'package:whisper/utils/live_location.dart';
-import 'package:whisper/utils/presence.dart';
-import 'package:whisper/widgets/live_location_bubble.dart';
+import 'package:shept/models/user.dart';
+import 'package:shept/utils/live_location.dart';
+import 'package:shept/utils/presence.dart';
+import 'package:shept/widgets/live_location_bubble.dart';
 
 void main() {
   final peer = User('2', 'peer', '', false);

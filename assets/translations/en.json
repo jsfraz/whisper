@@ -90,7 +90,7 @@
   "newMessagesBody": "You have new messages in chat",
   "notificationChannelDesc": "Notifications for new messages in chat",
   "tickerLocalNotifications": "New messages in chat",
-  "whisperLocalNotificationSingleMessage": "You have a new message in chat",
+  "sheptLocalNotificationSingleMessage": "You have a new message in chat",
   "offlineTrue": "You are offline :(",
   "offlineFalse": "You are back online :)",
   "decryptionFailed": "Decryption failed",

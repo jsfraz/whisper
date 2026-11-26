@@ -4,14 +4,14 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/utils/cache_utils.dart';
-import 'package:whisper/utils/disappearing.dart';
-import 'package:whisper/utils/media_utils.dart';
-import 'package:whisper/utils/message_actions.dart';
-import 'package:whisper/utils/text_envelope.dart';
-import 'package:whisper_websocket_client_dart/models/media_reference.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/utils/cache_utils.dart';
+import 'package:shept/utils/disappearing.dart';
+import 'package:shept/utils/media_utils.dart';
+import 'package:shept/utils/message_actions.dart';
+import 'package:shept/utils/text_envelope.dart';
+import 'package:shept_websocket_client_dart/models/media_reference.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 PrivateMessage message(String senderId, DateTime sentAt,
     {DateTime? expiresAt, bool viewOnce = false}) {
@@ -23,7 +23,7 @@ void main() {
   late Directory dir;
 
   setUpAll(() async {
-    dir = Directory.systemTemp.createTempSync('whisper_disappearing_test');
+    dir = Directory.systemTemp.createTempSync('shept_disappearing_test');
     Hive.init(dir.path);
     Hive.registerAdapter(PrivateMessageAdapter());
   });

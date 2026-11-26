@@ -4,12 +4,12 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/utils/cache_utils.dart';
-import 'package:whisper/utils/media_utils.dart';
-import 'package:whisper/utils/message_notifier.dart';
-import 'package:whisper_websocket_client_dart/models/media_reference.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/utils/cache_utils.dart';
+import 'package:shept/utils/media_utils.dart';
+import 'package:shept/utils/message_notifier.dart';
+import 'package:shept_websocket_client_dart/models/media_reference.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 MediaReference _reference(String id, {MediaType type = MediaType.image}) =>
     MediaReference(
@@ -38,7 +38,7 @@ void main() {
         'album caption',
       );
       final decoded = jsonDecode(utf8.decode(envelope)) as Map;
-      expect(decoded['whisperMsg'], MediaUtils.envelopeVersionAlbum);
+      expect(decoded['sheptMsg'], MediaUtils.envelopeVersionAlbum);
 
       final parsed = MediaUtils.tryParseMediaEnvelope(envelope);
       expect(parsed, isNotNull);
@@ -65,7 +65,7 @@ void main() {
 
     test('an unknown envelope version is not parsed', () {
       final parsed = MediaUtils.tryParseMediaEnvelope(Uint8List.fromList(
-          utf8.encode('{"whisperMsg":99,"kind":"media","media":[]}')));
+          utf8.encode('{"sheptMsg":99,"kind":"media","media":[]}')));
       expect(parsed, isNull);
     });
   });
@@ -147,7 +147,7 @@ void main() {
     late Directory dir;
 
     setUpAll(() async {
-      dir = Directory.systemTemp.createTempSync('whisper_album_test');
+      dir = Directory.systemTemp.createTempSync('shept_album_test');
       Hive.init(dir.path);
       Hive.registerAdapter(PrivateMessageAdapter());
       await Hive.openBox('privateMessages');

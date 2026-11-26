@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/utils/message_notifier.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/utils/message_notifier.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 PrivateMessage message(String? type, String? path, DateTime sentAt,
     {int? downloadStatus}) {

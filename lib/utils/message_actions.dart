@@ -10,8 +10,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
+import 'package:shept_openapi_client_dart/api.dart';
 
 import '../models/private_message.dart';
 import '../pages/forward_page.dart';
@@ -482,7 +482,7 @@ class MessageActions {
       final bytes = await MediaUtils.decryptAtRest(path);
       final dir = await getTemporaryDirectory();
       final file = File(
-          '${dir.path}/whisper_send_share_${message.sentAt.microsecondsSinceEpoch}${MediaUtils.extensionForType(message.mediaType ?? MediaType.file)}');
+          '${dir.path}/shept_send_share_${message.sentAt.microsecondsSinceEpoch}${MediaUtils.extensionForType(message.mediaType ?? MediaType.file)}');
       await file.writeAsBytes(bytes, flush: true);
       await SharePlus.instance.share(ShareParams(
         files: [XFile(file.path)],
@@ -507,7 +507,7 @@ class MessageActions {
       final saved = await FilePicker.saveFile(
         dialogTitle: 'saveAttachment'.tr(),
         fileName: message.fileName ??
-            'whisper_${message.sentAt.millisecondsSinceEpoch}${MediaUtils.extensionForType(type)}',
+            'shept_${message.sentAt.millisecondsSinceEpoch}${MediaUtils.extensionForType(type)}',
         bytes: bytes,
       );
       if (saved == null) {

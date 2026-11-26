@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/live_location.dart';
-import 'package:whisper/utils/text_envelope.dart';
+import 'package:shept/utils/live_location.dart';
+import 'package:shept/utils/text_envelope.dart';
 
 void main() {
   // A location is a text message with one optional key, so an older client

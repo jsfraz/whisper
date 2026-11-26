@@ -1,4 +1,4 @@
-package cz.josefraz.whisper
+package cz.josefraz.shept
 
 import android.database.ContentObserver
 import android.net.Uri
@@ -21,7 +21,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val methodChannel =
-            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "whisper/secure_screen")
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "shept/secure_screen")
         channel = methodChannel
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {

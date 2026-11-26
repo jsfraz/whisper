@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/live_location.dart';
-import 'package:whisper/utils/presence.dart';
+import 'package:shept/utils/live_location.dart';
+import 'package:shept/utils/presence.dart';
 
 void main() {
   final presence = PresenceNotifier.instance;

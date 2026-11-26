@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/text_envelope.dart';
+import 'package:shept/utils/text_envelope.dart';
 
 Uint8List bytes(String text) => Uint8List.fromList(utf8.encode(text));
 
@@ -30,7 +30,7 @@ void main() {
         'x', ReplyRef(senderId: 'a', sentAt: DateTime(2026), preview: 'y'));
     final decoded = jsonDecode(utf8.decode(envelope)) as Map;
     expect(decoded['kind'], 'text');
-    expect(decoded['whisperMsg'], textEnvelopeVersion);
+    expect(decoded['sheptMsg'], textEnvelopeVersion);
   });
 
   test('a forwarded message survives the round trip without a quote', () {
@@ -44,7 +44,7 @@ void main() {
     // The version stays 3: an older reader still opens the body instead of
     // showing raw JSON.
     final decoded = jsonDecode(utf8.decode(envelope)) as Map;
-    expect(decoded['whisperMsg'], textEnvelopeVersion);
+    expect(decoded['sheptMsg'], textEnvelopeVersion);
   });
 
   test('an envelope without the flag is not a forward', () {
@@ -62,7 +62,7 @@ void main() {
     expect(parsed.location!.lat, 50.08);
     // An older reader still opens the body instead of raw JSON.
     final decoded = jsonDecode(utf8.decode(envelope)) as Map;
-    expect(decoded['whisperMsg'], textEnvelopeVersion);
+    expect(decoded['sheptMsg'], textEnvelopeVersion);
   });
 
   test('plain text is not an envelope', () {
@@ -70,18 +70,18 @@ void main() {
   });
 
   test('a media envelope is not a text envelope', () {
-    final media = bytes('{"whisperMsg":1,"kind":"media","media":{}}');
+    final media = bytes('{"sheptMsg":1,"kind":"media","media":{}}');
     expect(tryParseTextEnvelope(media), isNull);
   });
 
   test('a broken body is not an envelope', () {
-    final broken = bytes('{"whisperMsg":3,"kind":"text","body":5}');
+    final broken = bytes('{"sheptMsg":3,"kind":"text","body":5}');
     expect(tryParseTextEnvelope(broken), isNull);
   });
 
   test('a broken quote is ignored, the body still reads', () {
     final broken =
-        bytes('{"whisperMsg":3,"kind":"text","body":"a","replyTo":{"x":1}}');
+        bytes('{"sheptMsg":3,"kind":"text","body":"a","replyTo":{"x":1}}');
     final parsed = tryParseTextEnvelope(broken);
     expect(parsed!.body, 'a');
     expect(parsed.reply, isNull);

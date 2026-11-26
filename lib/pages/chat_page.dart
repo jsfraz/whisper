@@ -11,7 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sprintf/sprintf.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/nav_transitions.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
 import '../models/user.dart';
 import '../utils/cache_utils.dart';
@@ -1309,7 +1309,7 @@ class _ChatPageState extends State<ChatPage> {
       }
       final dir = await getTemporaryDirectory();
       final path =
-          '${dir.path}/whisper_edited_${DateTime.now().microsecondsSinceEpoch}.png';
+          '${dir.path}/shept_edited_${DateTime.now().microsecondsSinceEpoch}.png';
       return File(path)..writeAsBytesSync(edited, flush: true);
     }
     if (!mounted) {

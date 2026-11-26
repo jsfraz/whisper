@@ -19,7 +19,7 @@ import 'models/app_theme.dart';
 import 'models/private_message.dart';
 import 'models/profile.dart';
 import 'models/user.dart';
-import 'pages/whisper_page.dart';
+import 'pages/shept_page.dart';
 import 'utils/media_utils.dart';
 import 'utils/storage_utils.dart';
 import 'utils/notification_service.dart';
@@ -107,7 +107,7 @@ void main() async {
         supportedLocales: const [Locale('en'), Locale('cs')],
         path: 'assets/translations',
         fallbackLocale: const Locale('en'),
-        child: WhisperPage(),
+        child: SheptPage(),
       ),
     ),
   );

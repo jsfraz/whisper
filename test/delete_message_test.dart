@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/utils/cache_utils.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/utils/cache_utils.dart';
 
 void main() {
   late Directory dir;
@@ -11,7 +11,7 @@ void main() {
   late PrivateMessage drop;
 
   setUpAll(() async {
-    dir = Directory.systemTemp.createTempSync('whisper_delete_message_test');
+    dir = Directory.systemTemp.createTempSync('shept_delete_message_test');
     Hive.init(dir.path);
     Hive.registerAdapter(PrivateMessageAdapter());
   });

@@ -19,7 +19,7 @@ import 'search_user_page.dart';
 import 'settings_page.dart';
 import '../utils/dialog_utils.dart';
 import '../widgets/invite_list_item.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
+import 'package:shept_openapi_client_dart/api.dart';
 import '../models/user.dart';
 import '../utils/admin_format.dart';
 import '../utils/singleton.dart';

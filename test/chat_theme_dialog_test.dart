@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/dialog_utils.dart';
-import 'package:whisper/widgets/theme_palette.dart';
+import 'package:shept/utils/dialog_utils.dart';
+import 'package:shept/widgets/theme_palette.dart';
 
 /// The per-chat dialog shares the app theme's palette, and adds the one choice
 /// that only a chat has: fall back to the global color.

@@ -1588,6 +1588,20 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.1"
+  shept_openapi_client_dart:
+    dependency: "direct main"
+    description:
+      path: "../shept_openapi_client_dart"
+      relative: true
+    source: path
+    version: "0.5.0"
+  shept_websocket_client_dart:
+    dependency: "direct main"
+    description:
+      path: "../shept_websocket_client_dart"
+      relative: true
+    source: path
+    version: "0.5.0"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -1929,20 +1943,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.2.0"
-  whisper_openapi_client_dart:
-    dependency: "direct main"
-    description:
-      path: "../whisper_openapi_client_dart"
-      relative: true
-    source: path
-    version: "0.5.0"
-  whisper_websocket_client_dart:
-    dependency: "direct main"
-    description:
-      path: "../whisper_websocket_client_dart"
-      relative: true
-    source: path
-    version: "0.7.0"
   win32:
     dependency: transitive
     description:

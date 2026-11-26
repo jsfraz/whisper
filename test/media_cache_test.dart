@@ -2,8 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/media_utils.dart';
-import 'package:whisper/utils/singleton.dart';
+import 'package:shept/utils/media_utils.dart';
+import 'package:shept/utils/singleton.dart';
 
 /// A chat list disposes the rows that leave the viewport, so a photo scrolling
 /// back into view used to be decrypted again from disk: the spinner stayed up
@@ -14,7 +14,7 @@ void main() {
   late Directory dir;
 
   setUpAll(() {
-    dir = Directory.systemTemp.createTempSync('whisper_media_cache_test');
+    dir = Directory.systemTemp.createTempSync('shept_media_cache_test');
     Singleton().boxCollectionKey = key;
   });
 

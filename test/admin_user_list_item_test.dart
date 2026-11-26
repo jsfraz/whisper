@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/user.dart';
-import 'package:whisper/widgets/admin_user_list_item.dart';
+import 'package:shept/models/user.dart';
+import 'package:shept/widgets/admin_user_list_item.dart';
 
 Widget app(User user, VoidCallback onDelete) {
   return MaterialApp(

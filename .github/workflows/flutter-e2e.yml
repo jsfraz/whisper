@@ -17,7 +17,7 @@ jobs:
       - name: Checkout app
         uses: actions/checkout@v7
         with:
-          path: whisper
+          path: shept
 
       # Both Dart clients come from their release tags (pubspec.yaml), so no
       # sibling checkouts are needed.
@@ -34,11 +34,11 @@ jobs:
           cache: true
 
       - name: Get dependencies
-        working-directory: whisper
+        working-directory: shept
         run: |
           flutter config --enable-linux-desktop
           flutter pub get
 
       - name: Run E2E
-        working-directory: whisper
+        working-directory: shept
         run: xvfb-run -a flutter test integration_test -d linux

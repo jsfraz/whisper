@@ -1,10 +1,10 @@
-# whisper
+# shept
 
 Secure private self-hosted end-to-end encryption messaging app.
 
-For Whisper server, see [whisper-server](https://github.com/jsfraz/whisper-server) repository.
+For Shept server, see [shept-server](https://github.com/jsfraz/shept-server) repository.
 
-Also see [Wiki](https://github.com/jsfraz/whisper/wiki)!
+Also see [Wiki](https://github.com/jsfraz/shept/wiki)!
 
 |   |   |   |
 |---|---|---|
@@ -33,7 +33,7 @@ to sign in to a server that requires a newer client.
 
 ## Download
 
-You can download the app [here in the releases](https://github.com/jsfraz/whisper/releases).
+You can download the app [here in the releases](https://github.com/jsfraz/shept/releases).
 
 ## AI / MCP tooling
 
@@ -124,10 +124,10 @@ Known limitations (Linux desktop, verified):
   - used for launching URLs
 - [vibration](https://pub.dev/packages/vibration)
   - used for device vibration feedback
-- [whisper_openapi_client_dart](https://github.com/jsfraz/whisper_openapi_client_dart)
-  - used for API communication with Whisper server
-- [whisper_websocket_client_dart](https://github.com/jsfraz/whisper_websocket_client_dart)
-  - used for real-time WebSocket communication with Whisper server
+- [shept_openapi_client_dart](https://github.com/jsfraz/shept_openapi_client_dart)
+  - used for API communication with Shept server
+- [shept_websocket_client_dart](https://github.com/jsfraz/shept_websocket_client_dart)
+  - used for real-time WebSocket communication with Shept server
 
 ### Dev dependencies
 
@@ -155,7 +155,7 @@ Known limitations (Linux desktop, verified):
 - [Firebase](https://firebase.google.com/)
   - used for push notifications when user is offline
   - see [Firebase setup for Flutter](https://firebase.google.com/docs/flutter/setup) and [Firebase Cloud Messaging for Flutter](https://firebase.google.com/docs/cloud-messaging/flutter/client) for more details how to implement this
-  - app specific configuration files [are not included](.gitignore) in the repository, you need to create them yourself if you plan self host Whisper (refer to [whisper-server](https://github.com/jsfraz/whisper-server) repository for more details)
+  - app specific configuration files [are not included](.gitignore) in the repository, you need to create them yourself if you plan self host Shept (refer to [shept-server](https://github.com/jsfraz/shept-server) repository for more details)
 
 ### Development
 
@@ -169,8 +169,8 @@ Or run this for the development environment:
 
 ```bash
 flutterfire configure \
-  --android-package-name cz.josefraz.whisper.debug \
-  --ios-bundle-id cz.josefraz.whisper.debug
+  --android-package-name cz.josefraz.shept.debug \
+  --ios-bundle-id cz.josefraz.shept.debug
 ```
 
 Then select your Firebase project. This will generate the necessary `firebase.json` and `lib/firebase_options.dart` files.
@@ -198,8 +198,8 @@ Release builds are signed with the debug key unless `android/key.properties`
 exists (copy `android/key.properties.example`). A keystore is never committed:
 
 ```bash
-keytool -genkeypair -v -keystore whisper-release.jks -keyalg RSA -keysize 4096 \
-  -validity 10000 -alias whisper
+keytool -genkeypair -v -keystore shept-release.jks -keyalg RSA -keysize 4096 \
+  -validity 10000 -alias shept
 cp android/key.properties.example android/key.properties   # then fill it in
 ```
 
@@ -210,7 +210,7 @@ release workflow fails when the `v<version>` tag for the current
 (and the build number after `+`) before every release.
 
 iOS push notifications need the *Push Notifications* capability on the
-`cz.josefraz.whisper` App ID; `ios/Runner/Runner.entitlements` is already wired
+`cz.josefraz.shept` App ID; `ios/Runner/Runner.entitlements` is already wired
 into the project.
 
 Pull requests from forks cannot read repository secrets, so CI is skipped for them.

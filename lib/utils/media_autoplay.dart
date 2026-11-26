@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 import '../models/private_message.dart';
 import 'cache_utils.dart';

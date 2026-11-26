@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/chat_scroll.dart';
+import 'package:shept/utils/chat_scroll.dart';
 
 void main() {
   group('windowForAddition', () {

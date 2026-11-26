@@ -10,7 +10,7 @@ import 'cache_utils.dart';
 class BiometricAuth {
   static final LocalAuthentication _auth = LocalAuthentication();
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
-  static const String _biometricKeyStorageKey = 'whisper_secure_key';
+  static const String _biometricKeyStorageKey = 'shept_secure_key';
 
   /// Checks if biometric authentication is available on the device
   static Future<bool> isBiometricAvailable() async {

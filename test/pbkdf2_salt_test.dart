@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/crypto_utils.dart';
+import 'package:shept/utils/crypto_utils.dart';
 
 void main() {
   test('same password and salt derive the same key', () async {

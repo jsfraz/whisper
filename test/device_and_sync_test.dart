@@ -3,14 +3,14 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/utils/cache_utils.dart';
+import 'package:shept/utils/cache_utils.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory dir;
 
   setUpAll(() async {
-    dir = Directory.systemTemp.createTempSync('whisper_device_sync_test');
+    dir = Directory.systemTemp.createTempSync('shept_device_sync_test');
     Hive.init(dir.path);
     // The device id lives in secure storage, which a unit test has to fake.
     final secureStorage = <String, String>{};

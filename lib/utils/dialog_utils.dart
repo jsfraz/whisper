@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
 import '../utils/cache_utils.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
+import 'package:shept_openapi_client_dart/api.dart';
 import '../widgets/theme_palette.dart';
 import 'color_utils.dart';
 import 'singleton.dart';

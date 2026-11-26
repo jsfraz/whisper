@@ -14,8 +14,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
-import 'package:whisper_websocket_client_dart/models/media_reference.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept_websocket_client_dart/models/media_reference.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 import 'singleton.dart';
 import 'utils.dart';
@@ -301,7 +301,7 @@ class MediaUtils {
   static Future<File> materializeTempFile(String path, String extension) async {
     final bytes = await decryptAtRest(path);
     final tmpDir = await getTemporaryDirectory();
-    final file = File('${tmpDir.path}/whisper_media_${_uuid.v4()}$extension');
+    final file = File('${tmpDir.path}/shept_media_${_uuid.v4()}$extension');
     await file.writeAsBytes(bytes, flush: true);
     return file;
   }
@@ -322,14 +322,14 @@ class MediaUtils {
   /// which must only hold encrypted files.
   static Future<File> writeTempBytes(Uint8List bytes, String extension) async {
     final tmpDir = await getTemporaryDirectory();
-    final file = File('${tmpDir.path}/whisper_send_${_uuid.v4()}.$extension');
+    final file = File('${tmpDir.path}/shept_send_${_uuid.v4()}.$extension');
     await file.writeAsBytes(bytes, flush: true);
     return file;
   }
 
   /// Whether a file name belongs to the app's plaintext temp files.
   static bool isTempMediaName(String name) =>
-      name.startsWith('whisper_media_') || name.startsWith('whisper_send_');
+      name.startsWith('shept_media_') || name.startsWith('shept_send_');
 
   /// Remove plaintext media left in the temp directory.
   ///
@@ -585,7 +585,7 @@ class MediaUtils {
   static Uint8List buildMediaEnvelope(MediaReference reference, String caption,
       {bool forwarded = false, bool viewOnce = false}) {
     final map = <String, dynamic>{
-      'whisperMsg': envelopeVersion,
+      'sheptMsg': envelopeVersion,
       'kind': 'media',
       'caption': caption,
       'media': reference.toJson(),
@@ -601,7 +601,7 @@ class MediaUtils {
       List<MediaReference> references, String caption,
       {bool forwarded = false, bool viewOnce = false}) {
     final map = <String, dynamic>{
-      'whisperMsg': envelopeVersionAlbum,
+      'sheptMsg': envelopeVersionAlbum,
       'kind': 'media',
       'caption': caption,
       'media': references.map((reference) => reference.toJson()).toList(),
@@ -620,14 +620,14 @@ class MediaUtils {
         final caption = (decoded['caption'] as String?) ?? '';
         final forwarded = decoded['forwarded'] == true;
         final viewOnce = decoded['viewOnce'] == true;
-        if (decoded['whisperMsg'] == envelopeVersion &&
+        if (decoded['sheptMsg'] == envelopeVersion &&
             decoded['media'] is Map) {
           final reference = MediaReference.fromJson(
               Map<String, dynamic>.from(decoded['media'] as Map));
           return ParsedMediaEnvelope([reference], caption,
               forwarded: forwarded, viewOnce: viewOnce);
         }
-        if (decoded['whisperMsg'] == envelopeVersionAlbum &&
+        if (decoded['sheptMsg'] == envelopeVersionAlbum &&
             decoded['media'] is List) {
           final references = (decoded['media'] as List)
               .whereType<Map>()
@@ -721,7 +721,7 @@ class MediaRecorderController {
   /// Start recording to a temporary .m4a file.
   Future<void> start() async {
     final dir = await getTemporaryDirectory();
-    _path = '${dir.path}/whisper_voice_${const Uuid().v4()}.m4a';
+    _path = '${dir.path}/shept_voice_${const Uuid().v4()}.m4a';
     await _recorder.start(
       const RecordConfig(encoder: AudioEncoder.aacLc, numChannels: 1),
       path: _path!,

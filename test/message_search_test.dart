@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/utils/message_search.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/utils/message_search.dart';
 
 PrivateMessage text(String body, DateTime sentAt, {String? fileName}) {
   return PrivateMessage('peer', body, sentAt, sentAt, true, fileName: fileName);

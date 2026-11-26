@@ -9,16 +9,16 @@ import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:integration_test/integration_test.dart';
 import 'package:pointycastle/export.dart';
-import 'package:whisper/utils/cache_utils.dart';
-import 'package:whisper/utils/crypto_utils.dart';
-import 'package:whisper/utils/media_utils.dart';
-import 'package:whisper/utils/utils.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
-import 'package:whisper_websocket_client_dart/models/new_private_message.dart';
-import 'package:whisper_websocket_client_dart/models/private_message.dart';
-import 'package:whisper_websocket_client_dart/models/ws_message.dart';
-import 'package:whisper_websocket_client_dart/models/ws_response.dart';
-import 'package:whisper_websocket_client_dart/ws_client.dart';
+import 'package:shept/utils/cache_utils.dart';
+import 'package:shept/utils/crypto_utils.dart';
+import 'package:shept/utils/media_utils.dart';
+import 'package:shept/utils/utils.dart';
+import 'package:shept_openapi_client_dart/api.dart';
+import 'package:shept_websocket_client_dart/models/new_private_message.dart';
+import 'package:shept_websocket_client_dart/models/private_message.dart';
+import 'package:shept_websocket_client_dart/models/ws_message.dart';
+import 'package:shept_websocket_client_dart/models/ws_response.dart';
+import 'package:shept_websocket_client_dart/ws_client.dart';
 
 import 'fake_server.dart';
 

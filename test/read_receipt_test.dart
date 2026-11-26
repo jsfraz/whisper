@@ -4,11 +4,11 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/utils/cache_utils.dart';
-import 'package:whisper/utils/message_notifier.dart';
-import 'package:whisper/utils/utils.dart';
-import 'package:whisper_websocket_client_dart/models/ws_response.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/utils/cache_utils.dart';
+import 'package:shept/utils/message_notifier.dart';
+import 'package:shept/utils/utils.dart';
+import 'package:shept_websocket_client_dart/models/ws_response.dart';
 
 Uint8List frame(Map<String, dynamic> json) =>
     Uint8List.fromList(utf8.encode(jsonEncode(json)));
@@ -20,7 +20,7 @@ void main() {
   late Directory dir;
 
   setUpAll(() async {
-    dir = Directory.systemTemp.createTempSync('whisper_read_receipt_test');
+    dir = Directory.systemTemp.createTempSync('shept_read_receipt_test');
     Hive.init(dir.path);
     if (!Hive.isAdapterRegistered(3)) {
       Hive.registerAdapter(PrivateMessageAdapter());

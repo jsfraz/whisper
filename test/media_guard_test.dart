@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/utils/cache_utils.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/utils/cache_utils.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 PrivateMessage media(DateTime sentAt,
     {String? mediaId, String? localPath, String? albumItemPath}) {
@@ -28,7 +28,7 @@ void main() {
   late Directory dir;
 
   setUpAll(() async {
-    dir = Directory.systemTemp.createTempSync('whisper_media_guard_test');
+    dir = Directory.systemTemp.createTempSync('shept_media_guard_test');
     Hive.init(dir.path);
     Hive.registerAdapter(PrivateMessageAdapter());
   });

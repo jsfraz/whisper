@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 import '../models/private_message.dart';
 import '../utils/cache_utils.dart';
 import '../utils/media_utils.dart';

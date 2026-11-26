@@ -3,12 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/utils/cache_utils.dart';
-import 'package:whisper/utils/media_utils.dart';
-import 'package:whisper/utils/message_notifier.dart';
-import 'package:whisper/widgets/media_bubble.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/utils/cache_utils.dart';
+import 'package:shept/utils/media_utils.dart';
+import 'package:shept/utils/message_notifier.dart';
+import 'package:shept/widgets/media_bubble.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 PrivateMessage media(String type, String? path, DateTime sentAt,
     {String? fileName, int size = 1024}) {
@@ -75,7 +75,7 @@ void main() {
   });
 
   test('the file name survives a Hive round trip', () async {
-    final dir = Directory.systemTemp.createTempSync('whisper_file_media_test');
+    final dir = Directory.systemTemp.createTempSync('shept_file_media_test');
     Hive.init(dir.path);
     Hive.registerAdapter(PrivateMessageAdapter());
 

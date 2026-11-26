@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/media_utils.dart';
+import 'package:shept/utils/media_utils.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

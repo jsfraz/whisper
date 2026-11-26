@@ -33,8 +33,8 @@ class CacheUtils {
   static const _presenceKey = 'presence';
   static const _biometry = 'biometry';
   static const _playbackSpeed = 'playbackSpeed';
-  static const String _saltStorageKey = 'whisper_pbkdf2_salt';
-  static const String _deviceIdKey = 'whisper_device_id';
+  static const String _saltStorageKey = 'shept_pbkdf2_salt';
+  static const String _deviceIdKey = 'shept_device_id';
   static const String _syncSeqKey = 'syncSeq';
   static const String _syncEventSeqKey = 'syncEventSeq';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();

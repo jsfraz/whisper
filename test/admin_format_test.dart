@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/models/user.dart';
-import 'package:whisper/utils/admin_format.dart';
+import 'package:shept/models/user.dart';
+import 'package:shept/utils/admin_format.dart';
 
 User user(String name) => User(name, name, 'public-key', false);
 

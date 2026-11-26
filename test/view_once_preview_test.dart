@@ -7,9 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/utils/cache_utils.dart';
-import 'package:whisper/utils/text_envelope.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/utils/cache_utils.dart';
+import 'package:shept/utils/text_envelope.dart';
 
 void main() {
   late Directory dir;
@@ -19,7 +19,7 @@ void main() {
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
     await EasyLocalization.ensureInitialized();
-    dir = Directory.systemTemp.createTempSync('whisper_view_once_test');
+    dir = Directory.systemTemp.createTempSync('shept_view_once_test');
     Hive.init(dir.path);
     Hive.registerAdapter(PrivateMessageAdapter());
   });

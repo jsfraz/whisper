@@ -4,11 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 // easy_localization reads the locale from shared_preferences, its transitive dep
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:whisper/models/private_message.dart';
-import 'package:whisper/models/profile.dart';
-import 'package:whisper/models/user.dart';
-import 'package:whisper/utils/message_actions.dart';
-import 'package:whisper/utils/singleton.dart';
+import 'package:shept/models/private_message.dart';
+import 'package:shept/models/profile.dart';
+import 'package:shept/models/user.dart';
+import 'package:shept/utils/message_actions.dart';
+import 'package:shept/utils/singleton.dart';
 
 void main() {
   setUpAll(() async {
@@ -66,7 +66,7 @@ void main() {
 
     // Attachment on disk without a caption: save, forward, delete, no copy.
     message = PrivateMessage('2', '', DateTime(2026), DateTime(2026), true,
-        localPath: '/tmp/whisper_media_test', mediaTypeStr: 'image');
+        localPath: '/tmp/shept_media_test', mediaTypeStr: 'image');
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     expect(find.text('Save attachment'), findsOneWidget);
@@ -127,7 +127,7 @@ void main() {
     // An own attachment offers the caption edit too.
     message = PrivateMessage(
         '1', 'caption', DateTime(2026), DateTime(2026), true,
-        localPath: '/tmp/whisper_media_test', mediaTypeStr: 'image')
+        localPath: '/tmp/shept_media_test', mediaTypeStr: 'image')
       ..id = '00000000-0000-4000-8000-000000000000';
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();

@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
-import 'package:whisper/models/app_theme.dart';
-import 'package:whisper/utils/dialog_utils.dart';
-import 'package:whisper/utils/singleton.dart';
-import 'package:whisper/utils/theme_notifier.dart';
+import 'package:shept/models/app_theme.dart';
+import 'package:shept/utils/dialog_utils.dart';
+import 'package:shept/utils/singleton.dart';
+import 'package:shept/utils/theme_notifier.dart';
 
 /// The theme dialog applies on tap, so picking a swatch has to move the seed
 /// the whole app is seeded with - and show which one is in use.
@@ -15,7 +15,7 @@ void main() {
   late Directory dir;
 
   setUpAll(() async {
-    dir = Directory.systemTemp.createTempSync('whisper_theme_dialog_test');
+    dir = Directory.systemTemp.createTempSync('shept_theme_dialog_test');
     Hive.init(dir.path);
     if (!Hive.isAdapterRegistered(2)) {
       Hive.registerAdapter(AppThemeAdapter());

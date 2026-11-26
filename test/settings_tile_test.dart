@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/widgets/settings_tile.dart';
+import 'package:shept/widgets/settings_tile.dart';
 
 void main() {
   testWidgets('row height does not depend on a trailing widget',

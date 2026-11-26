@@ -3,16 +3,16 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:whisper/utils/auto_download.dart';
-import 'package:whisper/utils/cache_utils.dart';
-import 'package:whisper_websocket_client_dart/models/media_reference.dart';
-import 'package:whisper_websocket_client_dart/models/media_type.dart';
+import 'package:shept/utils/auto_download.dart';
+import 'package:shept/utils/cache_utils.dart';
+import 'package:shept_websocket_client_dart/models/media_reference.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 
 void main() {
   late Directory dir;
 
   setUpAll(() async {
-    dir = Directory.systemTemp.createTempSync('whisper_auto_download_test');
+    dir = Directory.systemTemp.createTempSync('shept_auto_download_test');
     Hive.init(dir.path);
   });
 

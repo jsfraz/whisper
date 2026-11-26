@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/playback_speed.dart';
+import 'package:shept/utils/playback_speed.dart';
 
 void main() {
   test('cycles through 1x, 1.5x, 2x and back', () {

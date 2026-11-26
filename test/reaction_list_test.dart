@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whisper/utils/message_actions.dart';
+import 'package:shept/utils/message_actions.dart';
 
 /// The reaction list groups by emoji, so one emoji with several participants is
 /// one row with their names, and the busiest row is on top.

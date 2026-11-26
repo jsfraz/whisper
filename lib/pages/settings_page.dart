@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:sprintf/sprintf.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
+import 'package:shept_openapi_client_dart/api.dart';
 import '../utils/auto_download.dart';
 import '../utils/biometric_auth.dart';
 import '../utils/cache_utils.dart';
@@ -343,12 +343,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 icon: Icons.help,
                 label: 'wikiLink'.tr(),
                 onPressed: () =>
-                    _openUrl('https://github.com/jsfraz/whisper/wiki'),
+                    _openUrl('https://github.com/jsfraz/shept/wiki'),
               ),
               _settingsTile(
                 icon: Icons.code,
                 label: 'repoLink'.tr(),
-                onPressed: () => _openUrl('https://github.com/jsfraz/whisper'),
+                onPressed: () => _openUrl('https://github.com/jsfraz/shept'),
               ),
               const Divider(thickness: 1, indent: 10, endIndent: 10),
               _settingsTile(
