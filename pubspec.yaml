@@ -24,8 +24,10 @@ dependencies:
   easy_localization: ^3.0.7
   email_validator: ^3.0.0
   file_picker: ^13.3.3
-  firebase_core: ^5.1.0
-  firebase_messaging: ^17.0.1
+  # Firebase is retired. The code is commented out, not deleted, so it can be
+  # revived or stripped later. Re-enable both lines to bring push back.
+  # firebase_core: ^5.1.0
+  # firebase_messaging: ^17.0.1
   flutter:
     sdk: flutter
   flutter_colorpicker: ^1.1.0

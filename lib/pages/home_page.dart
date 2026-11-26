@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+// Firebase is retired; dependency is commented out in pubspec.yaml.
+// import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -107,41 +108,45 @@ class _HomePageState extends State<HomePage>
     // Start checking WebSocket connection
     _webSocketManager.startConnectionCheck();
 
-    // Request FCM notification permissions
-    FirebaseMessaging.instance.requestPermission(provisional: true);
-
-    // FID registration - store FID and send when online
-    FirebaseMessaging.instance.onRegistered.listen((fid) async {
-      _pendingFid = fid;
-      await _sendPushTargetWhenOnline(fid);
-    }).onError((err) {
-      if (kDebugMode) {
-        debugPrint('Error getting FID: $err');
-      }
-    });
-
-    // Enable FCM notifications
-    FirebaseMessaging.instance.setAutoInitEnabled(true);
-
-    // A foreground push is not shown by the OS; show it ourselves.
-    _fcmSubscription = FirebaseMessaging.onMessage.listen((message) {
-      final notification = message.notification;
-      if (notification == null) {
-        return;
-      }
-      NotificationService().showSecurityNotification(
-        notification.title ?? 'newLoginTitle'.tr(),
-        notification.body ?? '',
-      );
-    });
-
-    // Register with FCM, the FID arrives via onRegistered
-    _registerForPush();
+    // Firebase is retired: FCM registration is commented out, the app still
+    // compiles and runs without push.
+    // // Request FCM notification permissions
+    // FirebaseMessaging.instance.requestPermission(provisional: true);
+    //
+    // // FID registration - store FID and send when online
+    // FirebaseMessaging.instance.onRegistered.listen((fid) async {
+    //   _pendingFid = fid;
+    //   await _sendPushTargetWhenOnline(fid);
+    // }).onError((err) {
+    //   if (kDebugMode) {
+    //     debugPrint('Error getting FID: $err');
+    //   }
+    // });
+    //
+    // // Enable FCM notifications
+    // FirebaseMessaging.instance.setAutoInitEnabled(true);
+    //
+    // // A foreground push is not shown by the OS; show it ourselves.
+    // _fcmSubscription = FirebaseMessaging.onMessage.listen((message) {
+    //   final notification = message.notification;
+    //   if (notification == null) {
+    //     return;
+    //   }
+    //   NotificationService().showSecurityNotification(
+    //     notification.title ?? 'newLoginTitle'.tr(),
+    //     notification.body ?? '',
+    //   );
+    // });
+    //
+    // // Register with FCM, the FID arrives via onRegistered
+    // _registerForPush();
   }
 
   /// Foreground pushes: the server warns the other devices about a new login,
   /// and a foreground app has to show that itself.
-  StreamSubscription<RemoteMessage>? _fcmSubscription;
+  /// Firebase is retired; kept commented so the type reference does not pull
+  /// the dependency back in.
+  // StreamSubscription<RemoteMessage>? _fcmSubscription;
 
   /// A screenshot of an ordinary message cannot be stopped, only noticed.
   void _onScreenshot() {
@@ -167,7 +172,7 @@ class _HomePageState extends State<HomePage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     ScreenGuard.onScreenshot = null;
-    _fcmSubscription?.cancel();
+    // _fcmSubscription?.cancel();
     _adminTabController.dispose();
     MessageNotifier().removeListener(_onMessagesChanged);
     if (NotificationService.onChatSelected == _openChat) {
@@ -197,15 +202,16 @@ class _HomePageState extends State<HomePage>
   }
 
   /// Register with FCM, the FID arrives via onRegistered
-  Future<void> _registerForPush() async {
-    try {
-      await FirebaseMessaging.instance.register();
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error registering with FCM: $e');
-      }
-    }
-  }
+  /// Firebase is retired; kept commented so the dependency stays out.
+  // Future<void> _registerForPush() async {
+  //   try {
+  //     await FirebaseMessaging.instance.register();
+  //   } catch (e) {
+  //     if (kDebugMode) {
+  //       debugPrint('Error registering with FCM: $e');
+  //     }
+  //   }
+  // }
 
   /// Send FID when online, store when offline
   Future<void> _sendPushTargetWhenOnline(String fid) async {
