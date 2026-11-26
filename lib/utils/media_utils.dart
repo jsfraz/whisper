@@ -620,8 +620,7 @@ class MediaUtils {
         final caption = (decoded['caption'] as String?) ?? '';
         final forwarded = decoded['forwarded'] == true;
         final viewOnce = decoded['viewOnce'] == true;
-        if (decoded['sheptMsg'] == envelopeVersion &&
-            decoded['media'] is Map) {
+        if (decoded['sheptMsg'] == envelopeVersion && decoded['media'] is Map) {
           final reference = MediaReference.fromJson(
               Map<String, dynamic>.from(decoded['media'] as Map));
           return ParsedMediaEnvelope([reference], caption,
