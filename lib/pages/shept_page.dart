@@ -1,14 +1,28 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../utils/app_navigator.dart';
 import '../utils/page_navigator_observer.dart';
 import '../utils/theme_notifier.dart';
 import '../pages/scan_invite_button_page.dart';
 import 'password_page.dart';
 import '../utils/cache_utils.dart';
 
-class WhisperPage extends StatelessWidget {
-  const WhisperPage({super.key});
+class SheptPage extends StatelessWidget {
+  const SheptPage({super.key});
+
+  /// Fade-through everywhere so `MaterialPageRoute` pushes (forward, search,
+  /// registration) use the same timing as the rest of the app.
+  static const PageTransitionsTheme _pageTransitionsTheme =
+      PageTransitionsTheme(builders: {
+    TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+    TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+    TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+    TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+    TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+    TargetPlatform.fuchsia: FadeForwardsPageTransitionsBuilder(),
+  });
 
   /// Returns default page based on user in cache.
   Future<Widget> _getDefaultPage() async {
@@ -39,22 +53,29 @@ class WhisperPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       navigatorObservers: [PageNavigatorObserver()],
       debugShowCheckedModeBanner: true,
+      // Every DateFormat in the app (chat rows, bubbles, day headers, search)
+      // follows the selected language instead of the platform default.
+      builder: (context, child) {
+        Intl.defaultLocale = context.locale.toString();
+        return child ?? const SizedBox.shrink();
+      },
       // Light theme
       theme: ThemeData.from(
-          colorScheme: ColorScheme.fromSeed(
-              seedColor: Provider.of<ThemeNotifier>(context).appTheme.color,
-              brightness: Brightness.light),
-          useMaterial3:
-              Provider.of<ThemeNotifier>(context).appTheme.useMaterial3),
+              colorScheme: ColorScheme.fromSeed(
+                  seedColor: Provider.of<ThemeNotifier>(context).appTheme.color,
+                  brightness: Brightness.light),
+              useMaterial3: true)
+          .copyWith(pageTransitionsTheme: _pageTransitionsTheme),
       // Dark theme
       darkTheme: ThemeData.from(
-          colorScheme: ColorScheme.fromSeed(
-              seedColor: Provider.of<ThemeNotifier>(context).appTheme.color,
-              brightness: Brightness.dark),
-          useMaterial3:
-              Provider.of<ThemeNotifier>(context).appTheme.useMaterial3),
+              colorScheme: ColorScheme.fromSeed(
+                  seedColor: Provider.of<ThemeNotifier>(context).appTheme.color,
+                  brightness: Brightness.dark),
+              useMaterial3: true)
+          .copyWith(pageTransitionsTheme: _pageTransitionsTheme),
       // Light / Dark / System
       themeMode: Provider.of<ThemeNotifier>(context).appTheme.themeMode,
       localizationsDelegates: context.localizationDelegates,

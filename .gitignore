@@ -27,6 +27,8 @@ migrate_working_dir/
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
+.flutter_mcp/
+.mcp_screenshots/
 .pub-cache/
 .pub/
 /build/
@@ -47,3 +49,4 @@ firebase.json
 lib/firebase_options.dart
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
+pubspec_overrides.yaml

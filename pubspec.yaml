@@ -1,8 +1,9 @@
-name: whisper
+name: shept
 description: "Secure private self-hosted end-to-end encryption messaging app."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
-# TODO change version when relasing new version
-version: 0.0.1
+# Bump before every release; the release workflow tags v<version> and fails if
+# that tag already exists. The build number after + must only ever grow.
+version: 0.4.0+8
 
 environment:
   sdk: '>=3.4.3 <4.0.0'
@@ -10,43 +11,65 @@ environment:
 dependencies:
   basic_utils: ^5.7.0
   bcrypt: ^1.1.3
+  camera: ^0.12.2
+  chewie: ^1.17.4
+  connectivity_plus: ^7.3.2
+  crop_your_image: ^2.0.1
+  receive_sharing_intent: ^1.9.0
+  share_plus: ^13.3.1
+  video_trimmer: ^6.0.0
   crypto: ^3.0.5
   cryptography: ^2.7.0
   dart_jsonwebtoken: ^3.2.0
   easy_localization: ^3.0.7
   email_validator: ^3.0.0
-  firebase_core: ^4.0.0
-  firebase_messaging: ^16.0.0
+  file_picker: ^13.3.3
+  # Firebase is retired. The code is commented out, not deleted, so it can be
+  # revived or stripped later. Re-enable both lines to bring push back.
+  # firebase_core: ^5.1.0
+  # firebase_messaging: ^17.0.1
   flutter:
     sdk: flutter
   flutter_colorpicker: ^1.1.0
   flutter_launcher_icons: ^0.14.3
-  flutter_local_notifications: ^19.2.1
-  flutter_secure_storage: ^9.2.4
-  fluttertoast: ^9.0.0
+  flutter_local_notifications: ^23.0.0
+  flutter_secure_storage: ^11.2.0
+  fluttertoast: ^10.0.2
+  geolocator: ^14.0.1
   hive: ^2.2.3
   http: ^1.2.1
+  image_picker: ^1.2.2
   json_annotation: ^4.9.0
-  jwt_decoder: ^2.0.1
-  local_auth: ^2.3.0
-  mobile_scanner: ^7.0.0
+  just_audio: ^0.10.5
+  local_auth: ^3.0.1
+  mcp_toolkit: 7.0.1
+  mime: ^2.0.0
   page_transition: ^2.2.1
   path_provider: ^2.1.3
   pointycastle: ^4.0.0
   provider: ^6.1.2
   qr_code_scanner_plus: ^2.0.6
+  record: ^7.1.2
   sprintf: ^7.0.0
   url_launcher: ^6.3.1
+  uuid: ^4.5.3
   vibration: ^3.1.2
-  whisper_openapi_client_dart:
+  video_player: ^2.11.1
+  # Clients are pinned by release tag: the app records which contract it was
+  # built against. Local development overrides the paths at the bottom.
+  shept_openapi_client_dart:
     git:
-      url: https://github.com/jsfraz/whisper_openapi_client_dart.git
-  whisper_websocket_client_dart:
+      url: https://github.com/jsfraz/shept_openapi_client_dart.git
+      ref: v0.5.0
+  shept_websocket_client_dart:
     git:
-      url: https://github.com/jsfraz/whisper_websocket_client_dart.git
+      url: https://github.com/jsfraz/shept_websocket_client_dart.git
+      ref: v0.5.0
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   hive_generator: ^2.0.1
@@ -56,5 +79,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    # - assets/images/
+    # Only the raster: the SVG source stays out of the bundle.
+    - assets/images/chat_bg.png
     - assets/translations/

@@ -1,18 +1,80 @@
-# whisper
+# shept
 
 Secure private self-hosted end-to-end encryption messaging app.
 
-For Whisper server, see [whisper-server](https://github.com/jsfraz/whisper-server) repository.
+For Shept server, see [shept-server](https://github.com/jsfraz/shept-server) repository.
 
-Also see [Wiki](https://github.com/jsfraz/whisper/wiki)!
+Also see [Wiki](https://github.com/jsfraz/shept/wiki)!
 
 |   |   |   |
 |---|---|---|
 |![Screenshot 1](screenshots/1.png)|![Screenshot 2](screenshots/2.png)|![Screenshot 3](screenshots/3.png)|
 
+## Delivery, history and devices
+
+The server keeps one encrypted copy of each message in a PostgreSQL archive:
+that row is the history, the offline buffer and the delta a reconnecting device
+fetches. Nothing is pushed on connect — the app sends the highest `seq` it has
+stored and receives only what it missed, so a phone that was offline for a week
+syncs in one round trip. A resend of the same message is deduplicated by
+(sender, receiver, timestamp).
+
+How long the ciphertext stays is a per-account setting (7, 30, 90 or 365 days);
+the shorter setting of the two participants wins, and an hourly sweeper deletes
+what expired. Media is deleted from the server when the receiver confirms the
+download, so an attachment that was never fetched before its TTL shows as
+expired rather than being re-downloadable.
+
+Every installation registers a device (id, label, platform). Revoking one in
+Settings locks it out immediately: it loses its socket, its refresh sessions and
+every API call, even though it still holds the account key. A new login warns
+the other devices. The app reports its version (`X-Client-Version`) and refuses
+to sign in to a server that requires a newer client.
+
 ## Download
 
-You can download the app [here in the releases](https://github.com/jsfraz/whisper/releases).
+You can download the app [here in the releases](https://github.com/jsfraz/shept/releases).
+
+## AI / MCP tooling
+
+This project is developed with [OpenCode](https://opencode.ai). MCP servers are configured
+globally in `~/.config/opencode/opencode.json` — there is no MCP config in this repository.
+
+| Server | What it gives the agent |
+|---|---|
+| `dart` (official Dart & Flutter MCP server) | analyzer diagnostics, symbol resolution, tests, `pub`, hot reload/restart, DTD connection to a running app, widget inspector |
+| `flutter-mcp-toolkit` | screenshots, semantic snapshot, tap/type, recent logs — UI verification against a running debug build |
+| `context7` | library documentation lookup |
+
+Pins: `dart mcp-server` comes with Dart 3.13.7; `flutter-mcp-toolkit` **v7.0.1** is the
+linux-x64 release binary in `~/.local/bin` (sha256 verified against `checksums.txt`);
+`mcp_toolkit` is pinned to **7.0.1** in `pubspec.yaml`. Releases 7.0.2 and 7.1.0 ship no
+binaries yet, so upgrade the server and the package together.
+
+```jsonc
+"dart": {
+  "type": "local",
+  "command": ["dart", "mcp-server", "--enable", "all", "--disable", "create_project,dart_fix"]
+},
+"flutter-mcp-toolkit": {
+  "type": "local",
+  "command": ["flutter-mcp-toolkit-server", "--resources", "--images", "--save-images",
+              "--no-dynamics", "--scan-ports", "8181"]
+}
+```
+
+Verify with `opencode mcp list` (both `connected`); restart the session after config changes.
+For a runtime session: `flutter run -d linux --device-vmservice-port=8181`, then discover the app
+with `fmt_discover_debug_apps` and pass its `targetId`/`uri` to the toolkit tools.
+
+Known limitations (Linux desktop, verified):
+- Pixel capture is app-owned and off: `fmt_get_screenshots` / `fmt_capture_ui_snapshot` /
+  `fmt_hot_reload_and_capture` return `visual_capture_unsupported` unless the app wires the
+  optional permission bridge (`initializeFlutterPermissionToolkit`). Semantic snapshot, tap/type,
+  logs and `fmt_hot_reload_flutter` work regardless.
+- `fmt_evaluate_dart_expression` is denied in the OpenCode `permissions` config; the toolkit has
+  no server flag for it, so the deny rule is the only enforcement.
+- The toolkit only runs in debug builds and must never be used with a real account.
 
 ## Dependencies
 
@@ -44,12 +106,8 @@ You can download the app [here in the releases](https://github.com/jsfraz/whispe
   - used for HTTP requests
 - [json_annotation](https://pub.dev/packages/json_annotation)
   - used for JSON serialization annotations
-- [jwt_decoder](https://pub.dev/packages/jwt_decoder)
-  - used for JWT token decoding
 - [local_auth](https://pub.dev/packages/local_auth)
   - used for biometric authentication
-- [mobile_scanner](https://pub.dev/packages/mobile_scanner)
-  - used for QR code scanning
 - [page_transition](https://pub.dev/packages/page_transition)
   - used for custom page transitions
 - [path_provider](https://pub.dev/packages/path_provider)
@@ -66,10 +124,10 @@ You can download the app [here in the releases](https://github.com/jsfraz/whispe
   - used for launching URLs
 - [vibration](https://pub.dev/packages/vibration)
   - used for device vibration feedback
-- [whisper_openapi_client_dart](https://github.com/jsfraz/whisper_openapi_client_dart)
-  - used for API communication with Whisper server
-- [whisper_websocket_client_dart](https://github.com/jsfraz/whisper_websocket_client_dart)
-  - used for real-time WebSocket communication with Whisper server
+- [shept_openapi_client_dart](https://github.com/jsfraz/shept_openapi_client_dart)
+  - used for API communication with Shept server
+- [shept_websocket_client_dart](https://github.com/jsfraz/shept_websocket_client_dart)
+  - used for real-time WebSocket communication with Shept server
 
 ### Dev dependencies
 
@@ -92,25 +150,78 @@ You can download the app [here in the releases](https://github.com/jsfraz/whispe
   - run `dart run flutter_launcher_icons` to generate icons
   - see configuration file [flutter_launcher_icons.yaml](flutter_launcher_icons.yaml)
 
-## Firebase Messaging
+## Firebase Messaging (retired)
+
+> Firebase has been retired. `firebase_core`/`firebase_messaging` are commented out in
+> `pubspec.yaml`, the Google Services Gradle plugin is disabled and the FCM code is kept
+> dead in comments. The notes below describe what it took to enable it and are kept for a
+> possible revival.
 
 - [Firebase](https://firebase.google.com/)
   - used for push notifications when user is offline
   - see [Firebase setup for Flutter](https://firebase.google.com/docs/flutter/setup) and [Firebase Cloud Messaging for Flutter](https://firebase.google.com/docs/cloud-messaging/flutter/client) for more details how to implement this
-  - app specific configuration files [are not included](.gitignore) in the repository, you need to create them yourself if you plan self host Whisper (refer to [whisper-server](https://github.com/jsfraz/whisper-server) repository for more details)
+  - app specific configuration files [are not included](.gitignore) in the repository, you need to create them yourself if you plan self host Shept (refer to [shept-server](https://github.com/jsfraz/shept-server) repository for more details)
 
-## Continuous Integration a Deployment (CI/CD)
+### Development
 
-The application uses GitHub Actions to automatically build and release the APK file when pushing to the `main` branch. For this process to work correctly, the following secret keys must be set in the repository settings (Settings > Secrets and variables > Actions):
+To setup Firebase using Flutterfire you can run:
 
-- `FIREBASE_JSON_BASE64` - base64 encoded contents of the `firebase.json` file
-- `FIREBASE_OPTIONS_DART_BASE64` - base64 encoded contents of the `lib/firebase_options.dart` file (required)
-- `GOOGLE_SERVICES_JSON_BASE64` - base64 encoded contents of the `android/app/google-services.json` file
-<!--
-- `GOOGLE_SERVICE_INFO_PLIST_BASE64` - base64 encoded contents of the `ios/Runner/GoogleService-Info.plist` file
--->
+```bash
+flutterfire configure
+```
 
-These secret keys will be used during application build to generate the necessary Firebase configuration files, which are not included in the repository for security reasons. The base64 encoding ensures safe transmission and prevents issues with special characters.
+Or run this for the development environment:
+
+```bash
+flutterfire configure \
+  --android-package-name cz.josefraz.shept.debug \
+  --ios-bundle-id cz.josefraz.shept.debug
+```
+
+Then select your Firebase project. This will generate the necessary `firebase.json` and `lib/firebase_options.dart` files.
+
+## Continuous Integration and Deployment (CI/CD)
+
+Two GitHub Actions workflows run in this repository:
+
+- `flutter-ci.yml` — on pull requests and on pushes to `main`: format check on changed files, `flutter analyze`, `flutter test`, secret scan.
+- `build_and_release.yml` — on pushes to `main`: builds the release APK and publishes a GitHub Release tagged `v<version>`, where the version comes from `pubspec.yaml`.
+
+Required repository secrets (Settings > Secrets and variables > Actions):
+
+| Secret | Used by | Description |
+| --- | --- | --- |
+| `FIREBASE_OPTIONS_DART_BASE64` | unused | Retired with Firebase. |
+| `FIREBASE_JSON_BASE64` | unused | Retired with Firebase. |
+| `GOOGLE_SERVICES_JSON_BASE64` | unused | Retired with Firebase. |
+| `GOOGLE_SERVICE_INFO_PLIST_BASE64` | unused | Retired with Firebase. |
+| `GITHUB_TOKEN` | both | Provided automatically by GitHub. Used by the secret scan. |
+
+### Release signing
+
+Release builds are signed with the debug key unless `android/key.properties`
+exists (copy `android/key.properties.example`). A keystore is never committed:
+
+```bash
+keytool -genkeypair -v -keystore shept-release.jks -keyalg RSA -keysize 4096 \
+  -validity 10000 -alias shept
+cp android/key.properties.example android/key.properties   # then fill it in
+```
+
+CI has no keystore, so the APK it publishes is debug-signed; add the keystore as
+a secret and decode it in the workflow before shipping real releases. The
+release workflow fails when the `v<version>` tag for the current
+`pubspec.yaml` version already exists, which is the reminder to bump `version`
+(and the build number after `+`) before every release.
+
+iOS push notifications need the *Push Notifications* capability on the
+`cz.josefraz.shept` App ID; `ios/Runner/Runner.entitlements` is already wired
+into the project.
+
+Pull requests from forks cannot read repository secrets, so CI is skipped for them.
+
+These files are not included in the repository for security reasons. The base64 encoding ensures safe transmission and prevents issues with special characters.
+
 
 ### Procedure for setting up CI/CD
 

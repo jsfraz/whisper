@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:http/io_client.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
-import 'package:whisper_websocket_client_dart/ws_client.dart';
+import 'package:shept_openapi_client_dart/api.dart';
+import 'package:shept_websocket_client_dart/ws_client.dart';
 import '../models/app_theme.dart';
+import 'version.dart';
 import '../models/profile.dart';
 import 'package:flutter/foundation.dart';
 
@@ -23,6 +27,8 @@ class Singleton {
   late WsClient wsClient;
   // Current route
   late Route currentRoute;
+  // Chat a notification tap asked for, opened by HomePage once it is shown
+  String? pendingChatUserId;
   // Offline mode
   bool _offlineMode = false;
 
@@ -38,7 +44,22 @@ class Singleton {
   set apiToken(String token) {
     var auth = HttpBearerAuth();
     auth.accessToken = Singleton().profile.accessToken;
-    _api = ApiClient(basePath: Singleton().profile.url, authentication: auth);
+    _api = createApiClient(Singleton().profile.url, authentication: auth);
+  }
+
+  /// API client with connection and idle timeouts.
+  ///
+  /// The generated client has no timeout of its own, so a stalled server would
+  /// leave a future pending forever (a media bubble stuck on "downloading").
+  static ApiClient createApiClient(String basePath,
+      {Authentication? authentication}) {
+    final httpClient = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 15)
+      ..idleTimeout = const Duration(seconds: 30);
+    return ApiClient(basePath: basePath, authentication: authentication)
+      ..client = IOClient(httpClient)
+      // Every request names the app version; the login gate reads it.
+      ..addDefaultHeader('X-Client-Version', appVersion);
   }
 
   set offlineMode(bool offline) {
@@ -65,6 +86,12 @@ class Singleton {
   WebSocketAuthenticationApi get wsAuthApi => WebSocketAuthenticationApi(_api);
 
   FirebaseApi get firebaseApi => FirebaseApi(_api);
+
+  MediaApi get mediaApi => MediaApi(_api);
+
+  MessagesApi get messagesApi => MessagesApi(_api);
+
+  ChatsApi get chatsApi => ChatsApi(_api);
 
   bool get offlineMode => _offlineMode;
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'scan_invite_page.dart';
+import '../utils/nav_transitions.dart';
 
 class ScanInviteButtonPage extends StatefulWidget {
   const ScanInviteButtonPage({super.key});
@@ -30,10 +31,7 @@ class _ScanInviteButtonPageState extends State<ScanInviteButtonPage> {
                 ),
                 onPressed: () {
                   // Navigate to scanning invite
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const ScanInvitePage()));
+                  Navigator.push(context, stepRoute(const ScanInvitePage()));
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(7),

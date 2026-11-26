@@ -1,9 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shept_openapi_client_dart/api.dart';
+import 'package:shept_openapi_client_dart/media_download.dart';
+import 'package:shept_websocket_client_dart/models/media_reference.dart';
+import 'package:shept_websocket_client_dart/models/media_type.dart';
 import '../utils/notification_service.dart';
 
 import '../models/private_message.dart';
 import '../models/user.dart';
 import 'cache_utils.dart';
+import 'media_utils.dart';
 import 'singleton.dart';
 import 'utils.dart';
 
@@ -17,13 +24,199 @@ class MessageNotifier extends ChangeNotifier {
 
   MessageNotifier._internal();
 
+  /// The media messages of a conversation that the viewer can open, newest
+  /// first: a local file, a known type, fully downloaded, not voice. Album
+  /// items are expanded into one entry per attachment.
+  static List<PrivateMessage> viewableMedia(List<PrivateMessage> messages) {
+    final media = <PrivateMessage>[];
+    // A local file is what makes an attachment viewable, not its status: a
+    // stale failed/expired flag (an old redelivery) used to hide attachments
+    // that the bubbles and the viewer can still open.
+    bool viewable(PrivateMessage message) =>
+        message.localPath != null &&
+        message.mediaType != null &&
+        message.mediaType != MediaType.voice;
+    for (final message in messages) {
+      if (message.isAlbum) {
+        for (final item in albumMedia(message)) {
+          if (viewable(item)) {
+            media.add(item);
+          }
+        }
+        continue;
+      }
+      if (viewable(message)) {
+        media.add(message);
+      }
+    }
+    media.sort((a, b) => b.sentAt.compareTo(a.sentAt));
+    return media;
+  }
+
+  /// One [PrivateMessage] per album attachment, in album order, so the viewer
+  /// and the gallery can treat them like single media messages.
+  static List<PrivateMessage> albumMedia(PrivateMessage message) {
+    return [
+      for (final item in message.album)
+        PrivateMessage(
+          message.senderId,
+          message.message,
+          message.sentAt,
+          message.receivedAt,
+          message.read,
+          mediaId: item.mediaId,
+          mediaTypeStr: item.type,
+          localPath: item.localPath,
+          mediaSize: item.size,
+          width: item.width,
+          height: item.height,
+          durationMs: item.durationMs,
+          fileName: item.fileName,
+          downloadStatus: item.status,
+        )
+    ];
+  }
+
+  /// In-memory map of media references awaiting (or having failed) download,
+  /// keyed by media id. The transport key is intentionally never persisted to
+  /// disk, so tap-to-retry only works within the current session.
+  final Map<String, MediaReference> _pendingMediaRefs = {};
+
+  /// Download, decrypt, store and confirm an incoming media attachment.
+  ///
+  /// The encrypted file is fetched over HTTP, decrypted with the transport key
+  /// from [reference], re-encrypted at rest with the app master key and the
+  /// owning message is updated. On success the server copy is confirmed (and
+  /// thus deleted); on failure the message is marked as failed for retry.
+  Future<void> downloadMediaMessage(
+      String conversationUserId, MediaReference reference) async {
+    // A redelivery (history page, sync, reconnect) must not re-fetch an
+    // attachment we already hold: the server deleted its copy on confirm, so
+    // the attempt would 404 and mark a working attachment as failed.
+    if (await CacheUtils.hasMediaLocally(
+        conversationUserId, reference.mediaId)) {
+      return;
+    }
+    _pendingMediaRefs[reference.mediaId] = reference;
+    try {
+      final blob = await Utils.callApi(
+        () => Singleton().mediaApi.downloadMediaBytes(reference.mediaId),
+        rethrowErr: true,
+      );
+      if (blob == null) {
+        throw Exception('empty media download');
+      }
+      final plaintext = await MediaUtils.decryptTransport(blob, reference.key);
+      final localPath = await MediaUtils.encryptAtRest(plaintext);
+      await CacheUtils.updatePrivateMessageMedia(
+        conversationUserId,
+        reference.mediaId,
+        localPath: localPath,
+        downloadStatus: MediaDownloadStatus.ready,
+        // The reference carries the encrypted size; show the real one.
+        mediaSize: plaintext.length,
+      );
+      _pendingMediaRefs.remove(reference.mediaId);
+      notifyListeners();
+      // Confirm receipt so the server can delete its copy.
+      await Utils.callApi(
+          () => Singleton().mediaApi.confirmMediaDownload(reference.mediaId));
+    } catch (e) {
+      // A 404 means the server no longer has the file (confirmed on another
+      // device, expired, or the account was cleaned up): retrying cannot work,
+      // so the message shows a terminal state instead of a retry button.
+      final expired = e is ApiException && e.code == 404;
+      if (expired) {
+        _pendingMediaRefs.remove(reference.mediaId);
+      }
+      await CacheUtils.updatePrivateMessageMedia(
+        conversationUserId,
+        reference.mediaId,
+        downloadStatus:
+            expired ? MediaDownloadStatus.expired : MediaDownloadStatus.failed,
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Retry a previously failed media download (current session only).
+  Future<void> retryMediaDownload(
+      String conversationUserId, String mediaId) async {
+    final reference = _pendingMediaRefs[mediaId];
+    if (reference == null) {
+      return;
+    }
+    await CacheUtils.updatePrivateMessageMedia(
+      conversationUserId,
+      mediaId,
+      downloadStatus: MediaDownloadStatus.pending,
+    );
+    notifyListeners();
+    await downloadMediaMessage(conversationUserId, reference);
+  }
+
+  /// Whether a failed media download can be retried this session.
+  bool canRetryMedia(String mediaId) => _pendingMediaRefs.containsKey(mediaId);
+
+  /// Fetches an attachment whose reference is no longer in memory (after a
+  /// restart) from what the stored row kept: a single message holds the media
+  /// envelope, an album item holds its own key.
+  Future<void> downloadFromStored(
+      String conversationUserId, PrivateMessage message, String mediaId) async {
+    final reference = _storedReference(message, mediaId);
+    if (reference == null) {
+      return;
+    }
+    await CacheUtils.updatePrivateMessageMedia(
+      conversationUserId,
+      mediaId,
+      downloadStatus: MediaDownloadStatus.pending,
+    );
+    notifyListeners();
+    await downloadMediaMessage(conversationUserId, reference);
+  }
+
+  /// Rebuilds one attachment reference from the stored message, null when the
+  /// row does not carry it (an old build, or a foreign media id).
+  MediaReference? _storedReference(PrivateMessage message, String mediaId) {
+    for (final item in message.album) {
+      if (item.mediaId != mediaId || item.keyB64 == null) {
+        continue;
+      }
+      return MediaReference(
+        item.mediaId,
+        base64Decode(item.keyB64!),
+        MediaType.values.byName(item.type),
+        item.size,
+        width: item.width,
+        height: item.height,
+        durationMs: item.durationMs,
+        fileName: item.fileName,
+      );
+    }
+    final raw = message.mediaRefJson;
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    try {
+      final decoded =
+          MediaReference.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      if (decoded.mediaId == mediaId) {
+        return decoded;
+      }
+    } catch (_) {
+      // A reference this build cannot read: nothing to retry.
+    }
+    return null;
+  }
+
   /// Add messages to cache
-  Future<void> addMessages(int userId, List<PrivateMessage> messages) async {
+  Future<void> addMessages(String userId, List<PrivateMessage> messages) async {
     // Check if users exist
     for (var msg in messages) {
       if (!await CacheUtils.userExists(msg.senderId)) {
-        var user =
-            await Utils.callApi(() => Singleton().userApi.getUserById(msg.senderId));
+        var user = await Utils.callApi(
+            () => Singleton().userApi.getUserById(msg.senderId));
         if (user != null) {
           // Save user to cache
           await CacheUtils.addUser(User.fromModel(user));
@@ -36,9 +229,15 @@ class MessageNotifier extends ChangeNotifier {
   }
 
   /// Get all messages by user ID
-  Future<List<PrivateMessage>> getMessages(int userId) async {
-    var messages = await CacheUtils.getPrivateMessages(userId, markAsRead: true);
-    await NotificationService().removeNotificationsById(messages.map((x) => x.notificationId).toList());
+  Future<List<PrivateMessage>> getMessages(String userId) async {
+    var messages =
+        await CacheUtils.getPrivateMessages(userId, markAsRead: true);
+    await NotificationService().removeNotificationsById(
+        messages.map((x) => x.notificationId).toList());
+    // The read flags just changed in the cache. Nothing else tells the Home
+    // list, so the unread row would stay bold after leaving the chat. The chat
+    // page's own listener is skipped: it is still inside `_loadMessages`.
+    notifyListeners();
     return messages;
   }
 
@@ -50,8 +249,8 @@ class MessageNotifier extends ChangeNotifier {
     for (var e in messages.entries) {
       // User does not exists in cache
       if (!e.key.isInBox) {
-        var user =
-            await Utils.callApi(() => Singleton().userApi.getUserById(e.key.id));
+        var user = await Utils.callApi(
+            () => Singleton().userApi.getUserById(e.key.id));
         if (user != null) {
           // Save user to cache
           await CacheUtils.addUser(User.fromModel(user));
@@ -64,10 +263,9 @@ class MessageNotifier extends ChangeNotifier {
         newMessages[e.key] = e.value;
       }
     }
-    // Sort conversations by last message date
-    var sortedEntries = newMessages.entries.toList()
-      ..sort((a, b) => b.value.receivedAt.compareTo(a.value.receivedAt));
-    return Map.fromEntries(sortedEntries);
+    // The cache already ordered this map (pinned chats first, then by the
+    // newest message), so the entries are kept in the order they came in.
+    return newMessages;
   }
 
   /// Delete all chats
@@ -77,9 +275,24 @@ class MessageNotifier extends ChangeNotifier {
   }
 
   /// Delete chat by user ID
-  Future<void> deleteChat(int userId) async {
+  /// Deletes the conversation for this account on every device: the server
+  /// stops returning it, then this device drops what it holds. A failed call
+  /// leaves everything in place, because a local wipe alone would come back
+  /// with the next archive page.
+  ///
+  ///	@return bool whether the server confirmed the delete
+  Future<bool> deleteChat(String userId) async {
+    final cleared = await Utils.callApi(
+        () => Singleton().messagesApi.clearConversation(userId),
+        showError: true);
+    final cut = cleared?.clearedAt;
+    if (cut == null) {
+      return false;
+    }
     await CacheUtils.deletePrivateMessagesWithUser(userId);
+    await CacheUtils.applyConversationClearedAt(userId, cut.toLocal());
     notifyListeners();
+    return true;
   }
 
   void notify() {

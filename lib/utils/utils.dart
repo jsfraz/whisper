@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
@@ -5,35 +6,74 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:vibration/vibration.dart';
 import '../utils/notification_service.dart';
 import '../pages/chat_page.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
+import 'package:shept_openapi_client_dart/api.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
-import 'package:whisper_websocket_client_dart/models/private_message.dart';
-import 'package:whisper_websocket_client_dart/models/ws_response.dart';
-import 'package:whisper_websocket_client_dart/models/ws_response_type.dart';
+import 'package:shept_websocket_client_dart/models/delivery_ack.dart';
+import 'package:shept_websocket_client_dart/models/live_location.dart';
+import 'package:shept_websocket_client_dart/models/message_event.dart';
+import 'package:shept_websocket_client_dart/models/presence.dart';
+import 'package:shept_websocket_client_dart/models/read_receipt.dart';
+import 'package:shept_websocket_client_dart/models/synced.dart';
+import 'package:shept_websocket_client_dart/models/typing.dart';
+import 'package:shept_websocket_client_dart/models/media_reference.dart';
+import 'package:shept_websocket_client_dart/models/private_message.dart';
+import 'package:shept_websocket_client_dart/models/ws_response.dart';
+import 'package:shept_websocket_client_dart/models/ws_response_type.dart';
+import 'auto_download.dart';
 import 'cache_utils.dart';
+import 'chat_sender.dart';
 import 'crypto_utils.dart';
+import 'media_utils.dart';
 import 'message_notifier.dart';
+import 'live_location.dart';
+import 'presence.dart';
 import 'singleton.dart';
+import 'text_envelope.dart';
 import '../models/private_message.dart' as pm;
+import '../models/user.dart';
 
 class Utils {
-  /// Capitalize first letter of string.
-  static String capitalizeFirstLetter(String input) {
-    if (input.isEmpty) {
-      return input;
+  /// Localized text for a server error code (the server only sends camelCase
+  /// names). An unknown code falls back to a generic message, so the user never
+  /// sees a raw identifier.
+  static String serverErrorText(String code) {
+    if (code.isEmpty) {
+      return 'serverError'.tr();
     }
-    return input[0].toUpperCase() + input.substring(1);
+    final text = code.tr();
+    return text == code ? 'serverError'.tr() : text;
+  }
+
+  /// Error code from a JSON error body ({"error": "someCode"}). Empty when the
+  /// body carries no code.
+  static String serverErrorCode(String? body) {
+    if (body == null || body.isEmpty) {
+      return '';
+    }
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map && decoded['error'] is String) {
+        return decoded['error'] as String;
+      }
+    } catch (_) {
+      // Not JSON: nothing to translate.
+    }
+    return '';
   }
 
   /// Call API, handle errors and return result.
+  ///
+  /// [showError] turns the red error toast off for internal calls (token
+  /// renewal) that have their own recovery path.
   static Future<T?> callApi<T>(Future<T> Function() call,
-      {bool useSecurity = true, bool rethrowErr = false}) async {
+      {bool useSecurity = true,
+      bool rethrowErr = false,
+      bool showError = true}) async {
     // Check tokens
     if (useSecurity) {
       await authCheck();
@@ -45,20 +85,18 @@ class Utils {
       return result;
     } catch (e) {
       // Handle error
-      if (e is ApiException) {
+      if (e is ApiException && !showError) {
+        if (e.innerException is SocketException) {
+          Singleton().offlineMode = true;
+        }
+      } else if (e is ApiException) {
         if (e.innerException == null) {
-          if (e.message != '') {
-            Map<String, dynamic> messageMap =
-                jsonDecode(e.message!) as Map<String, dynamic>;
-            await Fluttertoast.showToast(
-                msg: Utils.capitalizeFirstLetter(messageMap['error']),
-                backgroundColor: Colors.red);
-          } else {
-            await Fluttertoast.showToast(
-                msg: Utils.capitalizeFirstLetter(
-                    'HTTP error ${e.code.toString()}'),
-                backgroundColor: Colors.red);
-          }
+          final code = Utils.serverErrorCode(e.message);
+          await Fluttertoast.showToast(
+              msg: code.isEmpty
+                  ? 'httpError'.tr(args: [e.code.toString()])
+                  : Utils.serverErrorText(code),
+              backgroundColor: Colors.red);
         } else {
           if (e.innerException is SocketException) {
             Singleton().offlineMode = true;
@@ -79,57 +117,161 @@ class Utils {
   /// Gets cache directory path
   static Future<String> getCacheDir() async {
     Directory dir = await getApplicationDocumentsDirectory();
-    return '${dir.path}/whisper';
+    return '${dir.path}/shept';
   }
 
+  /// In-flight token renewal. Concurrent callers (a resume fires several API
+  /// calls at once) share one renewal: the refresh token is single use, so two
+  /// parallel refreshes would burn the session.
+  static Future<void>? _authInFlight;
+
   /// Checks access and refresh tokens and renews them if necessary.
-  static Future<void> authCheck() async {
-    bool toAuth = false;
-    // Initial auth
-    if (Singleton().profile.refreshToken == '' &&
-        Singleton().profile.accessToken == '') {
-      toAuth = true;
-    } else {
-      // Auth when refresh token is expired
-      toAuth = JwtDecoder.isExpired(Singleton().profile.refreshToken);
+  ///
+  /// A refresh can be refused (session revoked, or a token minted before
+  /// sessions were recorded). The RSA challenge always works with the stored
+  /// private key, so it is the fallback instead of leaving the app unauthorized.
+  static Future<void> authCheck() {
+    final inFlight = _authInFlight;
+    if (inFlight != null) {
+      return inFlight;
+    }
+    final renewal = _doAuthCheck();
+    _authInFlight = renewal;
+    return renewal.whenComplete(() {
+      _authInFlight = null;
+    });
+  }
+
+  static Future<void> _doAuthCheck() async {
+    final profile = Singleton().profile;
+    final hasTokens = profile.refreshToken != '' || profile.accessToken != '';
+    bool toAuth = !hasTokens || !isTokenUsable(profile.refreshToken);
+
+    if (!toAuth && !isTokenUsable(profile.accessToken)) {
+      var refreshed = false;
+      try {
+        final refreshResponse = await Utils.callApi(
+            () => Singleton().authApi.refreshUserAccessToken(
+                refreshUserAccessTokenInput: RefreshUserAccessTokenInput(
+                    refreshToken: profile.refreshToken)),
+            useSecurity: false,
+            rethrowErr: true,
+            showError: false);
+        if (refreshResponse != null) {
+          profile.accessToken = refreshResponse.accessToken;
+          // The server rotates the refresh token: the old one is spent.
+          if (refreshResponse.refreshToken.isNotEmpty) {
+            profile.refreshToken = refreshResponse.refreshToken;
+          }
+          await CacheUtils.setProfile(profile);
+          refreshed = true;
+        }
+      } on ApiException catch (e) {
+        // 401: the server will not renew this session -> log in again.
+        if (e.code == 401) {
+          toAuth = true;
+        }
+      } catch (_) {
+        // Network problem: stay offline, the next call retries.
+      }
+      if (!refreshed && !toAuth) {
+        Singleton().apiToken = profile.accessToken;
+        return;
+      }
     }
 
-    // Auth if necessary
     if (toAuth) {
-      // Auth
-      final token = await CryptoUtils.generateRsaJwt(
-          Singleton().profile.user.id,
-          bu.CryptoUtils.rsaPrivateKeyFromPem(Singleton().profile.privateKey));
-      var authResponse = await Utils.callApi(
-          () => Singleton()
-              .authApi
-              .authUser(authUserInput: AuthUserInput(token: token)),
-          useSecurity: false);
-      if (authResponse != null) {
-        // Set tokens to singleton
-        Singleton().profile.accessToken = authResponse.accessToken;
-        Singleton().profile.refreshToken = authResponse.refreshToken;
-        // Save profile to cache
-        await CacheUtils.setProfile(Singleton().profile);
-      }
-    } else if (JwtDecoder.isExpired(Singleton().profile.accessToken)) {
-      // Refresh access token if expired
-      var refreshResponse = await Utils.callApi(
-          () => Singleton().authApi.refreshUserAccessToken(
-              refreshUserAccessTokenInput: RefreshUserAccessTokenInput(
-                  refreshToken: Singleton().profile.refreshToken)),
-          useSecurity: false);
-
-      if (refreshResponse != null) {
-        // Set access token to singleton
-        Singleton().profile.accessToken = refreshResponse.accessToken;
-        // Save profile to cache
-        await CacheUtils.setProfile(Singleton().profile);
+      // The server only accepts a login JWT that carries a fresh challenge, so
+      // it can never be replayed and a revoked session stays revoked.
+      final challenge = await Utils.callApi(
+          () => Singleton().authApi.authChallenge(),
+          useSecurity: false,
+          showError: false);
+      if (challenge != null) {
+        // The device id is created once per installation, signed into the
+        // login JWT and registered by the server, so it can be revoked.
+        final deviceId = await CacheUtils.getOrCreateDeviceId();
+        final token = await CryptoUtils.generateRsaJwt(profile.user.id,
+            bu.CryptoUtils.rsaPrivateKeyFromPem(profile.privateKey),
+            nonce: challenge.challenge, deviceId: deviceId);
+        final authResponse = await Utils.callApi(
+            () => Singleton().authApi.authUser(
+                    authUserInput: AuthUserInput(
+                  token: token,
+                  deviceId: deviceId,
+                  label: CacheUtils.deviceLabel,
+                  platform: CacheUtils.devicePlatform,
+                )),
+            useSecurity: false,
+            showError: false);
+        if (authResponse != null) {
+          profile.accessToken = authResponse.accessToken;
+          profile.refreshToken = authResponse.refreshToken;
+          await CacheUtils.setProfile(profile);
+        }
       }
     }
 
     // Set API token
-    Singleton().apiToken = Singleton().profile.accessToken;
+    Singleton().apiToken = profile.accessToken;
+  }
+
+  /// Claims of a JWT, or null when it cannot be read. Local use only: the
+  /// server remains the authority.
+  static Map<String, dynamic>? tokenClaims(String token) {
+    final parts = token.split('.');
+    if (parts.length != 3) {
+      return null;
+    }
+    try {
+      return jsonDecode(
+              utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))))
+          as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Whether a JWT is expired or unreadable.
+  static bool isTokenExpired(String token) {
+    final payload = tokenClaims(token);
+    if (payload == null) {
+      return true;
+    }
+    final exp = payload['exp'];
+    if (exp is! int) {
+      return false;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(exp * 1000)
+        .isBefore(DateTime.now());
+  }
+
+  /// Whether a JWT is accepted by the current server: readable, unexpired and
+  /// carrying the token type the server requires. Tokens issued before types
+  /// existed are useless even while their expiry is still in the future, so
+  /// they must trigger a login instead of failing every request.
+  static bool isTokenUsable(String token) {
+    if (isTokenExpired(token)) {
+      return false;
+    }
+    final claims = tokenClaims(token);
+    return claims != null && claims['typ'] is String;
+  }
+
+  /// Whether a server URL may be used.
+  ///
+  /// Release builds only talk to HTTPS: message bodies stay end-to-end
+  /// encrypted, but tokens, contacts and metadata would travel in clear text
+  /// over plain HTTP. Debug builds accept HTTP for local development.
+  static bool isAllowedServerUrl(String url) {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null || !uri.hasAuthority || uri.host.isEmpty) {
+      return false;
+    }
+    if (uri.scheme == 'https') {
+      return true;
+    }
+    return !kReleaseMode && uri.scheme == 'http';
   }
 
   /// Get WebSocket URL from APi URL
@@ -140,89 +282,392 @@ class Utils {
     return '$wsUrl/ws';
   }
 
+  /// Decrypt, store and optionally announce a batch of messages.
+  ///
+  /// Live frames are announced (a notification per conversation) and their
+  /// older echoes are dropped; history from a sync is stored silently.
+  static Future<void> _storeMessages(List<PrivateMessage> messages,
+      {required bool notify, bool advanceCursor = false}) async {
+    // A tombstone (deleted for everyone) has no ciphertext left. The caller
+    // drops the local copy; storing it here would only create an undecryptable
+    // placeholder.
+    messages = messages
+        .where((message) =>
+            message.content != null &&
+            message.key != null &&
+            message.nonce != null &&
+            message.mac != null)
+        .toList();
+    if (messages.isEmpty) {
+      return;
+    }
+    messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
+    List<pm.PrivateMessage> decryptedMessages = [];
+    // Media references of each conversation that still need a download.
+    final pendingMediaRefs = <String, List<MediaReference>>{};
+
+    try {
+      // One isolate for the whole batch: a per-message decrypt used to
+      // cost an RSA key parse and an isolate spawn each.
+      List<Uint8List?> decryptedBatch;
+      try {
+        decryptedBatch = await CryptoUtils.decryptMessageBatch(
+            messages
+                .map((message) => {
+                      'data': message.content!,
+                      'key': message.key!,
+                      'nonce': message.nonce!,
+                      'mac': message.mac!,
+                    })
+                .toList(),
+            Singleton().profile.privateKey);
+      } catch (_) {
+        // A batch failure must not drop the messages: they become visible
+        // placeholders below instead of disappearing.
+        decryptedBatch = List<Uint8List?>.filled(messages.length, null);
+      }
+
+      final decryptionTasks = messages.asMap().entries.map((entry) async {
+        final index = entry.key;
+        final message = entry.value;
+        try {
+          final decryptedMessage = decryptedBatch[index];
+          if (decryptedMessage == null) {
+            throw const FormatException('message decryption failed');
+          }
+          // Media message: decode the envelope and create a placeholder.
+          final envelope = MediaUtils.tryParseMediaEnvelope(decryptedMessage);
+          if (envelope != null) {
+            final expiresAt = await _expiryFor(message.peerId, message.sentAt);
+            if (envelope.references.length > 1) {
+              // Album: one bubble, one download per attachment.
+              final albumMsg = pm.PrivateMessage(
+                message.senderId,
+                envelope.caption,
+                message.sentAt,
+                DateTime.now(),
+                false,
+                downloadStatus: pm.MediaDownloadStatus.pending,
+                forwarded: envelope.forwarded,
+                viewOnce: envelope.viewOnce,
+                expiresAt: expiresAt,
+              );
+              albumMsg.setAlbum(envelope.references
+                  .map((ref) => pm.AlbumItem(
+                        mediaId: ref.mediaId,
+                        type: ref.type.name,
+                        size: ref.size,
+                        width: ref.width,
+                        height: ref.height,
+                        durationMs: ref.durationMs,
+                        fileName: ref.fileName,
+                        keyB64: base64Encode(ref.key),
+                        status: pm.MediaDownloadStatus.pending,
+                      ))
+                  .toList());
+              return (albumMsg, envelope.references, message.peerId);
+            }
+            final ref = envelope.references.single;
+            final mediaMsg = pm.PrivateMessage(
+              message.senderId,
+              envelope.caption,
+              message.sentAt,
+              DateTime.now(),
+              false,
+              mediaId: ref.mediaId,
+              mediaTypeStr: ref.type.name,
+              mediaSize: ref.size,
+              width: ref.width,
+              height: ref.height,
+              durationMs: ref.durationMs,
+              fileName: ref.fileName,
+              downloadStatus: pm.MediaDownloadStatus.pending,
+              forwarded: envelope.forwarded,
+              viewOnce: envelope.viewOnce,
+              expiresAt: expiresAt,
+              mediaRefJson: jsonEncode(ref.toJson()),
+            );
+            return (mediaMsg, [ref], message.peerId);
+          }
+          // Control message: the disappearing-message agreement. It carries no
+          // text, so the chat renders it as a pill.
+          final systemEnvelope = tryParseSystemEnvelope(decryptedMessage);
+          if (systemEnvelope != null) {
+            final systemMsg = pm.PrivateMessage(
+                message.senderId,
+                '',
+                message.sentAt,
+                DateTime.now(),
+                // Chat state, already applied above: it must not raise an
+                // unread badge.
+                true,
+                systemState: systemEnvelope.state,
+                systemSeconds: systemEnvelope.seconds)
+              ..id = message.id;
+            return (systemMsg, const <MediaReference>[], message.peerId);
+          }
+          // Plain text message (legacy/unchanged path), or a reply that carries
+          // its quote in a text envelope.
+          final textEnvelope = tryParseTextEnvelope(decryptedMessage);
+          final textMsg = pm.PrivateMessage(
+              message.senderId,
+              textEnvelope?.body ?? utf8.decode(decryptedMessage),
+              message.sentAt,
+              DateTime.now(),
+              false,
+              forwarded: textEnvelope?.forwarded ?? false,
+              viewOnce: textEnvelope?.viewOnce ?? false,
+              locationJson: textEnvelope?.location == null
+                  ? null
+                  : jsonEncode(textEnvelope!.location!.toJson()),
+              expiresAt: await _expiryFor(message.peerId, message.sentAt))
+            ..setReplyTo(textEnvelope?.reply);
+          return (textMsg, const <MediaReference>[], message.peerId);
+        } catch (e) {
+          // Log individual message decryption errors
+          if (kDebugMode) {
+            debugPrint(
+                'Failed to decrypt message from ${message.senderId}: $e');
+          }
+          // Keep a visible placeholder: dropping the message hides the loss
+          // from the user and from the server (which still has the entry).
+          return (
+            pm.PrivateMessage(
+              message.senderId,
+              pm.PrivateMessage.undecryptableMarker,
+              message.sentAt,
+              DateTime.now(),
+              false,
+            ),
+            const <MediaReference>[],
+            message.peerId
+          );
+        }
+      });
+
+      final results = await Future.wait(decryptionTasks);
+
+      // Filter out failed decryptions (null values)
+      final valid = results
+          .whereType<(pm.PrivateMessage, List<MediaReference>, String)>()
+          .toList();
+      decryptedMessages = valid.map((e) => e.$1).toList();
+      for (final (message, refs, _) in valid) {
+        if (refs.isNotEmpty) {
+          pendingMediaRefs.putIfAbsent(message.senderId, () => []).addAll(refs);
+        }
+      }
+      // A control message changes the chat state before the bubble is stored,
+      // so the chat list already shows the new timer.
+      for (final (message, _, _) in valid) {
+        if (message.isSystem) {
+          await applySystemAgreement(
+              message.senderId, message.systemState!, message.systemSeconds);
+        }
+      }
+
+      // Show toast only if all messages failed to decrypt
+      if (decryptedMessages.isEmpty && messages.isNotEmpty) {
+        await Fluttertoast.showToast(
+            msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
+      }
+    } catch (_) {
+      await Fluttertoast.showToast(
+          msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
+    }
+    // Self-sent messages are stored locally before sending; dropping the live
+    // server echo prevents a duplicate bubble in the debug self-chat. The
+    // archive copy is kept, because it is what a fresh device syncs.
+    if (notify) {
+      decryptedMessages.removeWhere(
+          (message) => message.senderId == Singleton().profile.user.id);
+    }
+
+    if (decryptedMessages.isEmpty) {
+      return;
+    }
+    // A batch can hold messages from several peers: store each conversation
+    // under its own key. The peer id and not the sender is the conversation:
+    // an archived message we sent has our own id as the sender.
+    final byPeer = <String, List<pm.PrivateMessage>>{};
+    final peerOfMessage = <String, String>{};
+    final idOfMessage = <String, String>{};
+    final editedOfMessage = <String, DateTime?>{};
+    final openedOfMessage = <String, DateTime?>{};
+    for (final message in messages) {
+      final key =
+          '${message.senderId}|${message.sentAt.toUtc().toIso8601String()}';
+      peerOfMessage[key] = message.peerId;
+      idOfMessage[key] = message.id;
+      editedOfMessage[key] = message.editedAt;
+      openedOfMessage[key] = message.openedAt;
+    }
+    for (final message in decryptedMessages) {
+      final key =
+          '${message.senderId}|${message.sentAt.toUtc().toIso8601String()}';
+      // The archive id is what a delete on the server needs.
+      message.id ??= idOfMessage[key];
+      message.editedAt ??= editedOfMessage[key];
+      message.openedAt ??= openedOfMessage[key]?.toLocal();
+      final peer = peerOfMessage[key] ?? message.senderId;
+      byPeer.putIfAbsent(peer, () => []).add(message);
+    }
+    for (final entry in byPeer.entries) {
+      await MessageNotifier().addMessages(entry.key, entry.value);
+      // Kick off media downloads now that placeholders are persisted. The
+      // network setting decides which ones: what is skipped stays pending and
+      // the bubble offers a download button.
+      for (final ref in pendingMediaRefs[entry.key] ?? const []) {
+        if (!await AutoDownload.allows(ref)) {
+          continue;
+        }
+        // Fire-and-forget; updates the message + notifies on completion.
+        MessageNotifier().downloadMediaMessage(entry.key, ref);
+      }
+    }
+    // A live message would otherwise come back on the next sync and overwrite
+    // a downloaded attachment with its placeholder. Only live frames may move
+    // the cursor: a history page is one conversation and says nothing about
+    // the messages of the others.
+    if (advanceCursor) {
+      var highestSeq = 0;
+      for (final message in messages) {
+        if (message.seq > highestSeq) {
+          highestSeq = message.seq;
+        }
+      }
+      if (highestSeq > 0) {
+        await CacheUtils.setSyncSeq(highestSeq);
+      }
+    }
+
+    if (!notify) {
+      return;
+    }
+
+    // A control message is chat state, not correspondence: it never rings.
+    decryptedMessages.removeWhere((message) => message.isSystem);
+
+    // Remove messages from notifications if user was not online when they were sent
+    decryptedMessages.removeWhere((x) => !messages
+        .where((y) => y.sentAt == x.sentAt && y.senderId == x.senderId)
+        .first
+        .recipientOnline);
+
+    bool homePageOpened = false;
+    var currentRoute = Singleton().currentRoute;
+    if (currentRoute is PageTransition) {
+      if (currentRoute.child is ChatPage) {
+        var chatPage = currentRoute.child as ChatPage;
+        // Delete messages of current open user chat from notifications
+        decryptedMessages.removeWhere((x) => x.senderId == chatPage.user.id);
+      }
+    } else {
+      // Home page is opened
+      homePageOpened = true;
+    }
+    // Show notification if there are messages to announce and HomePage is not opened
+    if (decryptedMessages.isNotEmpty && !homePageOpened) {
+      if (Singleton().profile.enableNotifications) {
+        await NotificationService().showMessagesNotification(decryptedMessages);
+      }
+    } else {
+      // Vibrate if all messages were for currently opened user
+      Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
+    }
+  }
+
   /// Handle WebSocket message
   static Future<void> onWsMessageReceived(WsResponse wsResponse) async {
     switch (wsResponse.type) {
       // More messages
       case WsResponseType.messages:
-        var messages = wsResponse.payload as List<PrivateMessage>;
-        messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
-        List<pm.PrivateMessage> decryptedMessages = [];
+        await _storeMessages(wsResponse.payload as List<PrivateMessage>,
+            notify: true, advanceCursor: true);
+        break;
 
-        // Parallel decrypt all messages
-        try {
-          final decryptionTasks = messages.map((message) async {
-            try {
-              var decryptedMessage = await CryptoUtils.decryptMessageData(
-                  message.content,
-                  message.key,
-                  message.nonce,
-                  message.mac,
-                  bu.CryptoUtils.rsaPrivateKeyFromPem(
-                      Singleton().profile.privateKey));
-              return pm.PrivateMessage(
-                  message.senderId,
-                  utf8.decode(decryptedMessage),
-                  message.sentAt,
-                  DateTime.now(),
-                  false);
-            } catch (e) {
-              // Log individual message decryption errors
-              if (kDebugMode) {
-                debugPrint(
-                    'Failed to decrypt message from ${message.senderId}: $e');
-              }
-              return null; // Return null for failed decryptions
-            }
-          });
-
-          final results = await Future.wait(decryptionTasks);
-
-          // Filter out failed decryptions (null values)
-          decryptedMessages = results.whereType<pm.PrivateMessage>().toList();
-
-          // Show toast only if all messages failed to decrypt
-          if (decryptedMessages.isEmpty && messages.isNotEmpty) {
-            await Fluttertoast.showToast(
-                msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
-          }
-        } catch (_) {
-          await Fluttertoast.showToast(
-              msg: 'decryptionFailed'.tr(), backgroundColor: Colors.red);
+      // Archive delta after a reconnect
+      case WsResponseType.synced:
+        final synced = wsResponse.payload as Synced;
+        for (final peer in synced.peers) {
+          // A fresh device learns the accounts it is talking to from the batch.
+          await CacheUtils.addUser(
+              User(peer.id, peer.username, peer.publicKey, false));
         }
-        if (decryptedMessages.isNotEmpty) {
-          await MessageNotifier()
-              .addMessages(decryptedMessages.first.senderId, decryptedMessages);
+        // A tombstone carries no ciphertext: keep the row as the "deleted"
+        // placeholder instead of storing an undecryptable bubble.
+        for (final dead
+            in synced.messages.where((message) => message.deletedAt != null)) {
+          await CacheUtils.markMessageDeleted(
+              dead.peerId, dead.sentAt, dead.deletedAt!.toLocal());
+        }
+        if (synced.messages.isNotEmpty) {
+          // History is silent: a week offline must not ring once per old
+          // message.
+          await _storeMessages(synced.messages, notify: false);
+        }
+        for (final cleared in synced.cleared) {
+          await CacheUtils.applyConversationClearedAt(
+              cleared.peerId, cleared.clearedAt.toLocal());
+        }
+        // Events come after the messages they talk about, which is what the
+        // server's cursor ordering guarantees.
+        for (final event in synced.events) {
+          await applyEvent(event);
+        }
+        for (final receipt in synced.reads) {
+          await CacheUtils.setPeerReadAt(
+              receipt.peerId, receipt.readAt.toLocal());
+        }
+        // After the cursors are stored: the reload kicked off earlier (when the
+        // messages were written) read the old value.
+        MessageNotifier().notify();
+        // Only after the batch is stored: a cursor ahead of the local messages
+        // would drop them for good.
+        await CacheUtils.setSyncSeq(synced.syncedThrough);
+        await CacheUtils.setSyncEventSeq(synced.eventsThrough);
+        if (synced.hasMore && Singleton().wsClient.isConnected) {
+          Singleton().wsClient.sendSync(synced.syncedThrough,
+              sinceEventSeq: synced.eventsThrough);
+        }
+        break;
 
-          // Remove messages from notifications if user was not online when they were sent
-          decryptedMessages.removeWhere((x) => !messages
-              .where((y) => y.sentAt == x.sentAt && y.senderId == x.senderId)
-              .first
-              .recipientOnline);
+      // One live mutation of an archived message
+      case WsResponseType.edit:
+      case WsResponseType.delete:
+      case WsResponseType.reaction:
+      case WsResponseType.pin:
+      case WsResponseType.open:
+        await applyEvent(wsResponse.payload as MessageEvent);
+        break;
 
-          bool homePageOpened = false;
-          var currentRoute = Singleton().currentRoute;
-          if (currentRoute is PageTransition) {
-            if (currentRoute.child is ChatPage) {
-              var chatPage = currentRoute.child as ChatPage;
-              // Delete messages of current open user chat from notifications
-              decryptedMessages
-                  .removeWhere((x) => x.senderId == chatPage.user.id);
-            }
-          } else {
-            // Home page is opened
-            homePageOpened = true;
-          }
-          // Show notification if there are messages to announce and HomePage is not opened
-          if (decryptedMessages.isNotEmpty && !homePageOpened) {
-            if (Singleton().profile.enableNotifications) {
-              await NotificationService()
-                  .showMessagesNotification(decryptedMessages);
-            }
-          } else {
-            // Vibrate if all messages were for currently opened user
-            Vibration.vibrate(pattern: [0, 150], intensities: [0, 255]);
-          }
+      // The other participant moved their read cursor
+      case WsResponseType.read:
+        final receipt = wsResponse.payload as ReadReceipt;
+        await CacheUtils.setPeerReadAt(
+            receipt.peerId, receipt.readAt.toLocal());
+        MessageNotifier().notify();
+        break;
+
+      // The other participant is typing right now
+      case WsResponseType.typing:
+        PresenceNotifier.instance
+            .applyTyping((wsResponse.payload as TypingFrame).peerId);
+        break;
+
+      // The other participant came online or went away
+      case WsResponseType.presence:
+        final presence = wsResponse.payload as PresenceFrame;
+        PresenceNotifier.instance.applyPresence(presence.peerId,
+            online: presence.online, lastSeenAt: presence.lastSeenAt);
+        break;
+
+      // A live position: relayed encrypted, kept in memory until it expires.
+      case WsResponseType.liveLocation:
+        final frame = wsResponse.payload as LiveLocationFrame;
+        final point = await decryptLiveLocation(frame.payload);
+        if (point != null) {
+          PresenceNotifier.instance.applyLiveLocation(frame.peerId, point);
         }
         break;
 
@@ -234,13 +679,204 @@ class Utils {
         SystemNavigator.pop();
         break;
 
+      // Delivery acknowledgement of one of our outgoing messages
+      case WsResponseType.ack:
+        final ack = wsResponse.payload as DeliveryAck;
+        await ChatSender.confirmSent(ack.receiverId, ack.sentAt, id: ack.id);
+        break;
+
       // Error
       case WsResponseType.error:
         var error = wsResponse.payload as String;
-        await Fluttertoast.showToast(msg: error, backgroundColor: Colors.red);
+        await Fluttertoast.showToast(
+            msg: Utils.serverErrorText(error), backgroundColor: Colors.red);
+        break;
+
+      // A frame from a newer server. Ignoring it keeps this build usable.
+      case WsResponseType.unknown:
         break;
     }
   }
+
+  /// The local disappearing deadline of one incoming message, null when the
+  /// chat has no timer.
+  static Future<DateTime?> _expiryFor(String peerId, DateTime sentAt) async {
+    final seconds = await CacheUtils.getDisappearingSeconds(peerId);
+    return seconds > 0 ? sentAt.add(Duration(seconds: seconds)) : null;
+  }
+
+  /// Applies one step of the disappearing-message agreement carried by a
+  /// control message from [peerId].
+  static Future<void> applySystemAgreement(
+      String peerId, String state, int seconds) async {
+    switch (state) {
+      case 'propose':
+        await CacheUtils.setDisappearingProposal(peerId, seconds);
+        break;
+      case 'accept':
+        // The peer accepted what this device proposed.
+        await CacheUtils.setDisappearingSeconds(peerId, seconds);
+        await CacheUtils.setDisappearingProposal(peerId, null);
+        break;
+      case 'decline':
+        await CacheUtils.setDisappearingProposal(peerId, null);
+        break;
+    }
+  }
+
+  /// Applies one entry of the mutation log: an edit, a deletion, a reaction or
+  /// a pin of a message this device already has. The same code serves a live
+  /// frame and a replayed sync page, so a reconnect converges on the same
+  /// state.
+  static Future<void> applyEvent(MessageEvent event) async {
+    switch (event.kind) {
+      case MessageEventKind.delete:
+        await CacheUtils.markMessageDeleted(
+            event.peerId, event.sentAt, event.createdAt.toLocal());
+        await CacheUtils.setMessagePinned(event.peerId, event.messageId, null);
+        break;
+
+      case MessageEventKind.edit:
+        final content = event.content;
+        if (content == null) {
+          return;
+        }
+        final plain = await _decryptSmall(event);
+        if (plain == null) {
+          return;
+        }
+        final body = tryParseTextEnvelope(plain)?.body ?? utf8.decode(plain);
+        await CacheUtils.markMessageEdited(
+            event.peerId, event.sentAt, body, event.createdAt.toLocal());
+        break;
+
+      case MessageEventKind.reaction:
+        // My own reaction ciphertext is wrapped for the other side, so this
+        // device keeps the emoji it set locally.
+        if (event.actorId == Singleton().profile.user.id) {
+          return;
+        }
+        String? emoji;
+        if (event.content != null) {
+          final plain = await _decryptSmall(event);
+          if (plain == null) {
+            return;
+          }
+          emoji = utf8.decode(plain);
+        }
+        await CacheUtils.setMessageReaction(
+            event.peerId, event.sentAt, event.actorId, emoji);
+        break;
+
+      case MessageEventKind.pin:
+        await CacheUtils.setMessagePinned(event.peerId, event.messageId,
+            event.pinned == true ? event.createdAt.toLocal() : null);
+        break;
+
+      case MessageEventKind.open:
+        await CacheUtils.markMessageOpened(event.peerId, event.sentAt,
+            (event.openedAt ?? event.createdAt).toLocal());
+        break;
+    }
+    MessageNotifier().notify();
+  }
+
+  /// Decrypts the small payload of an edit or a reaction, null when it cannot
+  /// be opened.
+  static Future<Uint8List?> _decryptSmall(MessageEvent event) async {
+    final content = event.content;
+    final key = event.key;
+    final nonce = event.nonce;
+    final mac = event.mac;
+    if (content == null || key == null || nonce == null || mac == null) {
+      return null;
+    }
+    try {
+      final decrypted = await CryptoUtils.decryptMessageBatch([
+        {'data': content, 'key': key, 'nonce': nonce, 'mac': mac}
+      ], Singleton().profile.privateKey);
+      return decrypted.single;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Decrypt and store a page from the history endpoint.
+  ///
+  /// History is silent: no notifications and no vibration, the messages are
+  /// older than anything the device already has.
+  static Future<void> storeHistoryPage(
+      List<ModelsPrivateMessage> messages) async {
+    if (messages.isEmpty) {
+      return;
+    }
+    // A tombstone carries no ciphertext (the sender deleted it for everyone):
+    // keep the row as the "deleted" placeholder instead of an undecryptable
+    // bubble. The content is already gone, so only the marker is stored.
+    for (final dead in messages.where((message) => message.deletedAt != null)) {
+      await CacheUtils.markMessageDeleted(
+          dead.peerId, dead.sentAt, dead.deletedAt!.toLocal());
+    }
+    messages = messages.where((message) => message.deletedAt == null).toList();
+    if (messages.isEmpty) {
+      return;
+    }
+    final wire = messages
+        .map((message) => PrivateMessage.fromJson({
+              'id': message.id,
+              'seq': message.seq,
+              'senderId': message.senderId,
+              'peerId': message.peerId,
+              'content': message.content,
+              'key': message.key,
+              'nonce': message.nonce,
+              'mac': message.mac,
+              'sentAt': message.sentAt.toIso8601String(),
+              'editedAt': message.editedAt?.toIso8601String(),
+              'openedAt': message.openedAt?.toIso8601String(),
+              'recipientOnline': false,
+            }))
+        .toList();
+    await _storeMessages(wire, notify: false);
+  }
+
+  /// Ask the server for the archive delta and the mutation log above the
+  /// cursors stored on this device. Nothing is pushed on connect, so this is
+  /// what catches a client up.
+  static Future<void> syncArchive() async {
+    if (!Singleton().wsClient.isConnected) {
+      return;
+    }
+    try {
+      Singleton().wsClient.sendSync(await CacheUtils.getSyncSeq(),
+          sinceEventSeq: await CacheUtils.getSyncEventSeq());
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('sync request failed: $e');
+      }
+    }
+  }
+
+  /// Publishes how far the account has read [peerId]'s chat. Returns false when
+  /// the server refused, so the caller can retry on the next message.
+  static Future<bool> sendReadCursor(String peerId, DateTime readAt) async {
+    try {
+      await callApi(
+          () => Singleton().chatsApi.setReadCursor(
+                peerId,
+                setReadCursorInput: SetReadCursorInput(readAt: readAt.toUtc()),
+              ),
+          rethrowErr: true,
+          showError: false);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Invoked after a successful connect, e.g. to push a pending Firebase id
+  /// without polling.
+  static Future<void> Function()? onConnected;
 
   /// Connect to WebSocket with improved connection handling
   static Future<void> wsConnect({bool firstConnect = false}) async {
@@ -260,9 +896,12 @@ class Utils {
 
     try {
       // Attempt to get WebSocket access token
+      // A refused handshake is retried by the backoff loop; a toast per attempt
+      // would spam the user of a revoked device.
       var wsAuthResponse = await Utils.callApi(
         () => Singleton().wsAuthApi.webSocketAuth(),
         useSecurity: true,
+        showError: false,
       ).timeout(
         Duration(seconds: 10), // Add timeout for API calls
         onTimeout: () => null,
@@ -295,9 +934,25 @@ class Utils {
       if (kDebugMode) {
         debugPrint('WebSocket connected successfully');
       }
+
+      // Messages that never got a delivery ack are retried now; the server
+      // deduplicates them by (receiver, sentAt).
+      await ChatSender.resendPending();
+      // Nothing is pushed on connect: ask for the archive delta above the last
+      // seq stored here. A phone away for a week fetches only that week.
+      await syncArchive();
+      // Then tell the peers we are here, if presence is switched on.
+      await announcePresence();
+      final onConnected = Utils.onConnected;
+      if (onConnected != null) {
+        await onConnected();
+      }
     } catch (e) {
       // WebSocket connection failed
       Singleton().offlineMode = true;
+      // Nothing about the peers is known without a connection.
+      PresenceNotifier.instance.clear();
+      _stopPresenceHeartbeat();
 
       if (kDebugMode) {
         debugPrint('WebSocket connection attempt failed: $e');
@@ -316,6 +971,73 @@ class Utils {
   static bool get isOnline =>
       Singleton().wsClient.isConnected && !Singleton().offlineMode;
 
+  /// Tells every peer of the chat list that this device is online, and keeps
+  /// saying it once a minute so a killed app drops off by itself. Silent when
+  /// presence is off: an off client sends no frame at all.
+  static Future<void> announcePresence() async {
+    final sent = await _sendPresence(online: true);
+    _presenceHeartbeat?.cancel();
+    _presenceHeartbeat = sent
+        ? Timer.periodic(const Duration(seconds: 60), (_) {
+            _sendPresence(online: true);
+          })
+        : null;
+  }
+
+  /// Withdraws presence before the app goes to the background, so a peer does
+  /// not keep a stale "online" with no way to learn better.
+  static Future<void> withdrawPresence() async {
+    _stopPresenceHeartbeat();
+    // No setting check: it is being turned off, and the peers must hear it.
+    await _sendPresence(online: false, force: true);
+  }
+
+  static Timer? _presenceHeartbeat;
+
+  static void _stopPresenceHeartbeat() {
+    _presenceHeartbeat?.cancel();
+    _presenceHeartbeat = null;
+  }
+
+  /// Returns whether a frame was actually sent.
+  static Future<bool> _sendPresence(
+      {required bool online, bool force = false}) async {
+    if (!force && !await CacheUtils.isPresenceEnabled()) {
+      return false;
+    }
+    if (!isOnline) {
+      return false;
+    }
+    final chats = await CacheUtils.getLatestPrivateMessages();
+    final peerIds = chats.keys.map((user) => user.id).toList();
+    if (peerIds.isEmpty) {
+      return false;
+    }
+    Singleton().wsClient.sendPresence(peerIds, online: online);
+    return true;
+  }
+
+  /// At most one typing hint per peer every three seconds; the receiver drops
+  /// the indicator on its own after five.
+  static DateTime? _lastTypingSent;
+  static String? _lastTypingPeer;
+
+  /// Tells [peerId] that this device is typing, if the user opted in.
+  static Future<void> sendTypingHint(String peerId) async {
+    if (!await CacheUtils.isTypingIndicatorEnabled() || !isOnline) {
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastTypingPeer == peerId &&
+        _lastTypingSent != null &&
+        now.difference(_lastTypingSent!) < const Duration(seconds: 3)) {
+      return;
+    }
+    _lastTypingPeer = peerId;
+    _lastTypingSent = now;
+    Singleton().wsClient.sendTyping(peerId);
+  }
+
   /// Force disconnect and set offline mode
   static void forceOfflineMode() {
     try {
@@ -323,6 +1045,8 @@ class Utils {
     } catch (_) {
       // Ignore disconnect errors
     }
+    PresenceNotifier.instance.clear();
+    _stopPresenceHeartbeat();
     Singleton().offlineMode = true;
   }
 }

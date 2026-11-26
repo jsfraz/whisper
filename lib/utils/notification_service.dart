@@ -1,29 +1,91 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:sprintf/sprintf.dart';
 import '../utils/cache_utils.dart';
 import '../models/user.dart';
 import '../models/private_message.dart';
+import 'singleton.dart';
 
 // https://www.scaler.com/topics/flutter-local-notification/
 class NotificationService {
+  /// Set by HomePage while it is alive, so a tap on a single message
+  /// notification can open the chat immediately instead of being queued.
+  static void Function(String userId)? onChatSelected;
+
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
   /// Init notification settings
   Future<void> init() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('app_icon');
+        AndroidInitializationSettings('ic_stat_shept');
+    final LinuxInitializationSettings initializationSettingsLinux =
+        LinuxInitializationSettings(
+      defaultActionName: 'shept_message',
+      defaultIcon: ThemeLinuxIcon('mail-unread'),
+    );
+    // Asks for alert/badge/sound permission on iOS and macOS.
+    const DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings();
 
     final InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
+        InitializationSettings(
+            android: initializationSettingsAndroid,
+            iOS: initializationSettingsDarwin,
+            macOS: initializationSettingsDarwin,
+            linux: initializationSettingsLinux);
 
-    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    await _flutterLocalNotificationsPlugin.initialize(
+        settings: initializationSettings,
+        onDidReceiveNotificationResponse: _onNotificationTap);
+
+    // Tapping a notification while the app was closed launches it through here
+    // (Android only, the Linux implementation does not support it).
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final launchDetails = await _flutterLocalNotificationsPlugin
+          .getNotificationAppLaunchDetails();
+      if (launchDetails?.didNotificationLaunchApp ?? false) {
+        _setPendingChat(launchDetails!.notificationResponse?.payload);
+      }
+    }
+
+    // FCM posts notifications into this channel, so it must exist before a push arrives
+    await _flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(AndroidNotificationChannel(
+          'shept_firebase_messages',
+          'Shept',
+          description: 'notificationChannelDesc'.tr(),
+          importance: Importance.max,
+          sound: const RawResourceAndroidNotificationSound('notification'),
+        ));
+  }
+
+  /// Remember the chat a notification points at. The app may still be locked,
+  /// so HomePage opens it once it is on screen (i.e. after unlocking).
+  void _onNotificationTap(NotificationResponse response) =>
+      _setPendingChat(response.payload);
+
+  /// The payload of a single message notification is the sender id; grouped
+  /// notifications carry none and just open HomePage.
+  void _setPendingChat(String? payload) {
+    final userId = payload ?? '';
+    if (userId.isEmpty) {
+      return;
+    }
+    final onChatSelected = NotificationService.onChatSelected;
+    if (onChatSelected != null) {
+      onChatSelected(userId);
+      return;
+    }
+    Singleton().pendingChatUserId = userId;
   }
 
   /// Show notifications.
   Future<void> showMessagesNotification(List<PrivateMessage> messages) async {
-    final Map<int, List<PrivateMessage>> groupedMessagesById = {};
+    final Map<String, List<PrivateMessage>> groupedMessagesById = {};
     for (var message in messages) {
       if (!groupedMessagesById.containsKey(message.senderId)) {
         groupedMessagesById[message.senderId] = [];
@@ -44,14 +106,17 @@ class NotificationService {
     }
     // More messages
     if (messages.length > 1) {
-      final lines = getGroupedNotificationLines(groupedMessagesByUser);
+      final preview = await CacheUtils.getNotificationPreview();
+      final lines = preview
+          ? getGroupedNotificationLines(groupedMessagesByUser)
+          : ['newMessageBody'.tr()];
       final groupedPlatformChannelSpecifics = await groupedNotificationDetails(
           lines, groupedMessagesByUser.keys.length, messages.length);
       await _flutterLocalNotificationsPlugin.show(
-        messages.last.notificationId,
-        'newMessagesTitle'.tr(),
-        'newMessagesBody'.tr(),
-        groupedPlatformChannelSpecifics,
+        id: messages.last.notificationId,
+        title: 'newMessagesTitle'.tr(),
+        body: 'newMessagesBody'.tr(),
+        notificationDetails: groupedPlatformChannelSpecifics,
       );
     }
   }
@@ -66,7 +131,7 @@ class NotificationService {
           // Sort messages
           userMessages.sort((a, b) => b.receivedAt.compareTo(a.receivedAt));
           return userMessages
-              .map((message) => '${user.username}: ${message.message}');
+              .map((message) => '${user.username}: ${message.preview}');
         })
         .toList()
         .reversed
@@ -81,8 +146,8 @@ class NotificationService {
             'xMessagesFromYChats'.tr(), [totalMessageCount, chatCount]));
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'whisperLocalNotificationMultipleMessages',
-      'whisperLocalNotificationMultipleMessages'.tr(),
+      'sheptLocalNotificationMultipleMessages',
+      'sheptLocalNotificationMultipleMessages'.tr(),
       groupKey: 'cz.josefraz.flutter_push_notifications_multiple_messages',
       channelDescription: 'notificationChannelDesc'.tr(),
       setAsGroupSummary: true,
@@ -105,11 +170,14 @@ class NotificationService {
   Future<void> showMessageNotification(PrivateMessage message) async {
     var user = await CacheUtils.getUserById(message.senderId) ??
         User(message.senderId, '', '', false);
+    // The text is decrypted; the user decides whether the lock screen shows it.
+    final preview = await CacheUtils.getNotificationPreview();
+    final body = preview ? message.preview : 'newMessageBody'.tr();
 
     AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'whisperLocalNotificationSingleMessage',
-      'whisperLocalNotificationSingleMessage'.tr(),
+      'sheptLocalNotificationSingleMessage',
+      'sheptLocalNotificationSingleMessage'.tr(),
       groupKey: 'cz.josefraz.flutter_push_notifications_single_message',
       channelDescription: 'notificationChannelDesc'.tr(),
       importance: Importance.max,
@@ -118,14 +186,43 @@ class NotificationService {
       enableVibration: true,
       playSound: true,
       sound: RawResourceAndroidNotificationSound('notification'),
+      // Message previews are long, don't let Android truncate them
+      styleInformation: BigTextStyleInformation(body),
     );
     NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
     await _flutterLocalNotificationsPlugin.show(
-      message.notificationId,
-      user.username,
-      message.message,
-      platformChannelSpecifics,
+      id: message.notificationId,
+      title: user.username,
+      body: body,
+      notificationDetails: platformChannelSpecifics,
+      payload: message.senderId.toString(),
+    );
+  }
+
+  /// Show a server-side security notice, e.g. a login from another device.
+  ///
+  /// It carries no message content and no payload: tapping it only opens the
+  /// app, the device list is where the action happens.
+  Future<void> showSecurityNotification(String title, String body) async {
+    AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'sheptLocalNotificationSecurity',
+      'sheptLocalNotificationSecurity'.tr(),
+      channelDescription: 'notificationChannelDesc'.tr(),
+      importance: Importance.high,
+      priority: Priority.high,
+      ticker: 'tickerLocalNotification'.tr(),
+      enableVibration: true,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('notification'),
+    );
+    await _flutterLocalNotificationsPlugin.show(
+      id: title.hashCode & 0x7fffffff,
+      title: title,
+      body: body,
+      notificationDetails:
+          NotificationDetails(android: androidPlatformChannelSpecifics),
     );
   }
 
@@ -136,7 +233,7 @@ class NotificationService {
     for (var id in ids) {
       for (var notification in activeNotifications) {
         if (notification.id == id) {
-          await _flutterLocalNotificationsPlugin.cancel(id);
+          await _flutterLocalNotificationsPlugin.cancel(id: id);
         }
       }
     }

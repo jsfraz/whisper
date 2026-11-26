@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:basic_utils/basic_utils.dart' as bu;
 import 'package:crypto/crypto.dart';
 import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart' as djwt;
 import 'package:flutter/foundation.dart';
@@ -21,24 +22,38 @@ class CryptoUtils {
   static Future<AsymmetricKeyPair<PublicKey, PrivateKey>>
       getRSAKeyPair() async {
     final secureRandom = FortunaRandom();
+    // Seed from the platform CSPRNG: a constant seed would make every keypair
+    // predictable and identical across installs.
     secureRandom.seed(KeyParameter(
-      Uint8List.fromList(List.generate(32, (i) => i)),
+      Uint8List.fromList(
+          List.generate(32, (_) => Random.secure().nextInt(256))),
     )); // Seed with random bytes
 
     return await compute(_getRSAKeyPair, secureRandom);
   }
 
   /// PBKDF2 password derivation (https://pub.dev/documentation/cryptography/latest/cryptography/Pbkdf2-class.html)
-  static Future<List<int>> pbkdf2(String password) async {
+  static Future<List<int>> pbkdf2(String password, List<int> salt) async {
     final pbkdf2 = cryptography.Pbkdf2(
       macAlgorithm: cryptography.Hmac.sha256(),
       iterations: 310000,
       bits: 256,
     );
-    List<int> salt = md5.convert(utf8.encode(password)).bytes;    // TODO Secure salt?
     final key =
         await pbkdf2.deriveKeyFromPassword(password: password, nonce: salt);
     return await key.extractBytes();
+  }
+
+  /// Legacy derivation with the old `md5(password)` salt. Only used to open
+  /// data created before salts became random, then migrated away from.
+  static Future<List<int>> legacyPbkdf2(String password) {
+    return pbkdf2(password, md5.convert(utf8.encode(password)).bytes);
+  }
+
+  /// Random 32-byte PBKDF2 salt.
+  static List<int> generateSalt() {
+    final random = Random.secure();
+    return List<int>.generate(32, (_) => random.nextInt(256));
   }
 
   /// Encrypt by RSA public key asynchronously.
@@ -73,18 +88,75 @@ class CryptoUtils {
     return cipher.process(data['message']);
   }
 
-  /// Generates JWT token valid for 5 seconds asynchronously.
-  static Future<String> generateRsaJwt(
-      int userId, RSAPrivateKey privateKey) async {
-    return await compute(
-        _generateRsaJwt, {'userId': userId, 'privateKey': privateKey});
+  /// Decrypts a batch of hybrid-encrypted messages inside one isolate.
+  ///
+  /// A burst of incoming messages used to cost one RSA key parse and one
+  /// isolate spawn per message; here it costs one of each per batch.
+  /// Messages that fail to decrypt come back as null.
+  static Future<List<Uint8List?>> decryptMessageBatch(
+      List<Map<String, Uint8List>> messages, String privateKeyPem) async {
+    return compute(
+        _decryptMessageBatch, {'messages': messages, 'pem': privateKeyPem});
+  }
+
+  static Future<List<Uint8List?>> _decryptMessageBatch(
+      Map<String, dynamic> data) async {
+    final privateKey =
+        bu.CryptoUtils.rsaPrivateKeyFromPem(data['pem'] as String);
+    final messages = data['messages'] as List;
+    final aesAlgorithm = cryptography.AesGcm.with256bits();
+    final decrypted = <Uint8List?>[];
+    for (final entry in messages) {
+      final message = (entry as Map).cast<String, dynamic>();
+      try {
+        final cipher = PKCS1Encoding(RSAEngine())
+          ..init(false, PrivateKeyParameter<RSAPrivateKey>(privateKey));
+        final aesKeyBytes = cipher.process(message['key'] as Uint8List);
+        final plainText = await aesAlgorithm.decrypt(
+          cryptography.SecretBox(
+            message['data'] as Uint8List,
+            nonce: message['nonce'] as Uint8List,
+            mac: cryptography.Mac(message['mac'] as Uint8List),
+          ),
+          secretKey: cryptography.SecretKey(aesKeyBytes),
+        );
+        decrypted.add(Uint8List.fromList(plainText));
+      } catch (_) {
+        decrypted.add(null);
+      }
+    }
+    return decrypted;
+  }
+
+  /// Generates the login JWT, valid for 5 seconds, asynchronously.
+  ///
+  /// [nonce] is the one-time challenge from the server: it is signed into the
+  /// token and spent on use, so a captured token cannot be replayed.
+  ///
+  /// [deviceId] is signed too (`did`), so the request body cannot name a
+  /// different device than the one that proved the account key.
+  static Future<String> generateRsaJwt(String userId, RSAPrivateKey privateKey,
+      {required String nonce, required String deviceId}) async {
+    return await compute(_generateRsaJwt, {
+      'userId': userId,
+      'privateKey': privateKey,
+      'nonce': nonce,
+      'deviceId': deviceId,
+    });
   }
 
   /// Generate JWT token synchronously.
   static String _generateRsaJwt(Map<String, dynamic> data) {
-    final jwt = djwt.JWT({'sub': data['userId']});
+    final jwt = djwt.JWT({
+      'sub': data['userId'],
+      'did': data['deviceId'],
+      'nonce': data['nonce'],
+    });
     Duration expiresIn = Duration(seconds: 5);
-    Duration notBefore = Duration.zero;
+    // dart_jsonwebtoken writes `nbf = now + notBefore`, so a negative value
+    // backdates the token and a server clock a few seconds behind the phone no
+    // longer rejects it as "not valid yet".
+    Duration notBefore = const Duration(seconds: -30);
     return jwt.sign(djwt.RSAPrivateKey.raw(data['privateKey']),
         algorithm: djwt.JWTAlgorithm.RS256,
         expiresIn: expiresIn,
@@ -103,10 +175,11 @@ class CryptoUtils {
     // Generate a random nonce (initialization vector)
     final secureRandom = FortunaRandom();
     secureRandom.seed(KeyParameter(
-      Uint8List.fromList(List.generate(32, (i) => Random.secure().nextInt(256))),
+      Uint8List.fromList(
+          List.generate(32, (i) => Random.secure().nextInt(256))),
     ));
-    final nonce = Uint8List.fromList(
-        List.generate(12, (_) => secureRandom.nextUint8()));
+    final nonce =
+        Uint8List.fromList(List.generate(12, (_) => secureRandom.nextUint8()));
 
     // Encrypt data using AES-GCM
     final secretBox = await aesAlgorithm.encrypt(

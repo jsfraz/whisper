@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:hive/hive.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
+import 'package:shept_openapi_client_dart/api.dart';
 
 import '../utils/color_utils.dart';
 
@@ -15,7 +15,7 @@ class User extends HiveObject {
   }
 
   @HiveField(0)
-  int id;
+  String id;
   @HiveField(1)
   String username;
   @HiveField(2)

@@ -1,0 +1,12 @@
+# Copy to key.properties and fill in before building a release APK.
+# key.properties is gitignored; never commit the keystore or these values.
+#
+# Generate a keystore once:
+#   keytool -genkeypair -v -keystore shept-release.jks -keyalg RSA \
+#     -keysize 4096 -validity 10000 -alias shept
+#
+# storeFile is relative to android/.
+storeFile=../shept-release.jks
+storePassword=CHANGE_ME
+keyAlias=shept
+keyPassword=CHANGE_ME

@@ -2,11 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:whisper_websocket_client_dart/ws_client.dart';
+import 'package:shept_websocket_client_dart/ws_client.dart';
 import '../models/invite_data.dart';
 import '../models/profile.dart';
 import '../models/user.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
+import 'package:shept_openapi_client_dart/api.dart';
 import '../utils/biometric_auth.dart';
 import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
@@ -15,6 +15,7 @@ import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import 'package:basic_utils/basic_utils.dart' as bu;
 import 'home_page.dart';
+import '../utils/nav_transitions.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage(this.invite, {super.key});
@@ -107,7 +108,7 @@ class _RegisterPageState extends State<RegisterPage> {
         // Generate RSA keypair
         var keyPair = await CryptoUtils.getRSAKeyPair();
         // OpenAPI client
-        Singleton().api = ApiClient(basePath: widget.invite.url);
+        Singleton().api = Singleton.createApiClient(widget.invite.url);
         // Registration
         var newUser = await Utils.callApi(
             () => Singleton().authApi.createUser(
@@ -132,11 +133,14 @@ class _RegisterPageState extends State<RegisterPage> {
               true);
           // Add profile to singleton
           Singleton().profile = profile;
+          // A random salt must exist before anything is encrypted with the key
+          final List<int> salt = CryptoUtils.generateSalt();
+          await CacheUtils.setSalt(salt);
           // Save password hash to cache
           CacheUtils.setPasswordHash(_controllerLocalPassword.text);
-          // Generování klíče z hesla a uložení do singletonu
+          // Derive the key from the password and store it in the singleton
           List<int> key =
-              await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
+              await CryptoUtils.pbkdf2(_controllerLocalPassword.text, salt);
           Singleton().boxCollectionKey = key;
 
           // Save profile to cache
@@ -164,20 +168,32 @@ class _RegisterPageState extends State<RegisterPage> {
                   await Fluttertoast.showToast(
                       msg: 'biometricsEnabled'.tr(),
                       backgroundColor: Colors.grey);
+
+                  // Redirect to home page and clear navigation history
+                  Navigator.of(context).pushAndRemoveUntil(
+                    fadeRoute(const HomePage()),
+                    (Route<dynamic> route) => false,
+                  );
                 } else {
                   await Fluttertoast.showToast(
                       msg: 'biometricSetupFailed'.tr(),
                       backgroundColor: Colors.red);
+
+                  // Redirect to home page and clear navigation history
+                  Navigator.of(context).pushAndRemoveUntil(
+                    fadeRoute(const HomePage()),
+                    (Route<dynamic> route) => false,
+                  );
                 }
               },
             );
+          } else {
+            // Redirect to home page and clear navigation history
+            Navigator.of(context).pushAndRemoveUntil(
+              fadeRoute(const HomePage()),
+              (Route<dynamic> route) => false,
+            );
           }
-
-          // Redirect to home page and clear navigation history
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const HomePage()),
-            (Route<dynamic> route) => false,
-          );
         }
       }
 

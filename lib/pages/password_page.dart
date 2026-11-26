@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:whisper_openapi_client_dart/api.dart';
-import 'package:whisper_websocket_client_dart/ws_client.dart';
+import 'package:shept_websocket_client_dart/ws_client.dart';
 import '../utils/biometric_auth.dart';
 import '../utils/cache_utils.dart';
 import '../utils/crypto_utils.dart';
 import '../utils/singleton.dart';
 import '../utils/utils.dart';
 import 'home_page.dart';
+import '../utils/nav_transitions.dart';
 
 class PasswordPage extends StatefulWidget {
   const PasswordPage({super.key});
@@ -49,7 +49,6 @@ class _PasswordPageState extends State<PasswordPage> {
     if (key != null) {
       setState(() {
         _isButtonDisabled = true;
-        _controllerLocalPassword.text = 'yourAmazingPasswordIsHereOhYesItIs';
       });
 
       // Set the decryption key
@@ -59,7 +58,7 @@ class _PasswordPageState extends State<PasswordPage> {
         // Load profile
         Singleton().profile = await CacheUtils.getProfile();
         // OpenAPI client
-        Singleton().api = ApiClient(basePath: Singleton().profile.url);
+        Singleton().api = Singleton.createApiClient(Singleton().profile.url);
         // Check tokens
         await Utils.authCheck();
         // WebSocket client
@@ -69,8 +68,7 @@ class _PasswordPageState extends State<PasswordPage> {
 
         // Redirect to home page
         if (mounted) {
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (context) => const HomePage()));
+          Navigator.pushReplacement(context, fadeRoute(const HomePage()));
         }
       } catch (e) {
         setState(() {
@@ -113,14 +111,42 @@ class _PasswordPageState extends State<PasswordPage> {
       if (password) {
         await Fluttertoast.showToast(
             msg: 'passwordPlsWait'.tr(), backgroundColor: Colors.grey);
+        // Installs created before random salts re-encrypt their data once here.
+        bool migrated = false;
+        try {
+          migrated =
+              await CacheUtils.migrateSalt(_controllerLocalPassword.text);
+        } catch (e) {
+          debugPrint('salt migration failed: $e');
+        }
+        if (migrated && await CacheUtils.isBiometryEnabled()) {
+          // The stored biometric key was derived with the old salt, so it can
+          // no longer open the re-encrypted boxes.
+          await BiometricAuth.clearEncryptionKey();
+          await CacheUtils.setBiometryEnabled(false);
+          await Fluttertoast.showToast(
+              msg: 'biometricsDisabledAfterMigration'.tr(),
+              backgroundColor: Colors.orange);
+        }
+        final List<int>? salt = await CacheUtils.getSalt();
+        if (salt == null && !migrated) {
+          await Fluttertoast.showToast(
+              msg: 'passwordMigrationFailed'.tr(), backgroundColor: Colors.red);
+          setState(() {
+            _isButtonDisabled = false;
+          });
+          return;
+        }
         // Derive key from password
-        List<int> key = await CryptoUtils.pbkdf2(_controllerLocalPassword.text);
+        List<int> key = migrated
+            ? List<int>.from(Singleton().boxCollectionKey)
+            : await CryptoUtils.pbkdf2(_controllerLocalPassword.text, salt!);
         // Add key to singleton
         Singleton().boxCollectionKey = key;
         // Add profile to singleton
         Singleton().profile = await CacheUtils.getProfile();
         // OpenAPI client
-        Singleton().api = ApiClient(basePath: Singleton().profile.url);
+        Singleton().api = Singleton.createApiClient(Singleton().profile.url);
         // Kontrola tokenů
         await Utils.authCheck();
 
@@ -130,8 +156,7 @@ class _PasswordPageState extends State<PasswordPage> {
         await Utils.wsConnect(firstConnect: true);
 
         if (mounted) {
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (context) => const HomePage()));
+          Navigator.pushReplacement(context, fadeRoute(const HomePage()));
         }
       } else {
         await Fluttertoast.showToast(
@@ -221,7 +246,8 @@ class _PasswordPageState extends State<PasswordPage> {
                     padding: const EdgeInsets.only(top: 20),
                     child: IconButton(
                       icon: const Icon(Icons.fingerprint, size: 40),
-                      onPressed: _isButtonDisabled ? null : _authenticateWithBiometric,
+                      onPressed:
+                          _isButtonDisabled ? null : _authenticateWithBiometric,
                     ),
                   ),
                 ),
