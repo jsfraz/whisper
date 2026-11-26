@@ -150,7 +150,12 @@ Known limitations (Linux desktop, verified):
   - run `dart run flutter_launcher_icons` to generate icons
   - see configuration file [flutter_launcher_icons.yaml](flutter_launcher_icons.yaml)
 
-## Firebase Messaging
+## Firebase Messaging (retired)
+
+> Firebase has been retired. `firebase_core`/`firebase_messaging` are commented out in
+> `pubspec.yaml`, the Google Services Gradle plugin is disabled and the FCM code is kept
+> dead in comments. The notes below describe what it took to enable it and are kept for a
+> possible revival.
 
 - [Firebase](https://firebase.google.com/)
   - used for push notifications when user is offline
@@ -186,10 +191,10 @@ Required repository secrets (Settings > Secrets and variables > Actions):
 
 | Secret | Used by | Description |
 | --- | --- | --- |
-| `FIREBASE_OPTIONS_DART_BASE64` | `flutter-ci.yml`, `build_and_release.yml` | base64 of `lib/firebase_options.dart`. Required: analysis fails without it. |
-| `FIREBASE_JSON_BASE64` | `build_and_release.yml` | base64 of `firebase.json`. |
-| `GOOGLE_SERVICES_JSON_BASE64` | `build_and_release.yml` | base64 of `android/app/google-services.json`. |
-| `GOOGLE_SERVICE_INFO_PLIST_BASE64` | not wired yet | base64 of `ios/Runner/GoogleService-Info.plist`. Add it to the build before shipping iOS releases. |
+| `FIREBASE_OPTIONS_DART_BASE64` | unused | Retired with Firebase. |
+| `FIREBASE_JSON_BASE64` | unused | Retired with Firebase. |
+| `GOOGLE_SERVICES_JSON_BASE64` | unused | Retired with Firebase. |
+| `GOOGLE_SERVICE_INFO_PLIST_BASE64` | unused | Retired with Firebase. |
 | `GITHUB_TOKEN` | both | Provided automatically by GitHub. Used by the secret scan. |
 
 ### Release signing
